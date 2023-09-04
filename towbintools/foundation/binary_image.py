@@ -1,0 +1,190 @@
+import cv2
+import numpy as np
+import scipy.ndimage
+import skimage.morphology
+from scipy.spatial import distance
+from skimage.util import img_as_ubyte
+
+
+def find_endpoints(
+    binary_image: np.ndarray,
+) -> np.ndarray:
+    """
+    Find the endpoints of a binary image using the Hit-Or-Miss morphology operation.
+
+    Parameters:
+            binary_image (np.ndarray): A binary image where the foreground is represented by 1s
+            and the background is represented by 0s.
+
+    Returns:
+            np.ndarray: A binary image with the same dimensions as the input, where 1s represent
+            the locations of the endpoints and 0s represent other regions.
+    """
+
+    # Define kernels for the Hit-Or-Miss morphology operation.
+    kernel_0 = np.array(([-1, -1, -1], [-1, 1, -1], [-1, 1, -1]), dtype="int")
+    kernel_1 = np.array(([-1, -1, -1], [-1, 1, -1], [1, -1, -1]), dtype="int")
+    kernel_2 = np.array(([-1, -1, -1], [1, 1, -1], [-1, -1, -1]), dtype="int")
+    kernel_3 = np.array(([1, -1, -1], [-1, 1, -1], [-1, -1, -1]), dtype="int")
+    kernel_4 = np.array(([-1, 1, -1], [-1, 1, -1], [-1, -1, -1]), dtype="int")
+    kernel_5 = np.array(([-1, -1, 1], [-1, 1, -1], [-1, -1, -1]), dtype="int")
+    kernel_6 = np.array(([-1, -1, -1], [-1, 1, 1], [-1, -1, -1]), dtype="int")
+    kernel_7 = np.array(([-1, -1, -1], [-1, 1, -1], [-1, -1, 1]), dtype="int")
+    kernel_8 = np.array(([-1, -1, -1], [-1, 1, -1], [-1, 1, 1]), dtype="int")
+    kernels = np.array(
+        (
+            kernel_0,
+            kernel_1,
+            kernel_2,
+            kernel_3,
+            kernel_4,
+            kernel_5,
+            kernel_6,
+            kernel_7,
+            kernel_8,
+        )
+    )
+
+    # Initialize the output image.
+    output_image = np.zeros(binary_image.shape)
+    # Apply the Hit-Or-Miss morphology operation for all the kernels.
+    for kernel in kernels:
+        out = cv2.morphologyEx(binary_image, cv2.MORPH_HITMISS, kernel)
+        output_image = output_image + out
+
+    return output_image
+
+
+def connect_endpoints(
+    binary_image: np.ndarray,
+    max_distance: int = 200,
+) -> np.ndarray:
+    """
+    Connect endpoints of a binary image if they are within a specified maximum distance.
+
+    First identifies the endpoints in the binary image using a Hit-Or-Miss morphology operation.
+    If there are at least two endpoints, calculates the pairwise distances between them. Endpoints that are
+    within the specified maximum distance from each other are connected using a straight line.
+
+    Parameters:
+            binary_image (np.ndarray): A binary image where the foreground is represented by 1s
+                                                               and the background is represented by 0s.
+            max_distance (int, optional): The maximum distance between two endpoints to consider
+                                                                      connecting them. Default is 200.
+
+    Returns:
+            np.ndarray: A binary image with the same dimensions as the input, where endpoints
+                                    within the maximum distance are connected by straight lines.
+    """
+
+    # Find the endpoints of a binary image using the Hit-Or-Miss morphology operation.
+    endpoints = find_endpoints(binary_image)
+    if np.sum(endpoints) < 2:
+        return binary_image
+    endpoints_x, endpoints_y = np.where(endpoints)
+    endpoints_coordinates = np.column_stack((endpoints_x, endpoints_y))
+    distances = distance.cdist(endpoints_coordinates, endpoints_coordinates)
+
+    output_image = binary_image.copy()
+    for i, distance_for_point in enumerate(distances):
+        nonzero_distances = distance_for_point[np.nonzero(distance_for_point)]
+        if nonzero_distances.size == 0:
+            return output_image
+        if np.min(nonzero_distances) < max_distance:
+            mindist_index = np.where(distance_for_point == np.min(nonzero_distances))[
+                0
+            ][0]
+            start_point = (endpoints_coordinates[i][1], endpoints_coordinates[i][0])
+            end_point = (
+                endpoints_coordinates[mindist_index][1],
+                endpoints_coordinates[mindist_index][0],
+            )
+            cv2.line(output_image, start_point, end_point, 1, 1)
+
+    return output_image
+
+
+def fill_bright_holes(
+    image: np.ndarray,
+    mask: np.ndarray,
+    scale: float,
+    small_hole_threshold: int = 15,
+) -> np.ndarray:
+    """
+    Fill bright holes in an image based on a given mask and statistical properties of the background.
+
+    dentifies holes in a provided mask and evaluates the brightness of these holes in the
+    original image. Bright holes with a median brightness significantly greater than the background mean are filled.
+    Small holes are removed from the mask before processing to save computing time.
+
+    Parameters:
+            image (np.ndarray): The grayscale input image where holes need to be detected and potentially filled.
+            mask (np.ndarray): Binary mask representing regions of interest in the image. Holes in this mask will be evaluated.
+            scale (float): A scaling factor that defines how many standard deviations above the background mean a hole needs
+                                       to be in order for it to be considered as 'bright' and filled.
+            small_hole_threshold (int, optional): Holes smaller than this size in the mask will be removed before processing.
+                                                                                     Default is 15.
+
+    Returns:
+            np.ndarray: A binary mask with the same dimensions as the input, where bright holes have been filled.
+    """
+
+    mask = skimage.morphology.remove_small_holes(
+        mask.astype(bool), small_hole_threshold
+    ).astype(np.uint8)
+    filled_mask = scipy.ndimage.binary_fill_holes(mask)
+    holes = (filled_mask - mask).astype(np.uint8)
+    number_of_holes, holes_labels = cv2.connectedComponents(holes, connectivity=4)
+
+    image_without_object = image * (1 - filled_mask)  # type: ignore
+
+    try:
+        background_thresholds = np.percentile(
+            image_without_object[image_without_object > 0], [10, 90]
+        )
+        background = image_without_object[
+            (image_without_object >= background_thresholds[0])
+            & (image_without_object <= background_thresholds[1])
+        ]
+        background_mean = np.mean(background)
+        background_std = np.std(background)
+
+        for label in range(1, number_of_holes):
+            mask_of_hole = holes_labels == label
+            median_of_hole = np.median(image[mask_of_hole])
+
+            if median_of_hole > (background_mean + scale * background_std):
+                mask[mask_of_hole] = 1
+        return mask
+    except IndexError:
+        return mask
+
+
+def get_biggest_object(
+    mask: np.ndarray,
+) -> np.ndarray:
+    """
+    Retrieve the largest connected object from a binary mask.
+
+    Identifies connected components in the provided binary mask
+    and returns a mask of the largest object. If no objects are identified,
+    returns a zero mask of the same shape as the input.
+
+    Parameters:
+            mask (np.ndarray): Binary image mask where the objects are set to 1.
+
+    Returns:
+            np.ndarray: Binary mask of the biggest object.
+    """
+    # Get the mask's connected components
+    _, labels = cv2.connectedComponents(mask)
+    # Find the biggest object in the frame
+    label_counts = np.bincount(labels.flatten())
+
+    if len(label_counts) >= 2:
+        biggest_object_label = np.argsort(label_counts)[-2]
+    else:
+        biggest_object_label = 0
+
+    biggest_object_mask = img_as_ubyte(labels == biggest_object_label)
+    return biggest_object_mask

@@ -1,0 +1,39 @@
+[project]
+name = "towbintools"
+version = "0.0.2"
+authors = [
+  {name="Sacha Psalmon", email="sacha.psalmon@unibe.ch" },
+  {name="Boris Gusev", email="boris.gusev@unibe.ch" }
+]
+maintainers = [
+    {name = "Sacha Psalmon", email="sacha.psalmon@unibe.ch"},
+]
+description = "All the tools used by the Towbin Lab !"
+readme = "README.md"
+requires-python = ">=3.7"
+
+dependencies = [
+    "numpy",
+    "scikit-image",
+    "opencv-python",
+    "scipy",
+    "pandas",
+    "tifffile",
+    "matplotlib",
+    "xgboost",
+    "joblib",
+    "pyyaml",
+    "shiny",
+    "shinywidgets",
+    "plotly",
+]
+
+[project.optional-dependencies]
+dev=[
+    "black",
+    "isort",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

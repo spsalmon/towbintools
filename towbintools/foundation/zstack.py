@@ -1,0 +1,163 @@
+import cv2
+import numpy as np
+import skimage.measure
+
+from .image_quality import normalized_variance_measure
+
+
+def normalize_zstack(
+    zstack: np.ndarray,
+    each_plane: bool = True,
+    dest_dtype: np.dtype = np.uint16,
+) -> np.ndarray:
+    """
+    Normalize a z-stack of images, either plane by plane or the whole stack, to the desired data type range.
+
+    Parameters:
+        zstack (np.ndarray): The input z-stack as a 3D NumPy array, with the third dimension representing the z-plane.
+        each_plane (bool, optional): Flag to determine if normalization should occur for each z-plane independently.
+                                     If set to False, normalization is applied to the whole z-stack. Default is True.
+        dest_dtype (np.dtype, optional): The desired data type for the output normalized z-stack.
+                                         Can be one of the following: np.uint16, np.uint8, np.float32, np.float64.
+                                         Default is np.uint16.
+
+    Returns:
+        np.ndarray: The normalized z-stack as a 3D NumPy array.
+    """
+
+    dtype_mapping = {
+        np.uint16: cv2.CV_16U,
+        np.uint8: cv2.CV_8U,
+        np.float32: cv2.CV_32F,
+        np.float64: cv2.CV_64F,
+    }
+
+    if dest_dtype not in dtype_mapping:
+        raise ValueError(
+            "dest_dtype must be one of np.uint16, np.uint8, np.float32, np.float64"
+        )
+
+    dest_dtype_cv2 = dtype_mapping[dest_dtype]
+    max_value = np.iinfo(dest_dtype).max if dest_dtype in [np.uint16, np.uint8] else 1
+
+    output_zstack = np.zeros_like(zstack, dtype=dest_dtype)
+    if each_plane:
+        output_zstack = np.array(
+            [
+                cv2.normalize(
+                    plane,
+                    None,
+                    0,
+                    max_value,  # type: ignore
+                    cv2.NORM_MINMAX,
+                    dtype=dest_dtype_cv2,
+                )
+                for plane in zstack
+            ]
+        )
+    else:
+        output_zstack = cv2.normalize(
+            zstack,
+            None,
+            0,
+            max_value,  # type: ignore
+            cv2.NORM_MINMAX,
+            dtype=dest_dtype_cv2,
+        )
+    return output_zstack
+
+
+def augment_contrast_zstack(
+    zstack: np.ndarray,
+    clip_limit: int = 5,
+    tile_size: int = 8,
+    normalize_each_plane: bool = True,
+) -> np.ndarray:
+    """
+    Augment the contrast of a z-stack of images using the CLAHE algorithm,
+    with an optional initial normalization step on each z-plane.
+
+    Parameters:
+        zstack (np.ndarray): The input z-stack as a 3D NumPy array, with the third dimension representing the z-plane.
+        clip_limit (int, optional): The clipping limit used in the CLAHE algorithm. Higher values increase contrast.
+                                    Default is 5.
+        tile_size (int, optional): The side length (in pixels) of the square tiles the image is divided into
+                                   for the CLAHE algorithm. Default is 8.
+        normalize_each_plane (bool, optional): Flag to determine if normalization should occur for each z-plane
+                                               independently before contrast augmentation. If set to False,
+                                               normalization is applied to the whole z-stack. Default is True.
+
+    Returns:
+        np.ndarray: The contrast-augmented z-stack as a 3D NumPy array.
+    """
+
+    zstack = normalize_zstack(zstack, normalize_each_plane, np.uint16)
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_size, tile_size))
+    output_zstack = np.array([clahe.apply(plane) for plane in zstack.copy()])
+    return output_zstack
+
+
+def find_best_plane(
+    zstack: np.ndarray,
+    measure: str,
+    channel: int = None,
+    dest_dtype: np.dtype = np.uint16,
+    each_plane: bool = True,
+    contrast_augmentation: bool = False,
+    clip_limit: int = 2,
+) -> (int, np.ndarray):
+    """
+    Find the best plane (z-slice) of a z-stack based on a specified measure.
+
+    Parameters:
+        zstack (np.ndarray): The input z-stack, potentially multi-channel.
+        measure (str): The measure used to identify the "best" plane. Can be 'shannon_entropy',
+                       'mean', or 'normalized_variance'.
+        channel (int, optional): If the z-stack has more than 3 dimensions,
+                                 specifies which channel to use. Default is None.
+        dest_dtype (np.dtype, optional): Desired data type after normalization.
+                                         Default is np.uint16.
+        each_plane (bool, optional): Flag to determine if normalization should be
+                                     applied on each z-plane independently. Default is True.
+        contrast_augmentation (bool, optional): Whether to augment contrast of the z-stack.
+                                                Default is False.
+        clip_limit (int, optional): The clipping limit used for contrast augmentation
+                                    if activated. Default is 2.
+
+    Returns:
+        tuple: A tuple containing:
+            - int: The index of the best z-plane.
+            - np.ndarray: The best z-plane image slice.
+
+    Raises:
+        ValueError: If the z-stack has more than 3 dimensions and the channel is not specified.
+
+    Notes:
+        The 'measure' determines which z-plane is considered "best". For example, if 'measure' is 'mean',
+        then the z-plane with the highest mean pixel intensity is considered the best.
+    """
+
+    if zstack.ndim > 3 and channel is None:
+        raise ValueError(
+            "If the z-stack has more than 3 dimensions, the channel must be specified."
+        )
+
+    zstack_for_measure = zstack.copy()[:, channel, ...]
+    zstack_for_measure = normalize_zstack(
+        zstack_for_measure, each_plane, dest_dtype=dest_dtype
+    )
+
+    if contrast_augmentation:
+        zstack_for_measure = augment_contrast_zstack(
+            zstack_for_measure, clip_limit=clip_limit
+        )
+
+    if measure == "shannon_entropy":
+        measure = skimage.measure.shannon_entropy
+    if measure == "mean":
+        measure = np.mean
+    if measure == "normalized_variance":
+        measure = normalized_variance_measure
+
+    best_plane_index = np.argmax([measure(plane) for plane in zstack_for_measure])
+    return best_plane_index, zstack[best_plane_index]
