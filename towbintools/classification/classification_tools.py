@@ -6,7 +6,7 @@ from towbintools.foundation import image_handling, worm_features
 
 def classify_worm_type(straightened_mask: np.ndarray, pixelsize: float, 
                        classifier: xgboost.XGBClassifier, 
-                       classes: list[str] = ['worm', 'egg', 'error'],) -> str:
+                       classes: list = ['worm', 'egg', 'error'],) -> str:
     """
     Classify the type of worm based on extracted features using an XGBoost classifier.
 
