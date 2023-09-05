@@ -6,12 +6,14 @@ def nan_helper(
 ):
     """Helper to handle indices and logical indices of NaNs.
 
-    Input:
-        - y, 1d numpy array with possible NaNs
-    Output:
+    Parameters:
+        - y (np.ndarray): 1d numpy array with possible NaNs
+
+    Returns:
         - nans, logical indices of NaNs
         - index, a function, with signature indices= index(logical_indices),
           to convert logical indices of NaNs to 'equivalent' indices
+
     Example:
         >>> # linear interpolation of NaNs
         >>> nans, x= nan_helper(y)
