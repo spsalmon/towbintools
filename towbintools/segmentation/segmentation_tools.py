@@ -103,6 +103,14 @@ def segment_image(image: Union[str, np.ndarray], method: str, channels: List[int
 	"""
 	if type(image) == str:
 		image = image_handling.read_tiff_file(image, channels_to_keep = channels)
+
+	elif image.ndim > 2 and channels:
+		try:
+			image = image[channels, ...].squeeze()
+		except IndexError:
+			raise IndexError("Invalid channel indices.")
+
+
 	if method == "edge_based":
 		if pixelsize is None:
 			raise ValueError("Pixelsize must be specified for edge-based segmentation.")
