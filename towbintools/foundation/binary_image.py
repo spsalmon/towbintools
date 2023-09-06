@@ -73,8 +73,7 @@ def connect_endpoints(
                                                                       connecting them. Default is 200.
 
     Returns:
-            np.ndarray: A binary image with the same dimensions as the input, where endpoints
-                                    within the maximum distance are connected by straight lines.
+            np.ndarray: A binary image with the same dimensions as the input, where endpoints within the maximum distance are connected by straight lines.
     """
 
     # Find the endpoints of a binary image using the Hit-Or-Miss morphology operation.
