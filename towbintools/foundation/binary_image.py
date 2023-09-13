@@ -112,7 +112,7 @@ def fill_bright_holes(
     """
     Fill bright holes in an image based on a given mask and statistical properties of the background.
 
-    dentifies holes in a provided mask and evaluates the brightness of these holes in the
+    Identifies holes in a provided mask and evaluates the brightness of these holes in the
     original image. Bright holes with a median brightness significantly greater than the background mean are filled.
     Small holes are removed from the mask before processing to save computing time.
 
