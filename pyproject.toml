@@ -15,6 +15,7 @@ requires-python = ">=3.7"
 dependencies = [
     "numpy",
     "scikit-image",
+    "scikit-learn",
     "opencv-python",
     "scipy",
     "pandas",
