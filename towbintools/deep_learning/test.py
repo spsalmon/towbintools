@@ -8,17 +8,17 @@ import pandas as pd
 import torch
 from joblib import Parallel, delayed
 from pytorch_toolbelt import inference
-from pytorch_toolbelt.losses.focal import BinaryFocalLoss
+from utils import FocalTverskyLoss
 from skimage.filters import threshold_otsu
 from sklearn.model_selection import train_test_split
 from torch import nn, optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 from torchmetrics.classification import BinaryF1Score, Dice
 from torchvision.transforms import Compose, Normalize, ToTensor
 from tqdm import tqdm
 from unet import UNet
-
+import albumentations as albu
 from towbintools.foundation import image_handling
 
 image_csv = "/mnt/external.data/TowbinLab/plenart/20221020_Ti2_10x_green_bacteria_wbt150_small_chambers_good/analysis/report/analysis_filemap.csv"
@@ -34,10 +34,46 @@ training_dataframe, validation_dataframe = train_test_split(image_dataframe, tes
 
 # get mean and std of training images
 
+
+
+def get_training_augmentation():
+    train_transform = [
+        albu.Flip(p=0.75),
+        albu.RandomRotate90(p=1),       
+        albu.GaussNoise(p=0.5),
+        
+        albu.OneOf(
+            [
+                albu.CLAHE(p=1),
+                albu.RandomBrightness(p=1, limit=0.25),
+                albu.RandomGamma(p=1),
+            ],
+            p=0.50,
+        ),
+
+        albu.OneOf(
+            [
+                albu.Sharpen(p=1),
+                albu.Blur(blur_limit=3, p=1),
+                #albu.MotionBlur(blur_limit=3, p=1),
+            ],
+            p=0.50,
+        ),
+
+        albu.OneOf(
+            [
+                albu.RandomContrast(p=1, limit=0.3),
+                albu.HueSaturationValue(p=1),
+            ],
+            p=0.50,
+        ),
+    ]
+    return albu.Compose(train_transform)
+
 def get_mean_and_std(image_path):
 	image = image_handling.read_tiff_file(image_path, [2])
 	return np.mean(image), np.std(image)
-mean_and_std = Parallel(n_jobs=-1, prefer='processes')(delayed(get_mean_and_std)(image_path) for image_path in tqdm(training_dataframe.sample(n=600, random_state=42)['raw'].values.tolist()))
+mean_and_std = Parallel(n_jobs=-1, prefer='processes')(delayed(get_mean_and_std)(image_path) for image_path in tqdm(training_dataframe.sample(n=10, random_state=42)['raw'].values.tolist()))
 
 mean_train_images = [mean for mean, std in mean_and_std]
 std_train_images = [std for mean, std in mean_and_std]
@@ -52,7 +88,7 @@ class LightningUNet(pl.LightningModule):
 		self.model = UNet(n_channels=n_channels,
 						  n_classes=n_classes, bilinear=bilinear)
 		self.learning_rate = learning_rate
-		self.criterion = BinaryFocalLoss()
+		self.criterion = FocalTverskyLoss()
 		self.dice = Dice()
 		self.f1_score = BinaryF1Score()
 
@@ -91,7 +127,7 @@ class LightningUNet(pl.LightningModule):
 	def validation_step(self, batch, batch_idx):
 		x, y = batch
 		y_hat = self.model(x)
-		loss = BinaryFocalLoss()(y_hat, y)
+		loss = FocalTverskyLoss(y_hat, y)
 		self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 		
 		dice_score = self.dice(y_hat, y)
@@ -106,39 +142,73 @@ class LightningUNet(pl.LightningModule):
 		optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 		return optimizer
 
+# # Dataset where each image is split into tiles in the first place
+# class TilesDataset(Dataset):
+# 	def __init__(self, dataset, image_slicer, transform=None):
+# 		images = dataset['raw'].values.tolist()
+# 		ground_truth = dataset['analysis/ch2_seg'].values.tolist()
+
+# 		self.image_tiles = []
+# 		self.ground_truth_tiles = []
+
+# 		for image, ground_truth in zip(images, ground_truth):
+# 			image = image_handling.read_tiff_file(image, [2]).astype(np.float32)
+
+# 			if transform:
+# 				image = transform(image).cpu().numpy().squeeze()
+
+# 			ground_truth = image_handling.read_tiff_file(ground_truth)
+
+# 			tiles = image_slicer.split(image)
+# 			tiles_ground_truth = image_slicer.split(ground_truth)
+
+# 			self.image_tiles.extend(tiles)
+# 			self.ground_truth_tiles.extend(tiles_ground_truth)
+		
+# 	def __len__(self):
+# 		return len(self.image_tiles)
+
+# 	def __getitem__(self, i):
+		
+# 		img = self.image_tiles[i]
+# 		img = img[np.newaxis, ...]
+# 		mask = self.ground_truth_tiles[i]
+# 		mask = mask[np.newaxis, ...]
+		
+# 		return torch.tensor(img, dtype=torch.float32), torch.tensor(mask, dtype=torch.int32)
+	
+# Dataset where the images are split into tiles on the fly
+
 class TilesDataset(Dataset):
 	def __init__(self, dataset, image_slicer, transform=None):
-		images = dataset['raw'].values.tolist()
-		ground_truth = dataset['analysis/ch2_seg'].values.tolist()
+		self.images = dataset['raw'].values.tolist()
+		self.ground_truth = dataset['analysis/ch2_seg'].values.tolist()
+		self.image_slicer = image_slicer
+		self.transform = transform
 
-		self.image_tiles = []
-		self.ground_truth_tiles = []
-
-		for image, ground_truth in zip(images, ground_truth):
-			image = image_handling.read_tiff_file(image, [2]).astype(np.float32)
-
-			if transform:
-				image = transform(image).cpu().numpy().squeeze()
-
-			ground_truth = image_handling.read_tiff_file(ground_truth)
-
-			tiles = image_slicer.split(image)
-			tiles_ground_truth = image_slicer.split(ground_truth)
-
-			self.image_tiles.extend(tiles)
-			self.ground_truth_tiles.extend(tiles_ground_truth)
-		
 	def __len__(self):
-		return len(self.image_tiles)
+		return len(self.images)
 
 	def __getitem__(self, i):
 		
-		img = self.image_tiles[i]
+		img = image_handling.read_tiff_file(self.images[i], [2]).astype(np.float32)
+		if self.transform:
+			img = self.transform(img).cpu().numpy().squeeze()
+
+		mask = image_handling.read_tiff_file(self.ground_truth[i])
+
+		tiles = self.image_slicer.split(img)
+		tiles_ground_truth = self.image_slicer.split(mask)
+
+		selected_tile = np.random.randint(0, len(tiles))
+		img = tiles[selected_tile]
 		img = img[np.newaxis, ...]
-		mask = self.ground_truth_tiles[i]
+		mask = tiles_ground_truth[selected_tile]
 		mask = mask[np.newaxis, ...]
-		
-		return torch.tensor(img, dtype=torch.float32), torch.tensor(mask, dtype=torch.int32)
+
+		# img, mask = random_image_transformation(img, mask)
+
+		return torch.tensor(img.copy(), dtype=torch.float32), torch.tensor(mask.copy(), dtype=torch.int32)
 	
 
 first_image = image_handling.read_tiff_file(training_dataframe['raw'].values[0], [2])
@@ -147,7 +217,14 @@ transform = Compose([ToTensor(), Normalize(mean_train_images, std_train_images)]
 image_slicer = inference.ImageSlicer(first_image.shape, (512, 512), (256, 256))
 
 train_loader = DataLoader(TilesDataset(training_dataframe, image_slicer, transform=transform), batch_size=6, shuffle=True, num_workers=32, pin_memory=True)
-val_loader = DataLoader(TilesDataset(validation_dataframe, image_slicer, transform=transform), batch_size=6, shuffle=False, num_workers=32, pin_memory=True)
+
+for batch in train_loader:
+	print(type(batch))
+	x, y = batch
+	print(type(x), type(y))
+	print(x.shape, y.shape)
+	break
+# val_loader = DataLoader(TilesDataset(validation_dataframe, image_slicer, transform=transform), batch_size=6, shuffle=False, num_workers=32, pin_memory=True)
 
 checkpoint_callback = pl.callbacks.ModelCheckpoint(dirpath="unet_lightning_test", save_top_k=1, monitor="val_loss")
 swa_callback = pl.callbacks.StochasticWeightAveraging(swa_lrs=1e-2)

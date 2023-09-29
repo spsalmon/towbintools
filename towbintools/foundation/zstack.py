@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 import skimage.measure
 
-from .image_quality import normalized_variance_measure
+from .image_quality import normalized_variance_measure, LAPV, LAPM, TENG, MLOG
+from .utils import NotImplementedError
 
 
 def normalize_zstack(
@@ -111,8 +112,7 @@ def find_best_plane(
 
     Parameters:
         zstack (np.ndarray): The input z-stack, potentially multi-channel.
-        measure (str): The measure used to identify the "best" plane. Can be 'shannon_entropy',
-                       'mean', or 'normalized_variance'.
+        measure (str): The measure used to identify the "best" plane. Can be 'shannon_entropy', 'mean', 'normalized_variance', 'lapv', 'lapm', 'teng' or 'mlog'.
         channel (int, optional): If the z-stack has more than 3 dimensions,
                                  specifies which channel to use. Default is None.
         dest_dtype (np.dtype, optional): Desired data type after normalization.
@@ -153,11 +153,24 @@ def find_best_plane(
         )
 
     if measure == "shannon_entropy":
-        measure = skimage.measure.shannon_entropy
-    if measure == "mean":
-        measure = np.mean
-    if measure == "normalized_variance":
-        measure = normalized_variance_measure
+        measure_function = skimage.measure.shannon_entropy
+    elif measure == "mean":
+        measure_function = np.mean
+    elif measure == "normalized_variance":
+        measure_function = normalized_variance_measure
+    elif measure == "lapv" or measure == "LAPV":
+        measure_function = LAPV
+    elif measure == "lapm" or measure == "LAPM":
+        measure_function = LAPM
+    elif measure == "teng" or measure == "TENG":
+        measure_function = TENG
+    elif measure == "mlog" or measure == "MLOG":
+        measure_function = MLOG
+    else:
+        raise NotImplementedError(
+            f"The {measure} measure is not implemented. Please choose one of the following: 'shannon_entropy', 'mean', 'normalized_variance', 'lapv', 'lapm', 'teng', 'mlog'"
+        )
 
-    best_plane_index = np.argmax([measure(plane) for plane in zstack_for_measure])
+
+    best_plane_index = np.argmax([measure_function(plane) for plane in zstack_for_measure])
     return best_plane_index, zstack[best_plane_index]
