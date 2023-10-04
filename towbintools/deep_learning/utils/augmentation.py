@@ -3,15 +3,49 @@ from towbintools.foundation import image_handling
 import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
+from albumentations.core.transforms_interface import ImageOnlyTransform
+from csbdeep.utils import normalize
 
-def get_training_augmentation(mean, std):
+class NormalizeDataRange(ImageOnlyTransform):
+    def __init__(self, always_apply=True, p=1.0):
+        super().__init__(always_apply, p)
+
+    def apply(self, img, **params):
+        return (img - np.min(img)) / (np.max(img) - np.min(img))
+
+    def get_transform_init_args_names(self):
+        return ()
+    
+class NormalizeMeanStd(ImageOnlyTransform):
+    def __init__(self, mean, std, always_apply=True, p=1.0):
+        super().__init__(always_apply, p)
+        self.mean = mean
+        self.std = std
+
+    def apply(self, img, **params):
+        return (img - self.mean) / self.std
+
+    def get_transform_init_args_names(self):
+        return ('mean', 'std')
+    
+class NormalizePercentile(ImageOnlyTransform):
+    def __init__(self, lo, hi, always_apply=True, p=1.0):
+        super().__init__(always_apply, p)
+        self.lo = lo
+        self.hi = hi
+
+    def apply(self, img, **params):
+        return normalize(img, self.lo, self.hi)
+
+    def get_transform_init_args_names(self):
+        return ('lo', 'hi')
+
+def get_training_augmentation():
     train_transform = [
         albu.Flip(p=0.75),
         albu.RandomRotate90(p=1),       
         albu.GaussNoise(p=0.5),
         albu.RandomGamma(p=0.5),
-        
-        albu.Normalize(mean=mean, std=std),
     ]
     return albu.Compose(train_transform)
 

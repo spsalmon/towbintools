@@ -9,7 +9,7 @@ class FocalTverskyLoss(nn.Module):
     def forward(self, inputs, targets, smooth=100, alpha=0.3, beta=0.7, gamma = 4/3):
         
         #comment out if your model contains a sigmoid or equivalent activation layer
-        inputs = torch.sigmoid(inputs)       
+        # inputs = torch.sigmoid(inputs)       
         
         #flatten label and prediction tensors
         inputs = inputs.view(-1)

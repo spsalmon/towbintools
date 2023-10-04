@@ -10,6 +10,7 @@ import pandas as pd
 import torch
 from joblib import Parallel, delayed
 from pytorch_toolbelt import inference
+from pytorch_toolbelt import losses as L
 from utils import FocalTverskyLoss
 from skimage.filters import threshold_otsu
 from sklearn.model_selection import train_test_split
@@ -33,17 +34,17 @@ database = pd.read_csv(database_csv).dropna(subset=[mask_column])
 database = database.dropna(subset=[image_column])
 
 # pick 10000 random images
-database = database.sample(n=30000, random_state=42)
+database = database.sample(n=40000, random_state=42)
 training_dataframe, validation_dataframe = train_test_split(database, test_size=0.25, random_state=42)
 
 # get mean and std of training images
 training_images = training_dataframe[image_column].values
-mean_and_std = Parallel(n_jobs=-1, prefer='processes')(delayed(get_mean_and_std)(image_path) for image_path in tqdm(training_dataframe.sample(n=3000, random_state=42)['raw'].values.tolist()))
+mean_and_std = Parallel(n_jobs=1, prefer='processes')(delayed(get_mean_and_std)(image_path) for image_path in tqdm(training_dataframe.sample(n=50, random_state=42)['raw'].values.tolist()))
 mean_train_images = np.mean([mean for mean, std in mean_and_std])
 std_train_images = np.mean([std for mean, std in mean_and_std])
 
 class LightningPretrained(pl.LightningModule):
-	def __init__(self, n_classes = 1, architecture = 'UnetPlusPlus', encoder = 'efficientnet-b4', pretrained_weights = 'image-micronet', learning_rate=0.001, mean=0, std=1):
+	def __init__(self, n_classes, learning_rate, architecture, encoder, pretrained_weights, mean, std):
 		super().__init__()
 		self.model = pmm.segmentation_training.create_segmentation_model(
             architecture=architecture,
@@ -57,6 +58,7 @@ class LightningPretrained(pl.LightningModule):
 		self.f1_score = BinaryF1Score()
 		self.mean = mean
 		self.std = std
+		self.save_hyperparameters()
 
 	def forward(self, x):
 		return self.model(x)
@@ -75,7 +77,7 @@ class LightningPretrained(pl.LightningModule):
 		# Log the images (Give them different names)
 		for img_idx, (image, y_true, y_pred) in enumerate(zip(*viz_batch)):
 			tb_logger.add_image(f"Image/{img_idx}", image_handling.normalize_image(image.cpu().numpy(), dest_dtype=np.float32), 0)
-			tb_logger.add_image(f"GroundTruth/{img_idx}", y_true, 0)
+			tb_logger.add_image(f"GroundTruth/{img_idx}", y_true*255, 0)
 			tb_logger.add_image(f"Prediction/{img_idx}", y_pred, 0)
 
 	def training_step(self, batch, batch_idx):
@@ -111,7 +113,8 @@ class LightningPretrained(pl.LightningModule):
 first_image = image_handling.read_tiff_file(training_dataframe[image_column].values[0], [2])
 image_slicer = inference.ImageSlicer(first_image.shape, (512, 512), (256, 256))
 
-model = LightningPretrained(learning_rate=0.0001, mean=mean_train_images, std=std_train_images)
+model_path = "/home/spsalmon/towbintools/towbintools/deep_learning/unet_lightning_test/epoch=22-step=11500.ckpt"
+model = LightningPretrained(n_classes = 1, architecture = 'UnetPlusPlus', encoder = 'efficientnet-b4', pretrained_weights = 'image-micronet', learning_rate=0.0001, mean=mean_train_images, std=std_train_images).load_from_checkpoint(model_path)
 
 train_loader = DataLoader(TilesDatasetFly(training_dataframe, image_slicer, channel_to_segment=2, mask_column=mask_column, image_column= image_column, transform=get_training_augmentation(model.mean, model.std)), batch_size=5, shuffle=True, num_workers=32, pin_memory=True)
 val_loader = DataLoader(TilesDatasetFly(validation_dataframe, image_slicer, channel_to_segment=2, mask_column=mask_column, image_column= image_column, transform=get_validation_augmentation(model.mean, model.std)), batch_size=5, shuffle=False, num_workers=32, pin_memory=True)
@@ -120,7 +123,8 @@ checkpoint_callback = pl.callbacks.ModelCheckpoint(dirpath="unet_lightning_test"
 swa_callback = pl.callbacks.StochasticWeightAveraging(swa_lrs=1e-2)
 
 
-trainer = pl.Trainer(max_epochs=200, accelerator="gpu", strategy=pl.strategies.DDPStrategy(find_unused_parameters=True), callbacks=[checkpoint_callback, swa_callback], accumulate_grad_batches = 6, gradient_clip_val=0.5)
+trainer = pl.Trainer(max_epochs=150, accelerator="gpu", strategy=pl.strategies.DDPStrategy(find_unused_parameters=True), callbacks=[checkpoint_callback, swa_callback], accumulate_grad_batches = 6, gradient_clip_val=0.5)
+trainer.save_checkpoint("unet_lightning_test/test.ckpt")
 
-trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-print(checkpoint_callback.best_model_path)
+# trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+# print(checkpoint_callback.best_model_path)
