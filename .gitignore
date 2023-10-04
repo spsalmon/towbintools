@@ -143,3 +143,6 @@ Thumbs.db
 # Pytorch Lightning checkpoints
 lightning_logs/
 *.ckpt
+
+*.out
+*.err
