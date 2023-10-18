@@ -276,6 +276,48 @@ def compute_volume_at_ecdysis(
 
     return volume_at_hatch, volume_at_molts
 
+def compute_volume_at_time(
+    volume: np.ndarray,
+    worm_types: np.ndarray,
+    time: float,
+    fit_width: int = 10,
+) -> float:
+    """
+    Compute the volume of a worm at a specific time
+
+    This function uses linear regression on a logarithmic transformation of the volume data to predict
+    the volume at the specified hatch time and end-molts. Only data points where `worm_types` is "worm"
+    are used for fitting. The function returns the volume at desired time.
+
+    Parameters:
+        volume (np.ndarray): A time series representing volume.
+        worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
+        time (float): The time at which the volume is to be computed.
+        fit_width (int, optional): Width for the linear regression fit used in computing the volume. Default is 10.
+
+    Returns:
+        float: Volume at desired time.
+    """
+
+    if np.isfinite(time):
+        fit_x = np.arange(
+            max(0, int(time - fit_width)),
+            min(len(volume), int(time + fit_width)),
+            dtype=int,
+        )
+
+        filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
+        if filtered_fit_x.size != 0:
+            fit_y = np.log(volume[filtered_fit_x])
+            p = np.polyfit(filtered_fit_x, fit_y, 1)
+            volume_at_time = np.exp(np.polyval(p, time))
+        else:
+            volume_at_time = np.nan
+    else:
+        volume_at_time = np.nan
+
+    return float(volume_at_time)
+
 
 def find_hatch_time(
     worm_types: np.ndarray,

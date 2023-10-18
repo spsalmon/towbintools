@@ -39,21 +39,57 @@ class NormalizePercentile(ImageOnlyTransform):
 
     def get_transform_init_args_names(self):
         return ('lo', 'hi')
+    
+class GrayscaleToRGB(ImageOnlyTransform):
+    def __init__(self, always_apply=True, p=1.0):
+        super().__init__(always_apply, p)
 
-def get_training_augmentation():
+    def apply(self, img, **params):
+        return grayscale_to_rgb(img)
+
+    def get_transform_init_args_names(self):
+        return ()
+
+def get_training_augmentation(normalization_type, **kwargs):
     train_transform = [
         albu.Flip(p=0.75),
         albu.RandomRotate90(p=1),       
         albu.GaussNoise(p=0.5),
         albu.RandomGamma(p=0.5),
     ]
+
+    if normalization_type == 'data_range':
+        train_transform.append(NormalizeDataRange())
+    elif normalization_type == 'mean_std':
+        train_transform.append(NormalizeMeanStd(kwargs['mean'], kwargs['std']))
+    elif normalization_type == 'percentile':
+        train_transform.append(NormalizePercentile(kwargs['lo'], kwargs['hi']))
+
     return albu.Compose(train_transform)
 
-def get_validation_augmentation(mean, std):
-    test_transform = [
-        albu.Normalize(mean=mean, std=std),
-    ]
-    return albu.Compose(test_transform)
+def get_validation_augmentation(normalization_type, **kwargs):
+    validation_transform = []
+
+    if normalization_type == 'data_range':
+        validation_transform.append(NormalizeDataRange())
+    elif normalization_type == 'mean_std':
+        validation_transform.append(NormalizeMeanStd(kwargs['mean'], kwargs['std']))
+    elif normalization_type == 'percentile':
+        validation_transform.append(NormalizePercentile(kwargs['lo'], kwargs['hi']))
+
+    return albu.Compose(validation_transform)
+
+def get_prediction_augmentation(normalization_type, **kwargs):
+    prediction_transform = []
+
+    if normalization_type == 'data_range':
+        prediction_transform.append(NormalizeDataRange())
+    elif normalization_type == 'mean_std':
+        prediction_transform.append(NormalizeMeanStd(kwargs['mean'], kwargs['std']))
+    elif normalization_type == 'percentile':
+        prediction_transform.append(NormalizePercentile(kwargs['lo'], kwargs['hi']))
+
+    return albu.Compose(prediction_transform)
 
 def get_mean_and_std(image_path):
 	image = image_handling.read_tiff_file(image_path, [2])
@@ -72,4 +108,3 @@ def grayscale_to_rgb(grayscale_img):
     stacked_img = torch.cat((grayscale_img, grayscale_img, grayscale_img), 0)
     
     return stacked_img
-
