@@ -86,20 +86,24 @@ class LightningPretrained(pl.LightningModule):
 		optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 		return optimizer
 
-model_path = "/home/spsalmon/towbintools/towbintools/deep_learning/unet_lightning_test/epoch=79-step=37520.ckpt"
+model_path = "/home/spsalmon/towbintools/towbintools/deep_learning/unet_confocal/epoch=102-step=16377.ckpt"
 
 preprocessing_fn = get_prediction_augmentation('percentile', lo=1, hi=99, RGB=True)
 
-images_dir = "/mnt/towbin.data/shared/ngerber/20230927_LIPSI_20x_348_297_20C_20230927_165930_303/pad3/analysis/best_planes"
-output_dir = "/mnt/towbin.data/shared/ngerber/20230927_LIPSI_20x_348_297_20C_20230927_165930_303/pad3/analysis/best_planes_seg/"
+images_dir = "/mnt/towbin.data/shared/ngerber/20230927_LIPSI_20x_348_297_20C_20230927_165930_303/pad2/analysis/best_planes/"
+output_dir = "/mnt/towbin.data/shared/ngerber/20230927_LIPSI_20x_348_297_20C_20230927_165930_303/pad2/analysis/ch3_seg"
 os.makedirs(output_dir, exist_ok=True)
 images_path = [os.path.join(images_dir, image) for image in os.listdir(images_dir)]
 first_image = image_handling.read_tiff_file(images_path[0], [1])
 
-def deep_learning_segmentation(image, model, device, preprocessing_fn, tiler):
+def deep_learning_segmentation(image, model, device, preprocessing_fn, tiler, RGB=True, activation=None):
 	image = preprocessing_fn(image=image)['image']
 	tiles = tiler.split(image)
-	tiles = [grayscale_to_rgb(tile) for tile in tiles]
+
+	if RGB:
+		tiles = [grayscale_to_rgb(tile) for tile in tiles]
+	else:
+		tiles = [torch.tensor(tile[np.newaxis, ...]).unsqueeze(0) for tile in tiles]
 
 	# assemble tiles into a batch
 	batch = torch.stack(tiles)
@@ -110,6 +114,10 @@ def deep_learning_segmentation(image, model, device, preprocessing_fn, tiler):
 	prediction_tiles = []
 	with torch.no_grad():
 		prediction = model(batch)
+		if activation == 'sigmoid':
+			prediction = torch.sigmoid(prediction)
+		elif activation == 'softmax':
+			prediction = torch.softmax(prediction, dim=1)
 	
 	# assemble tiles into an image
 	for pred_tile in prediction:
@@ -136,6 +144,6 @@ model.eval()
 normalization_type = model.normalization['type']
 normalization_params = model.normalization
 for image_path in tqdm(images_path):
-	mask = segment(image_path, model, device, preprocessing_fn, tiler, [0])
+	mask = segment(image_path, model, device, preprocessing_fn, tiler, [2])
 	imwrite(os.path.join(output_dir, os.path.basename(image_path)), mask, dtype=np.uint8, compression='zlib')
 	

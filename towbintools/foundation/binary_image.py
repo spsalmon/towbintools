@@ -176,14 +176,14 @@ def get_biggest_object(
             np.ndarray: Binary mask of the biggest object.
     """
     # Get the mask's connected components
-    _, labels = cv2.connectedComponents(mask)
-    # Find the biggest object in the frame
-    label_counts = np.bincount(labels.flatten())
+    nb_labels, labels = cv2.connectedComponents(mask)
 
-    if len(label_counts) >= 2:
-        biggest_object_label = np.argsort(label_counts)[-2]
+    if nb_labels >= 2:
+        # Find the biggest object, ignoring the background
+        biggest_object_label = np.argmax(np.bincount(labels.flatten())[1:]) + 1
+        biggest_object_mask = (labels == biggest_object_label).astype(np.uint8)
     else:
         biggest_object_label = 0
-
-    biggest_object_mask = img_as_ubyte(labels == biggest_object_label)
+        biggest_object_mask = np.zeros(mask.shape, dtype=np.uint8)
+    
     return biggest_object_mask
