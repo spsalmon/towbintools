@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import skimage.metrics
 from tifffile import imread, imwrite
+from tifffile import tiffcomment
+import ome_types
 
 
 def pad_to_correct_dim(
@@ -232,3 +234,26 @@ def read_tiff_file(
         return image[channels_to_keep, ...].squeeze()  # type: ignore
     else:
         return image[:, channels_to_keep, ...].squeeze()  # type: ignore
+    
+def get_image_size_metadata(file_path):
+    try:
+        ome_xml = tiffcomment(file_path)
+        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels
+        xdim = ome_metadata.size_x
+        ydim = ome_metadata.size_y
+        zdim = ome_metadata.size_z
+        tdim = ome_metadata.size_t
+        cdim = ome_metadata.size_c
+
+        return {'x_dim': xdim, 'y_dim': ydim, 'z_dim': zdim, 't_dim': tdim, 'c_dim': cdim}
+    except:
+        return None
+    
+def check_if_zstack(file_path):
+    try:
+        ome_xml = tiffcomment(file_path)
+        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels
+        zdim = ome_metadata.size_z
+        return zdim > 1
+    except:
+        return False

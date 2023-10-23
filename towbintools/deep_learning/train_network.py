@@ -1,5 +1,5 @@
 from utils.dataset import TilesDatasetFly, TilesDataset
-from utils.augmentation import get_mean_and_std, get_training_augmentation, get_validation_augmentation, grayscale_to_rgb
+from towbintools.towbintools.deep_learning.augmentation import get_mean_and_std, get_training_augmentation, get_validation_augmentation, grayscale_to_rgb
 import os
 from time import perf_counter
 

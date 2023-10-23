@@ -8,11 +8,13 @@ import skimage.feature
 import skimage.morphology
 from skimage.filters import threshold_otsu
 from skimage.util import img_as_ubyte
+from towbintools.deep_learning import augmentation
+from towbintools.deep_learning import util
 
 from towbintools.foundation import binary_image, image_handling
+import torch
 
-
-def edge_based_segmentation(image: np.ndarray, pixelsize: float, backbone: str = 'skimage', sigma_canny: float = 1,) -> np.ndarray:
+def edge_based_segmentation(image: np.ndarray, pixelsize: float, sigma_canny: float = 1,) -> np.ndarray:
 	"""
 	Python adaptation of the OG Matlab code for Sobel-based segmentation
 
@@ -31,19 +33,11 @@ def edge_based_segmentation(image: np.ndarray, pixelsize: float, backbone: str =
 
 	if image.ndim >2:
 		raise ValueError("Image must be 2D.")
-	if backbone == "skimage":
-		# image_dtype_max_value = np.iinfo(image.dtype).max
-		thresh_otsu = threshold_otsu(image)
-		edges = skimage.feature.canny(image.copy(), sigma=sigma_canny, low_threshold=thresh_otsu/5, high_threshold=thresh_otsu/2.5).astype(np.uint8)
-		# edges = skimage.feature.canny(image.copy(), sigma=sigma_canny, low_threshold=image_dtype_max_value * 0.05, high_threshold=image_dtype_max_value*0.1).astype(np.uint8)
 
-	elif backbone == "opencv":
-		blurred_image = cv2.GaussianBlur(image, (0, 0), sigma_canny)
-		blurred_image = img_as_ubyte(blurred_image)
-		edges = (cv2.Canny(blurred_image, 255*0.05, 255 *
-						   0.1, L2gradient=True) > 0).astype(np.uint8)
-	else:
-		raise ValueError("Invalid backbone. Use 'opencv' or 'skimage'.")
+	# image_dtype_max_value = np.iinfo(image.dtype).max
+	thresh_otsu = threshold_otsu(image)
+	edges = skimage.feature.canny(image.copy(), sigma=sigma_canny, low_threshold=thresh_otsu/5, high_threshold=thresh_otsu/2.5).astype(np.uint8)
+	# edges = skimage.feature.canny(image.copy(), sigma=sigma_canny, low_threshold=image_dtype_max_value * 0.05, high_threshold=image_dtype_max_value*0.1).astype(np.uint8)
 
 	edges = skimage.morphology.remove_small_objects(edges.astype(bool), 3, connectivity=2).astype(np.uint8)
 
@@ -83,7 +77,50 @@ def edge_based_segmentation(image: np.ndarray, pixelsize: float, backbone: str =
 	final_mask = binary_image.fill_bright_holes(image, final_mask, 10).astype(np.uint8)
 	return final_mask
 
-def segment_image(image: Union[str, np.ndarray], method: str, channels: List[int] = [], pixelsize: float = None, edge_based_backbone: str = "skimage", sigma_canny: float = 1,) -> np.ndarray:
+def deep_learning_segmentation(image, model, device, tiler, RGB=True, activation=None, batch_size=-1,):
+
+	# Split the image into tiles
+	if tiler is None:
+		tiles = [image]
+	else:
+		tiles = tiler.split(image)
+	
+	# Prepare tiles for model input
+	if RGB:
+		tiles = [augmentation.grayscale_to_rgb(tile) for tile in tiles]
+	else:
+		tiles = [torch.tensor(tile[np.newaxis, ...]).unsqueeze(0) for tile in tiles]
+	
+	tiles_batched = util.divide_batch(torch.stack(tiles), batch_size) if batch_size > 0 else [torch.stack(tiles)]
+	
+	prediction_tiles = []
+	for batch in tiles_batched:
+		batch = batch.to(device)
+		
+		# Predict
+		with torch.no_grad():
+			prediction = model(batch)
+			if activation == 'sigmoid':
+				prediction = torch.sigmoid(prediction)
+			elif activation == 'softmax':
+				prediction = torch.softmax(prediction, dim=1)
+				
+		# Post-process predictions
+		for pred_tile in prediction:
+			pred_tile = pred_tile.cpu().numpy()
+			pred_tile = np.moveaxis(pred_tile, 0, -1)
+			prediction_tiles.append(pred_tile)
+
+	# Merge tiles to get the complete prediction
+	if tiler is None:
+		pred = prediction_tiles[0]
+	else:
+		pred = tiler.merge(prediction_tiles)
+	mask = (pred > 0.5).astype(np.uint8)
+	
+	return mask
+
+def segment_image(image: Union[str, np.ndarray], method: str, channels: List[int] = [], pixelsize: float = None, sigma_canny: float = 1, preprocessing_fn = None, model=None, device=None, tiler=None, RGB=False, activation=None, batch_size=-1, is_zstack = True) -> np.ndarray:
 	"""
 	Segment an image using the specified method.
 	
@@ -104,18 +141,30 @@ def segment_image(image: Union[str, np.ndarray], method: str, channels: List[int
 	if type(image) == str:
 		image = image_handling.read_tiff_file(image, channels_to_keep = channels)
 
-	elif image.ndim > 2 and channels:
-		try:
-			image = image[channels, ...].squeeze()
-		except IndexError:
-			raise IndexError("Invalid channel indices.")
-
-
 	if method == "edge_based":
 		if pixelsize is None:
 			raise ValueError("Pixelsize must be specified for edge-based segmentation.")
-		
+
 		image = image_handling.normalize_image(image, dest_dtype=np.uint16)
-		return edge_based_segmentation(image, pixelsize, backbone = edge_based_backbone, sigma_canny=sigma_canny)
+		segment_fn = lambda x: edge_based_segmentation(x, pixelsize, sigma_canny=sigma_canny)
+
+	elif method == "deep_learning":
+		if not model:
+			raise ValueError("Model must be specified for deep learning segmentation.")
+		if not device:
+			raise ValueError("Device must be specified for deep learning segmentation.")
+
+		if preprocessing_fn:
+			image = preprocessing_fn(image=image)['image']
+		segment_fn = lambda x: deep_learning_segmentation(x, model, device, tiler, RGB=RGB, activation=activation, batch_size=batch_size)
+
 	else:
 		raise ValueError("Invalid segmentation method.")
+
+	if is_zstack:
+		mask = np.zeros((image.shape[0], image.shape[-2], image.shape[-1]), dtype=np.uint8)
+		for i, plane in enumerate(image):
+			mask[i] = segment_fn(plane)
+		return mask
+	
+	return segment_fn(image)

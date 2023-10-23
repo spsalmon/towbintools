@@ -130,7 +130,7 @@ def deep_learning_segmentation(image, model, device, preprocessing_fn, tiler, RG
 
 	return mask
 
-def segment(image_path, model, device, preprocessing_fn, tiler, channels):
+def segment(image_path, model, device, preprocessing_fn, tiler, channels, RGB=True, activation=None, is_zstack=False):
 	image = image_handling.read_tiff_file(image_path, channels_to_keep=channels)
 	mask = deep_learning_segmentation(image, model, device, preprocessing_fn, tiler)
 	return mask
@@ -143,6 +143,7 @@ model = LightningPretrained.load_from_checkpoint(model_path, map_location=device
 model.eval()
 normalization_type = model.normalization['type']
 normalization_params = model.normalization
+
 for image_path in tqdm(images_path):
 	mask = segment(image_path, model, device, preprocessing_fn, tiler, [2])
 	imwrite(os.path.join(output_dir, os.path.basename(image_path)), mask, dtype=np.uint8, compression='zlib')
