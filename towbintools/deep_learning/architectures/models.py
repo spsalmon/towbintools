@@ -1,6 +1,6 @@
 import lightning.pytorch as pl
 from torchmetrics.classification import BinaryF1Score
-from utils.loss import FocalTverskyLoss
+from towbintools.deep_learning.utils.loss import FocalTverskyLoss
 import pretrained_microscopy_models as pmm
 
 class LightningPretrained(pl.LightningModule):

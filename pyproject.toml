@@ -16,17 +16,20 @@ dependencies = [
     "numpy",
     "scikit-image",
     "scikit-learn",
-    "opencv-python",
+    "opencv-contrib-python",
     "scipy",
     "pandas",
     "tifffile",
     "matplotlib",
     "xgboost",
     "joblib",
-    "pyyaml",
-    "shiny",
-    "shinywidgets",
-    "plotly",
+    "pytorch-toolbelt",
+    "pytorch-lightning",
+    "albumentations",
+    "pretrained-microscopy-models@git+https://github.com/nasa/pretrained-microscopy-models",
+    "python-dateutil>=2.8.2",
+    "ome-types",
+    "csbdeep"
 ]
 
 [project.optional-dependencies]

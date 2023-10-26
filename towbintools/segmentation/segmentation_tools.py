@@ -83,7 +83,11 @@ def deep_learning_segmentation(image, model, device, tiler, RGB=True, activation
 	if tiler is None:
 		tiles = [image]
 	else:
-		tiles = tiler.split(image)
+		try:
+			tiles = tiler.split(image)
+		except:
+			print("Error splitting image into tiles. Image shape: ", image.shape)
+			sys.exit(1)
 	
 	# Prepare tiles for model input
 	if RGB:
@@ -164,7 +168,7 @@ def segment_image(image: Union[str, np.ndarray], method: str, channels: List[int
 	if is_zstack:
 		mask = np.zeros((image.shape[0], image.shape[-2], image.shape[-1]), dtype=np.uint8)
 		for i, plane in enumerate(image):
-			mask[i] = segment_fn(plane)
+			mask[i] = segment_fn(plane).squeeze()
 		return mask
 	
 	return segment_fn(image)
