@@ -4,7 +4,7 @@ import os
 from time import perf_counter
 
 from pytorch_toolbelt.inference.tiles import ImageSlicer
-import lightning.pytorch as pl
+import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

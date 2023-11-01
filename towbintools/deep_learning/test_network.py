@@ -3,7 +3,7 @@ from towbintools.towbintools.deep_learning.augmentation import get_mean_and_std,
 import os
 from time import perf_counter
 
-import lightning.pytorch as pl
+import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

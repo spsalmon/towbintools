@@ -1,6 +1,6 @@
 [project]
 name = "towbintools"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
   {name="Sacha Psalmon", email="sacha.psalmon@unibe.ch" },
   {name="Boris Gusev", email="boris.gusev@unibe.ch" }
@@ -17,6 +17,7 @@ dependencies = [
     "scikit-image",
     "scikit-learn",
     "opencv-contrib-python",
+    "ome-types",
     "scipy",
     "pandas",
     "tifffile",
@@ -28,7 +29,6 @@ dependencies = [
     "albumentations",
     "pretrained-microscopy-models@git+https://github.com/nasa/pretrained-microscopy-models",
     "python-dateutil>=2.8.2",
-    "ome-types",
     "csbdeep"
 ]
 

@@ -1,4 +1,4 @@
-import lightning.pytorch as pl
+import pytorch_lightning as pl
 from torchmetrics.classification import BinaryF1Score
 from towbintools.deep_learning.utils.loss import FocalTverskyLoss
 import pretrained_microscopy_models as pmm
