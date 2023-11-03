@@ -21,7 +21,6 @@ dependencies = [
     "scipy",
     "pandas",
     "tifffile",
-    "matplotlib",
     "xgboost",
     "joblib",
     "pytorch-toolbelt",
