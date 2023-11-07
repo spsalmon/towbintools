@@ -20,6 +20,23 @@ def compute_worm_volume(
     worm_radius = np.sum(straightened_worm_mask, axis=0) / 2
     return np.sum(np.pi * (worm_radius**2)) * (pixelsize**3)
 
+def compute_worm_area(
+    straightened_worm_mask: np.ndarray,
+    pixelsize: float,
+) -> float:
+    """
+    Compute the area of a worm mask.
+
+    Parameters:
+        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        pixelsize (float): The size of a pixel, used for area calculation.
+
+    Returns:
+        float: The computed are of the worm.
+    """
+
+    return np.sum(straightened_worm_mask) * (pixelsize**2)
+    
 
 def compute_worm_length(
     straightened_worm_mask: np.ndarray,
