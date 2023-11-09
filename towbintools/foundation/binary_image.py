@@ -161,6 +161,7 @@ def fill_bright_holes(
 
 def get_biggest_object(
     mask: np.ndarray,
+    connectivity: int = 4,
 ) -> np.ndarray:
     """
     Retrieve the largest connected object from a binary mask.
@@ -176,7 +177,7 @@ def get_biggest_object(
             np.ndarray: Binary mask of the biggest object.
     """
     # Get the mask's connected components
-    nb_labels, labels = cv2.connectedComponents(mask, connectivity=8)
+    nb_labels, labels = cv2.connectedComponents(mask, connectivity=connectivity)
 
     if nb_labels >= 2:
         # Find the biggest object, ignoring the background
