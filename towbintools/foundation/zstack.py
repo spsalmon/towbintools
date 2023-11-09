@@ -136,20 +136,20 @@ def find_best_plane(
         The 'measure' determines which z-plane is considered "best". For example, if 'measure' is 'mean',
         then the z-plane with the highest mean pixel intensity is considered the best.
     """
-
     if zstack.ndim > 3 and channel is None:
         raise ValueError(
             "If the z-stack has more than 3 dimensions, the channel must be specified."
         )
 
-    zstack_for_measure = zstack.copy()[:, channel, ...]
-    zstack_for_measure = normalize_zstack(
-        zstack_for_measure, each_plane, dest_dtype=dest_dtype
-    )
-
+    zstack_for_measure = zstack.copy()[:, channel, ...].squeeze()
     if contrast_augmentation:
         zstack_for_measure = augment_contrast_zstack(
-            zstack_for_measure, clip_limit=clip_limit
+            zstack_for_measure, normalize_each_plane=each_plane, clip_limit=clip_limit
+        )
+        
+    else:
+        zstack_for_measure = normalize_zstack(
+            zstack_for_measure, each_plane, dest_dtype=dest_dtype
         )
 
     if measure == "shannon_entropy":
@@ -171,6 +171,8 @@ def find_best_plane(
             f"The {measure} measure is not implemented. Please choose one of the following: 'shannon_entropy', 'mean', 'normalized_variance', 'lapv', 'lapm', 'teng', 'mlog'"
         )
 
+    best_plane_index = np.argmax(
+        [measure_function(plane) for plane in zstack_for_measure] # type: ignore
+    ) # type: ignore
 
-    best_plane_index = np.argmax([measure_function(plane) for plane in zstack_for_measure])
     return best_plane_index, zstack[best_plane_index]

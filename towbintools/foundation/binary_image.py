@@ -176,7 +176,7 @@ def get_biggest_object(
             np.ndarray: Binary mask of the biggest object.
     """
     # Get the mask's connected components
-    nb_labels, labels = cv2.connectedComponents(mask)
+    nb_labels, labels = cv2.connectedComponents(mask, connectivity=8)
 
     if nb_labels >= 2:
         # Find the biggest object, ignoring the background
