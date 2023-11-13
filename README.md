@@ -3,6 +3,8 @@
 This is the package containing all the important functions used by the Towbin Lab of the University of Bern.
 Most of the code is a python translation of our old Matlab pipeline.
 
+Documentation : <https://towbintools.readthedocs.io/en/latest/towbintools.html>
+
 ## Setting up a Virtual Environment
 
 Using a virtual environment isolates your package dependencies and settings from your system Python.
