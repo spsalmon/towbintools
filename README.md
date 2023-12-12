@@ -5,6 +5,14 @@ Most of the code is a python translation of our old Matlab pipeline.
 
 Documentation : <https://towbintools.readthedocs.io/en/latest/towbintools.html>
 
+## Deep learning
+
+This package uses the pretrained-microscopy-models package (available here : <https://github.com/nasa/pretrained-microscopy-models/tree/main>) which is not available as a pip dependency. If you want to use the deep learning part, you will have to install it using:
+
+   ```bash
+   pip install git+https://github.com/nasa/pretrained-microscopy-models
+   ```
+
 ## Setting up a Virtual Environment
 
 Using a virtual environment isolates your package dependencies and settings from your system Python.
