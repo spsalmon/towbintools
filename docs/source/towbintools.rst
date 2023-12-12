@@ -7,5 +7,7 @@ towbintools API documentation
    
    towbintools_foundation
    towbintools_segmentation
+   towbintools_straightening
    towbintools_classification
+   towbintools_quantification
    
