@@ -1,7 +1,7 @@
-classification package
+quantification package
 ======================
 
-classification_tools
+quantification_tools
 --------------------
 
 .. automodule:: towbintools.quantification.quantification_tools

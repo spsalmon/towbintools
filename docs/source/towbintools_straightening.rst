@@ -1,7 +1,7 @@
-classification package
+straightening package
 ======================
 
-classification_tools
+straightening_tools
 --------------------
 
 .. automodule:: towbintools.straightening.straightening_tools
