@@ -9,3 +9,7 @@ matplotlib
 xgboost
 joblib
 pyyaml
+ome-types
+albumentations
+pretrained-microscopy-models @ git+https://github.com/nasa/pretrained-microscopy-models
+numba
