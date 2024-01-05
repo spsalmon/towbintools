@@ -250,8 +250,11 @@ def compute_volume_at_ecdysis(
         filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
         if filtered_fit_x.size != 0:
             fit_y = np.log(volume[filtered_fit_x])
-            p = np.polyfit(filtered_fit_x, fit_y, 1)
-            volume_at_hatch = np.exp(np.polyval(p, hatch_time))
+            try:
+                p = np.polyfit(filtered_fit_x, fit_y, 1)
+                volume_at_hatch = np.exp(np.polyval(p, hatch_time))
+            except:
+                volume_at_hatch = np.nan
         else:
             volume_at_hatch = np.nan
     else:
@@ -266,8 +269,11 @@ def compute_volume_at_ecdysis(
             filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
             if filtered_fit_x.size != 0:
                 fit_y = np.log(volume[filtered_fit_x])
-                p = np.polyfit(filtered_fit_x, fit_y, 1)
-                volume_at_molt = np.exp(np.polyval(p, molt))
+                try:
+                    p = np.polyfit(filtered_fit_x, fit_y, 1)
+                    volume_at_molt = np.exp(np.polyval(p, molt))
+                except:
+                    volume_at_molt = np.nan
                 volume_at_molts[i] = volume_at_molt
             else:
                 volume_at_molts[i] = np.nan
@@ -309,7 +315,10 @@ def compute_volume_at_time(
         filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
         if filtered_fit_x.size != 0:
             fit_y = np.log(volume[filtered_fit_x])
-            p = np.polyfit(filtered_fit_x, fit_y, 1)
+            try:
+                p = np.polyfit(filtered_fit_x, fit_y, 1)
+            except:
+                return np.nan
             volume_at_time = np.exp(np.polyval(p, time))
         else:
             volume_at_time = np.nan
