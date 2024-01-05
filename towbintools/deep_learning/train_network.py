@@ -51,6 +51,15 @@ training_dataframe, validation_dataframe = train_test_split(dataframe, test_size
 image_column = 'raw'
 mask_column = 'analysis/ch1_seg'
 
+save_dir = "unet_confocal"
+os.makedirs(save_dir, exist_ok=True)
+
+# backup the training and validation dataframes
+database_backup_dir = os.path.join(save_dir, "database_backup")
+os.makedirs(database_backup_dir, exist_ok=True)
+training_dataframe.to_csv(os.path.join(database_backup_dir, "training_dataframe.csv"))
+validation_dataframe.to_csv(os.path.join(database_backup_dir, "validation_dataframe.csv"))
+
 class LightningPretrained(pl.LightningModule):
 	def __init__(self, n_classes, learning_rate, architecture, encoder, pretrained_weights, normalization):
 		super().__init__()
