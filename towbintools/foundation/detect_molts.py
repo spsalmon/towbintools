@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 from numpy.polynomial.polynomial import polyfit
 from scipy.ndimage import uniform_filter1d
@@ -221,7 +223,7 @@ def compute_volume_at_ecdysis(
     hatch_time: float,
     endmolts: np.ndarray,
     fit_width: int = 10,
-) -> (float, np.ndarray):
+) -> Tuple[float, np.ndarray]:
     """
     Compute the volume of a worm at ecdysis (shedding or molting) based on the given hatch time and end-molts.
 
@@ -369,7 +371,7 @@ def find_molts(
     molt_size_range: list = [6.6e4, 15e4, 36e4, 102e4],
     search_width: int = 20,
     fit_width: int = 5,
-) -> (dict, dict):
+) -> Tuple[dict, dict]:
     """
     Identify molt events and compute the worm volume at each molt event.
 
@@ -395,7 +397,7 @@ def find_molts(
     volume_for_finding_molts[errors] = np.nan
 
     hatch_time = find_hatch_time(worm_types)
-    midmolts = find_mid_molts(volume_for_finding_molts, molt_size_range)
+    midmolts = find_mid_molts(volume_for_finding_molts, molt_size_range) # type: ignore
     endmolts = find_end_molts(
         volume_for_finding_molts, midmolts, search_width, fit_width
     )

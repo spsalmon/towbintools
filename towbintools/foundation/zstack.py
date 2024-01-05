@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import cv2
 import numpy as np
 import skimage.measure
@@ -9,7 +11,7 @@ from .utils import NotImplementedError
 def normalize_zstack(
     zstack: np.ndarray,
     each_plane: bool = True,
-    dest_dtype: np.dtype = np.uint16,
+    dest_dtype: np.dtype = np.uint16, # type: ignore
 ) -> np.ndarray:
     """
     Normalize a z-stack of images, either plane by plane or the whole stack, to the desired data type range.
@@ -27,10 +29,10 @@ def normalize_zstack(
     """
 
     dtype_mapping = {
-        np.uint16: cv2.CV_16U,
-        np.uint8: cv2.CV_8U,
-        np.float32: cv2.CV_32F,
-        np.float64: cv2.CV_64F,
+        np.uint16: cv2.CV_16U, # type: ignore
+        np.uint8: cv2.CV_8U, # type: ignore
+        np.float32: cv2.CV_32F, # type: ignore
+        np.float64: cv2.CV_64F, # type: ignore
     }
 
     if dest_dtype not in dtype_mapping:
@@ -47,7 +49,7 @@ def normalize_zstack(
             [
                 cv2.normalize(
                     plane,
-                    None,
+                    None, # type: ignore
                     0,
                     max_value,  # type: ignore
                     cv2.NORM_MINMAX,
@@ -59,7 +61,7 @@ def normalize_zstack(
     else:
         output_zstack = cv2.normalize(
             zstack,
-            None,
+            None, # type: ignore
             0,
             max_value,  # type: ignore
             cv2.NORM_MINMAX,
@@ -92,7 +94,7 @@ def augment_contrast_zstack(
         np.ndarray: The contrast-augmented z-stack as a 3D NumPy array.
     """
 
-    zstack = normalize_zstack(zstack, normalize_each_plane, np.uint16)
+    zstack = normalize_zstack(zstack, normalize_each_plane, np.uint16) # type: ignore
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_size, tile_size))
     output_zstack = np.array([clahe.apply(plane) for plane in zstack.copy()])
     return output_zstack
@@ -101,12 +103,12 @@ def augment_contrast_zstack(
 def find_best_plane(
     zstack: np.ndarray,
     measure: str,
-    channel: int = None,
-    dest_dtype: np.dtype = np.uint16,
+    channel: int = None, # type: ignore
+    dest_dtype: np.dtype = np.uint16, # type: ignore
     each_plane: bool = True,
     contrast_augmentation: bool = False,
     clip_limit: int = 2,
-) -> (int, np.ndarray):
+) -> Tuple[int, np.ndarray]:
     """
     Find the best plane (z-slice) of a z-stack based on a specified measure.
 

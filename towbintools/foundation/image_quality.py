@@ -33,7 +33,7 @@ def LAPV(img):
     :type img: np.ndarray
     :returns: np.float32 -- the degree of focus
     """
-    return np.std(cv2.Laplacian(img, cv2.CV_64F)) ** 2
+    return np.std(cv2.Laplacian(img, cv2.CV_64F)) ** 2 # type: ignore
 
 def LAPM(img):
     """Implements the Modified Laplacian (LAP2) focus measure
@@ -56,8 +56,8 @@ def TENG(img):
     :type img: np.ndarray
     :returns: np.float32 -- the degree of focus
     """
-    gaussianX = cv2.Sobel(img, cv2.CV_64F, 1, 0)
-    gaussianY = cv2.Sobel(img, cv2.CV_64F, 1, 0)
+    gaussianX = cv2.Sobel(img, cv2.CV_64F, 1, 0) # type: ignore
+    gaussianY = cv2.Sobel(img, cv2.CV_64F, 1, 0) # type: ignore
     return np.mean(gaussianX * gaussianX +
                       gaussianY * gaussianY)
 
@@ -68,4 +68,4 @@ def MLOG(img):
     :type img: np.ndarray
     :returns: np.float32 -- the degree of focus
     """
-    return np.max(cv2.convertScaleAbs(cv2.Laplacian(img, cv2.CV_64F)))
+    return np.max(cv2.convertScaleAbs(cv2.Laplacian(img, cv2.CV_64F))) # type: ignore
