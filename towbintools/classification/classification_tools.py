@@ -65,4 +65,3 @@ def classify_image(image: np.ndarray, features_function: Callable, classifier: x
     pred_class = np.argmax(prediction)
     prediction = classes[pred_class]
     return prediction
-

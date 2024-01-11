@@ -67,18 +67,6 @@ def get_training_augmentation(normalization_type, **kwargs):
 
     return albu.Compose(train_transform)
 
-def get_validation_augmentation(normalization_type, **kwargs):
-    validation_transform = []
-
-    if normalization_type == 'data_range':
-        validation_transform.append(NormalizeDataRange())
-    elif normalization_type == 'mean_std':
-        validation_transform.append(NormalizeMeanStd(kwargs['mean'], kwargs['std']))
-    elif normalization_type == 'percentile':
-        validation_transform.append(NormalizePercentile(kwargs['lo'], kwargs['hi']))
-
-    return albu.Compose(validation_transform)
-
 def get_prediction_augmentation(normalization_type, **kwargs):
     prediction_transform = []
 

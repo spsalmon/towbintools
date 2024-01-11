@@ -4,6 +4,7 @@ import re
 import pandas as pd
 
 
+
 def get_all_timepoints_from_dir(
     dir_path: str,
 ) -> list:
@@ -147,3 +148,8 @@ def get_experiment_dir_filemap(
                 )
     experiment_filemap = experiment_filemap.fillna("")
     return experiment_filemap
+
+def get_directory_filemap(
+    dir_path: str,
+) -> pd.DataFrame:
+    
