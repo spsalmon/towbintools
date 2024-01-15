@@ -284,6 +284,7 @@ def compute_volume_at_ecdysis(
 
     return volume_at_hatch, volume_at_molts
 
+
 def compute_volume_at_time(
     volume: np.ndarray,
     worm_types: np.ndarray,
@@ -397,7 +398,7 @@ def find_molts(
     volume_for_finding_molts[errors] = np.nan
 
     hatch_time = find_hatch_time(worm_types)
-    midmolts = find_mid_molts(volume_for_finding_molts, molt_size_range) # type: ignore
+    midmolts = find_mid_molts(volume_for_finding_molts, molt_size_range)  # type: ignore
     endmolts = find_end_molts(
         volume_for_finding_molts, midmolts, search_width, fit_width
     )

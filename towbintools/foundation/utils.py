@@ -22,6 +22,7 @@ def nan_helper(
 
     return np.isnan(y), lambda z: z.nonzero()[0]
 
+
 # Exception class for the case when a method is not implemented
 class NotImplementedError(Exception):
     pass

@@ -28,7 +28,7 @@ def pad_to_correct_dim(
     ypad = ydim - image.shape[1]
 
     # Pad the image with zeros.
-    return np.pad(image, ((0, xpad), (0, ypad)), "constant", constant_values=(0, 0)) # type: ignore
+    return np.pad(image, ((0, xpad), (0, ypad)), "constant", constant_values=(0, 0))  # type: ignore
 
 
 def pad_to_correct_dim_equally(
@@ -59,10 +59,10 @@ def pad_to_correct_dim_equally(
     # Pad the image with zeros equally.
     return np.pad(
         image,
-        ((xpad_start, xpad_end), (ypad_start, ypad_end)), # type: ignore
-        "constant", # type: ignore
+        ((xpad_start, xpad_end), (ypad_start, ypad_end)),  # type: ignore
+        "constant",  # type: ignore
         constant_values=(0, 0),
-    ) # type: ignore
+    )  # type: ignore
 
 
 def crop_images_to_same_dim(
@@ -172,10 +172,10 @@ def normalize_image(
             ValueError: If dest_dtype is not one of the allowed data types.
     """
     dtype_mapping = {
-        np.uint16: cv2.CV_16U, # type: ignore
-        np.uint8: cv2.CV_8U, # type: ignore
-        np.float32: cv2.CV_32F, # type: ignore
-        np.float64: cv2.CV_64F, # type: ignore
+        np.uint16: cv2.CV_16U,  # type: ignore
+        np.uint8: cv2.CV_8U,  # type: ignore
+        np.float32: cv2.CV_32F,  # type: ignore
+        np.float64: cv2.CV_64F,  # type: ignore
     }
 
     if dest_dtype not in dtype_mapping:
@@ -234,12 +234,13 @@ def read_tiff_file(
         return image[channels_to_keep, ...].squeeze()  # type: ignore
     else:
         return image[:, channels_to_keep, ...].squeeze()  # type: ignore
-    
+
+
 def get_image_size_metadata(file_path: str) -> Optional[dict]:
     """
     Extract and return the size metadata of an image from its OME-TIFF file.
-    
-    Includes its width (x dimension), height (y dimension), depth (z dimension), 
+
+    Includes its width (x dimension), height (y dimension), depth (z dimension),
     timepoints (t dimension), and number of channels (c dimension).
 
     Parameters:
@@ -251,22 +252,29 @@ def get_image_size_metadata(file_path: str) -> Optional[dict]:
     """
     try:
         ome_xml = tiffcomment(file_path)
-        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels # type: ignore
+        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels  # type: ignore
         xdim = ome_metadata.size_x
         ydim = ome_metadata.size_y
         zdim = ome_metadata.size_z
         tdim = ome_metadata.size_t
         cdim = ome_metadata.size_c
 
-        return {'x_dim': xdim, 'y_dim': ydim, 'z_dim': zdim, 't_dim': tdim, 'c_dim': cdim}
+        return {
+            "x_dim": xdim,
+            "y_dim": ydim,
+            "z_dim": zdim,
+            "t_dim": tdim,
+            "c_dim": cdim,
+        }
     except:
         return None
+
 
 def check_if_zstack(file_path: str) -> bool:
     """
     Determine whether the given OME-TIFF file represents a z-stack.
 
-    Checks the z-dimension size in the OME-TIFF metadata to determine 
+    Checks the z-dimension size in the OME-TIFF metadata to determine
     if the image is a z-stack (more than one z-plane).
 
     Returns False if the file is not a valid OME-TIFF or the metadata cannot be read.
@@ -279,7 +287,7 @@ def check_if_zstack(file_path: str) -> bool:
     """
     try:
         ome_xml = tiffcomment(file_path)
-        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels # type: ignore
+        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels  # type: ignore
         zdim = ome_metadata.size_z
         return zdim > 1
     except:

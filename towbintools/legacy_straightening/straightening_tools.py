@@ -44,16 +44,18 @@ def straighten(
             xeval = np.full((straightened_width + 1,), x1)
         else:
             xeval = np.linspace(
-                x1 - (dx * straightened_width / 2), x1 +
-                (dx * straightened_width / 2) + dx, straightened_width + 1
+                x1 - (dx * straightened_width / 2),
+                x1 + (dx * straightened_width / 2) + dx,
+                straightened_width + 1,
             )
 
         if dy == 0:
             yeval = np.full((straightened_width + 1,), y1)
         else:
             yeval = np.linspace(
-                y1 - (dy * straightened_width / 2), y1 +
-                (dy * straightened_width / 2) + dy, straightened_width + 1
+                y1 - (dy * straightened_width / 2),
+                y1 + (dy * straightened_width / 2) + dy,
+                straightened_width + 1,
             )
 
         coords = np.vstack((yeval, xeval))
@@ -82,8 +84,7 @@ def straighten_image_from_backbone(
     """Straighten an image from its backbone."""
 
     # Get the coordinates of the backbone's longest shortest path.
-    main_path_coordinates = backbone.backbone_to_longest_shortest_path(
-        backbone)
+    main_path_coordinates = backbone.backbone_to_longest_shortest_path(backbone)
     # Fit a B-spline to the backbone's coordinates and return the spline's coordinates.
     spline = backbone.spline_from_backbone_coordinates(
         main_path_coordinates, upsampling
@@ -91,6 +92,7 @@ def straighten_image_from_backbone(
     straightened_image = straighten(source_image, spline, straightened_width)
 
     return straightened_image
+
 
 def straighten_image_from_mask(
     source_image,
@@ -104,8 +106,7 @@ def straighten_image_from_mask(
     skeleton = backbone.skeletonize_and_skan(mask)
 
     # Get the coordinates of the skeleton's longest shortest path.
-    main_path_coordinates = backbone.skeleton_to_longest_shortest_path(
-        skeleton)
+    main_path_coordinates = backbone.skeleton_to_longest_shortest_path(skeleton)
     # Fit a B-spline to the backbone's coordinates and return the spline's coordinates.
     spline = backbone.spline_from_backbone_coordinates(
         main_path_coordinates, upsampling
@@ -126,11 +127,12 @@ def straighten_video_from_backbone(
 
     straightened_frames = []
     previous_backbone_tips = None
-    for source_frame, backbone_frame in zip(source_video, backbone_video): # type: ignore
+    for source_frame, backbone_frame in zip(source_video, backbone_video):  # type: ignore
         # Get the coordinates of the backbone's longest shortest path.
-        try :
+        try:
             backbone_coordinates = backbone.backbone_to_longest_shortest_path(
-                backbone_frame)
+                backbone_frame
+            )
         except (IndexError, ValueError):
             straightened_frame = np.zeros((width, 1))
             straightened_frames.append(straightened_frame)
@@ -142,9 +144,7 @@ def straighten_video_from_backbone(
         # If it is flip the backbone so that the orientation stays consistent. Update the reference tips.
         # If this frame is the first, set the reference tips.
         if previous_backbone_tips is not None:
-            flipped = backbone.are_tips_flipped(
-                previous_backbone_tips, backbone_tips
-            )
+            flipped = backbone.are_tips_flipped(previous_backbone_tips, backbone_tips)
             if flipped:
                 backbone_coordinates = np.flip(backbone_coordinates, axis=0)
                 backbone_tips = backbone_coordinates[[0, -1]]
@@ -168,5 +168,5 @@ def straighten_video_from_backbone(
 
     # Place the straightened frames into the video array.
     for i, frame in enumerate(straightened_frames):
-        straightened_video[i, 0: frame.shape[0], 0: frame.shape[1]] = frame
+        straightened_video[i, 0 : frame.shape[0], 0 : frame.shape[1]] = frame
     return straightened_video

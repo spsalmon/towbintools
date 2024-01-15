@@ -5,15 +5,18 @@ from towbintools.foundation import image_handling, worm_features
 from typing import Callable
 
 
-def classify_worm_type(straightened_mask: np.ndarray, pixelsize: float, 
-                       classifier: xgboost.XGBClassifier, 
-                       classes: list = ['worm', 'egg', 'error'],) -> str:
+def classify_worm_type(
+    straightened_mask: np.ndarray,
+    pixelsize: float,
+    classifier: xgboost.XGBClassifier,
+    classes: list = ["worm", "egg", "error"],
+) -> str:
     """
     Classify the type of worm based on extracted features using an XGBoost classifier.
 
-    The function extracts features from the provided straightened mask, then utilizes 
-    the XGBoost classifier to predict the type of worm. The classifier is assumed 
-    to return class probabilities, which are then converted to a one-hot encoding 
+    The function extracts features from the provided straightened mask, then utilizes
+    the XGBoost classifier to predict the type of worm. The classifier is assumed
+    to return class probabilities, which are then converted to a one-hot encoding
     format to derive the final prediction.
 
     Parameters:
@@ -26,14 +29,23 @@ def classify_worm_type(straightened_mask: np.ndarray, pixelsize: float,
     Returns:
         str: The predicted class of the worm ('worm', 'egg', or 'error').
     """
-    worm_type_features = np.array([worm_features.compute_worm_type_features(straightened_mask, pixelsize)])
+    worm_type_features = np.array(
+        [worm_features.compute_worm_type_features(straightened_mask, pixelsize)]
+    )
     type_prediction = classifier.predict_proba(worm_type_features).squeeze()
     # convert proba to one hot encoding
     pred_class = np.argmax(type_prediction)
     prediction = classes[pred_class]
     return prediction
 
-def classify_image(image: np.ndarray, features_function: Callable, classifier: xgboost.XGBClassifier, classes: list, **kwargs):
+
+def classify_image(
+    image: np.ndarray,
+    features_function: Callable,
+    classifier: xgboost.XGBClassifier,
+    classes: list,
+    **kwargs,
+):
     """
     Classify images based on extracted features using a provided classifier.
 
@@ -53,14 +65,16 @@ def classify_image(image: np.ndarray, features_function: Callable, classifier: x
     try:
         features = features_function(image, **kwargs)
     except Exception as e:
-        raise Exception(f'Error extracting features from image. {e}')
+        raise Exception(f"Error extracting features from image. {e}")
     # classification
     try:
         prediction = classifier.predict_proba(features).squeeze()
     except Exception as e:
-        raise Exception(f'Error predicting class of image. {e}')
-    
-    assert len(prediction) == len(classes), f'Number of provided classes and predicted classes do not match. len(prediction) = {len(prediction)}, len(classes) = {len(classes)}'
+        raise Exception(f"Error predicting class of image. {e}")
+
+    assert len(prediction) == len(
+        classes
+    ), f"Number of provided classes and predicted classes do not match. len(prediction) = {len(prediction)}, len(classes) = {len(classes)}"
     # convert proba to one hot encoding
     pred_class = np.argmax(prediction)
     prediction = classes[pred_class]

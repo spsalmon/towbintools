@@ -1,5 +1,10 @@
 from utils.dataset import TilesDatasetFly, TilesDataset
-from towbintools.towbintools.deep_learning.augmentation import get_mean_and_std, get_training_augmentation, get_validation_augmentation, grayscale_to_rgb
+from towbintools.deep_learning.utils.augmentation import (
+    get_mean_and_std,
+    get_training_augmentation,
+    get_validation_augmentation,
+    grayscale_to_rgb,
+)
 import os
 from time import perf_counter
 
@@ -31,8 +36,8 @@ import pretrained_microscopy_models as pmm
 
 database_csv = "/mnt/external.data/TowbinLab/plenart/20221020_Ti2_10x_green_bacteria_wbt150_small_chambers_good/analysis/report/analysis_filemap.csv"
 
-image_column = 'raw'
-mask_column = 'analysis/ch2_seg'
+image_column = "raw"
+mask_column = "analysis/ch2_seg"
 
 database = pd.read_csv(database_csv).dropna(subset=[mask_column])
 database = database.dropna(subset=[image_column])
@@ -41,6 +46,4 @@ database = database.dropna(subset=[image_column])
 random_database = database.sample(n=50000, random_state=42)
 
 # get the images that are not in the random database
-database = database[~database['raw'].isin(random_database['raw'])]
-
-
+database = database[~database["raw"].isin(random_database["raw"])]

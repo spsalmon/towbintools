@@ -315,16 +315,20 @@ def extract_midline(mask2D, ridge_responce_thresh: float = 90, return_dt: bool =
     else:
         return midline
 
+
 def _detect_ridges(gray, sigma=1):
     """Finds ridge points in a grayscale image. Copied from here : https://stackoverflow.com/questions/48727914/how-to-use-ridge-detection-filter-in-opencv"""
-    H_elems = hessian_matrix(gray, sigma=sigma, order='rc', use_gaussian_derivatives=False)
+    H_elems = hessian_matrix(
+        gray, sigma=sigma, order="rc", use_gaussian_derivatives=False
+    )
     maxima_ridges, minima_ridges = hessian_matrix_eigvals(H_elems)
     return maxima_ridges, minima_ridges
+
 
 def _medial_axis_transform(
     mask2D: NDArray[np.bool_],
     percentile: float = 90,
-    ridge_detector: str = 'scikit',
+    ridge_detector: str = "scikit",
     return_distance_transform: bool = False,
 ) -> NDArray[np.bool_] | tuple[NDArray[np.bool_], NDArray[np.float_]]:
     """medial axis transform of a mask
@@ -346,25 +350,25 @@ def _medial_axis_transform(
         mask2D, cv2.DIST_L2, cv2.DIST_MASK_PRECISE
     )
 
-    if ridge_detector == 'scikit':
+    if ridge_detector == "scikit":
         ridge_response, _ = _detect_ridges(distance_transform * -1)
-    elif ridge_detector == 'opencv':
+    elif ridge_detector == "opencv":
         ridge_response = RIDGE_DETECTOR.getRidgeFilteredImage(distance_transform * -1)
 
     # get top_percentile of non-zero ridges
     thresh_ridges = ridge_response > np.percentile(
         ridge_response[ridge_response > 0], percentile
     )
-    
+
     # thresh_ridges has a lot of noise, so extract the largest component to filter away noise
     main_ridge = _largest_mask_component(thresh_ridges)
-    
+
     # thin to one pixel thickness
     thinned = cv2.ximgproc.thinning(
         img_as_ubyte(main_ridge),
         thinningType=cv2.ximgproc.THINNING_GUOHALL,
     )
-    
+
     if return_distance_transform:
         return thinned, distance_transform
     else:

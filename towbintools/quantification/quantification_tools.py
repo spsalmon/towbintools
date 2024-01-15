@@ -1,6 +1,7 @@
 import numpy as np
 
-def fluorescence_in_mask(image, mask, pixelsize, normalization = 'area'):
+
+def fluorescence_in_mask(image, mask, pixelsize, normalization="area"):
     """Quantify fluorescence of an image in a mask.
 
     Parameters:
@@ -12,15 +13,17 @@ def fluorescence_in_mask(image, mask, pixelsize, normalization = 'area'):
     Returns:
         float: Quantification of the fluorescence of the image in the mask.
     """
-    if normalization == 'area':
-        return np.sum(image * mask*(pixelsize**2)) / (np.sum(mask)*(pixelsize**2))
-    elif normalization == 'mean':
+    if normalization == "area":
+        return np.sum(image * mask * (pixelsize**2)) / (
+            np.sum(mask) * (pixelsize**2)
+        )
+    elif normalization == "mean":
         return np.mean(image * mask * (pixelsize**2))
-    elif normalization == 'max':
+    elif normalization == "max":
         return np.max(image * mask * (pixelsize**2))
-    elif normalization == 'none':
+    elif normalization == "none":
         return np.sum(image * mask * (pixelsize**2))
     else:
-        raise ValueError('Normalization must be one of "area", "mean", "max", or "none".')
-
-    
+        raise ValueError(
+            'Normalization must be one of "area", "mean", "max", or "none".'
+        )

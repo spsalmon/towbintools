@@ -186,5 +186,5 @@ def get_biggest_object(
     else:
         biggest_object_label = 0
         biggest_object_mask = np.zeros(mask.shape, dtype=np.uint8)
-    
+
     return biggest_object_mask
