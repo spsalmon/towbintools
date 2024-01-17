@@ -1,13 +1,24 @@
+import datetime
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 from towbintools.foundation import image_handling
 import torch
 import numpy as np
 from .augmentation import grayscale_to_rgb
 from albumentations.pytorch import ToTensorV2
+import os 
+import pandas as pd
 
+from utils.augmentation import (
+    get_mean_and_std,
+    get_training_augmentation,
+    get_prediction_augmentation,
+)
+from pytorch_toolbelt import inference
+from torch.utils.data import DataLoader
 
 # Dataset where each image is split into tiles in the first place
-class TilesDataset(Dataset):
+class OldTiledSegmentationDataloader(Dataset):
     def __init__(
         self,
         dataset,
@@ -55,14 +66,14 @@ class TilesDataset(Dataset):
 # Dataset where the images are split into tiles on the fly
 
 
-class TilesDatasetFly(Dataset):
+class TiledSegmentationDataloader(Dataset):
     def __init__(
         self,
         dataset,
         image_slicer,
         channel_to_segment,
-        mask_column,
-        image_column="raw",
+        mask_column="mask",
+        image_column="image",
         transform=None,
         RGB=True,
     ):
@@ -85,8 +96,6 @@ class TilesDatasetFly(Dataset):
             img = transformed["image"]
             mask = transformed["mask"]
 
-        # img = image_handling.normalize_image(img, dest_dtype=np.float32)
-
         tiles = self.image_slicer.split(img)
         if self.RGB:
             tiles = [grayscale_to_rgb(tile) for tile in tiles]
@@ -100,22 +109,20 @@ class TilesDatasetFly(Dataset):
         mask = mask[np.newaxis, ...]
 
         return img, mask
-
-
-class TilesDatasetFlyScract(Dataset):
+    
+class SegmentationDataloader(Dataset):
     def __init__(
         self,
-        images,
-        ground_truth,
-        image_slicer,
+        dataset,
         channel_to_segment,
+        mask_column="mask",
+        image_column="image",
         transform=None,
         RGB=True,
     ):
-        self.images = images
-        self.ground_truth = ground_truth
+        self.images = dataset[image_column].values.tolist()
+        self.ground_truth = dataset[mask_column].values.tolist()
         self.channel_to_segment = channel_to_segment
-        self.image_slicer = image_slicer
         self.transform = transform
         self.RGB = RGB
 
@@ -131,18 +138,112 @@ class TilesDatasetFlyScract(Dataset):
             img = transformed["image"]
             mask = transformed["mask"]
 
-        # img = image_handling.normalize_image(img, dest_dtype=np.float32)
-
-        tiles = self.image_slicer.split(img)
         if self.RGB:
-            tiles = [grayscale_to_rgb(tile) for tile in tiles]
+            img = grayscale_to_rgb(img)
         else:
-            tiles = [tile[np.newaxis, ...] for tile in tiles]
-        tiles_ground_truth = self.image_slicer.split(mask)
-
-        selected_tile = np.random.randint(0, len(tiles))
-        img = tiles[selected_tile]
-        mask = tiles_ground_truth[selected_tile]
+            img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]
 
         return img, mask
+    
+def create_segmentation_training_dataframes(image_directories, mask_directories, save_dir, train_test_split_ratio=0.25):
+    images = []
+    masks = []
+    for image_directory, mask_directory in zip(image_directories, mask_directories):
+        images.extend([os.path.join(image_directory, file) for file in os.listdir(image_directory)])
+        masks.extend([os.path.join(mask_directory, file) for file in os.listdir(mask_directory)])
+
+    dataframe = pd.DataFrame({"image": images, "mask": masks})
+    training_dataframe, validation_dataframe = train_test_split(
+        dataframe, test_size=train_test_split_ratio, random_state=42
+    )
+
+    # backup the training and validation dataframes
+    database_backup_dir = os.path.join(save_dir, "database_backup")
+    current_date = datetime.datetime.now().strftime("%Y%m%d")
+    os.makedirs(database_backup_dir, exist_ok=True)
+    training_dataframe.to_csv(os.path.join(database_backup_dir, f"training_dataframe_{current_date}.csv"))
+    validation_dataframe.to_csv(
+        os.path.join(database_backup_dir, f"validation_dataframe_{current_date}.csv")
+    )
+
+    return training_dataframe, validation_dataframe
+
+def create_segmentation_dataloaders(training_dataframe, validation_dataframe, batch_size=5, num_workers=32, pin_memory=True, tile_images = True, image_slicer=None, training_transform=None, validation_transform=None, RGB=True):
+    
+    if not tile_images:
+        train_loader = DataLoader(
+            SegmentationDataloader(
+                training_dataframe,
+                channel_to_segment=1,
+                mask_column="mask",
+                image_column="image",
+                transform=training_transform,
+                RGB=RGB,
+            ),
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+        )
+        val_loader = DataLoader(
+            SegmentationDataloader(
+                validation_dataframe,
+                channel_to_segment=1,
+                mask_column="mask",
+                image_column="image",
+                transform=validation_transform,
+                RGB=RGB,
+            ),
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+        )
+        return train_loader, val_loader
+    
+    first_image = image_handling.read_tiff_file(
+        training_dataframe["image"].values[0], [0]
+    )
+
+    if training_transform is None:
+        training_transform = get_training_augmentation("percentile", lo=1, hi=99)
+    if validation_transform is None:
+        validation_transform = get_prediction_augmentation("percentile", lo=1, hi=99)
+
+    train_loader = DataLoader(
+        TiledSegmentationDataloader(
+            training_dataframe,
+            image_slicer,
+            channel_to_segment=1,
+            mask_column="mask",
+            image_column="image",
+            transform=training_transform,
+            RGB=RGB,
+        ),
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+    )
+    val_loader = DataLoader(
+        TiledSegmentationDataloader(
+            validation_dataframe,
+            image_slicer,
+            channel_to_segment=1,
+            mask_column="mask",
+            image_column="image",
+            transform=validation_transform,
+            RGB=RGB,
+        ),
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+    )
+    return train_loader, val_loader
+
+def create_segmentation_training_dataframes_and_dataloaders(image_directories, mask_directories, save_dir, train_test_split_ratio=0.25, batch_size=5, num_workers=32, pin_memory=True, image_slicer=None, training_transform=None, validation_transform=None, RGB=True):
+    training_dataframe, validation_dataframe = create_segmentation_training_dataframes(image_directories, mask_directories, save_dir, train_test_split_ratio=train_test_split_ratio)
+    train_loader, val_loader = create_segmentation_dataloaders(training_dataframe, validation_dataframe, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, image_slicer=image_slicer, training_transform=training_transform, validation_transform=validation_transform, RGB=RGB)
+    return training_dataframe, validation_dataframe, train_loader, val_loader
