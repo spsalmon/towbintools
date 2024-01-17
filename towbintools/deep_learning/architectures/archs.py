@@ -27,7 +27,7 @@ class VGGBlock(nn.Module):
         return out
 
 
-class UNet(nn.Module):
+class Unet(nn.Module):
     def __init__(self, num_classes, input_channels=1, **kwargs):
         super().__init__()
 
@@ -65,7 +65,7 @@ class UNet(nn.Module):
         return output
 
 
-class NestedUNet(nn.Module):
+class UnetPlusPlus(nn.Module):
     def __init__(self, num_classes, input_channels=1, deep_supervision=False, **kwargs):
         super().__init__()
 
