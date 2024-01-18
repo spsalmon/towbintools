@@ -169,7 +169,7 @@ def create_segmentation_training_dataframes(image_directories, mask_directories,
 
     return training_dataframe, validation_dataframe
 
-def create_segmentation_dataloaders(training_dataframe, validation_dataframe, batch_size=5, num_workers=32, pin_memory=True, tile_images = True, slicer_params, training_transform=None, validation_transform=None, RGB=True):
+def create_segmentation_dataloaders(training_dataframe, validation_dataframe, slicer_params, batch_size=5, num_workers=32, pin_memory=True, tile_images = True, training_transform=None, validation_transform=None, RGB=True):
     
     if not tile_images:
         train_loader = DataLoader(

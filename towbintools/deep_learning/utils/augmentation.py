@@ -100,7 +100,12 @@ def grayscale_to_rgb(grayscale_img):
     if len(grayscale_img.shape) == 2:
         grayscale_img = grayscale_img.unsqueeze(0)
 
-    # stack the single channel image three times along the channel dimension (dimension 0)
-    stacked_img = torch.cat((grayscale_img, grayscale_img, grayscale_img), 0)
+    # Assuming grayscale_img has a shape of (C, H, W)
+    if grayscale_img.shape[0] == 3:
+        return grayscale_img
+    
+    if grayscale_img.shape[0] == 2:
+        grayscale_img = torch.cat((grayscale_img, grayscale_img[0].unsqueeze(0)), 0)
 
-    return stacked_img
+    # Repeat the single channel image three times along the channel dimension (dimension 0)
+    return grayscale_img.repeat((3, 1, 1))
