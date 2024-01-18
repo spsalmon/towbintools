@@ -1,8 +1,9 @@
-from .architectures.models import PretrainedSegmentationModel, SegmentationModel
+from towbintools.deep_learning.architectures import PretrainedSegmentationModel, SegmentationModel
+
 
 def create_pretrained_segmentation_model(
-    n_classes,
-    architecture,
+    n_classes=1,
+    architecture="UnetPlusPlus",
     encoder="efficientnet-b4",
     pretrained_weights="image-micronet",
     normalization={"type": "percentile", "lo": 1, "hi": 99},
@@ -25,9 +26,12 @@ def create_pretrained_segmentation_model(
 
     """
     if checkpoint_path is not None:
-        model = PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
+        model = PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path, map_location="cpu")
+        # change the learning rate and normalization
+        model.learning_rate = learning_rate
+        model.normalization = normalization
         return model
-    
+
     model = PretrainedSegmentationModel(
         n_classes=n_classes,
         learning_rate=learning_rate,
@@ -38,12 +42,13 @@ def create_pretrained_segmentation_model(
     )
     return model
 
+
 def create_segmentation_model(
     architecture,
     input_channels,
     n_classes,
     normalization={"type": "percentile", "lo": 1, "hi": 99},
-    learning_rate = 1e-5,
+    learning_rate=1e-5,
     deep_supervision=False,
     checkpoint_path=None,
 ):
@@ -66,7 +71,7 @@ def create_segmentation_model(
     if checkpoint_path is not None:
         model = SegmentationModel.load_from_checkpoint(checkpoint_path)
         return model
-    
+
     model = SegmentationModel(
         architecture=architecture,
         input_channels=input_channels,
@@ -76,5 +81,38 @@ def create_segmentation_model(
         deep_supervision=deep_supervision,
     )
 
+    return model
 
+
+def load_pretrained_segmentation_model_from_checkpoint(
+    checkpoint_path,
+):
+    """Loads a pretrained segmentation model from a checkpoint.
+    Automatically determines the architecture and encoder.
+
+    Parameters:
+        checkpoint_path (str): Path to a checkpoint file.
+
+    Returns:
+        PretrainedSegmentationModel: The pretrained segmentation model.
+
+    """
+
+    model = PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
+    return model
+
+def load_segmentation_model_from_checkpoint(
+    checkpoint_path,
+):
+    """Loads a segmentation model from a checkpoint.
+
+    Parameters:
+        checkpoint_path (str): Path to a checkpoint file.
+
+    Returns:
+        SegmentationModel: The segmentation model.
+
+    """
+
+    model = SegmentationModel.load_from_checkpoint(checkpoint_path)
     return model

@@ -169,7 +169,7 @@ def create_segmentation_training_dataframes(image_directories, mask_directories,
 
     return training_dataframe, validation_dataframe
 
-def create_segmentation_dataloaders(training_dataframe, validation_dataframe, batch_size=5, num_workers=32, pin_memory=True, tile_images = True, image_slicer=None, training_transform=None, validation_transform=None, RGB=True):
+def create_segmentation_dataloaders(training_dataframe, validation_dataframe, batch_size=5, num_workers=32, pin_memory=True, tile_images = True, slicer_params, training_transform=None, validation_transform=None, RGB=True):
     
     if not tile_images:
         train_loader = DataLoader(
@@ -205,6 +205,8 @@ def create_segmentation_dataloaders(training_dataframe, validation_dataframe, ba
     first_image = image_handling.read_tiff_file(
         training_dataframe["image"].values[0], [0]
     )
+
+    image_slicer = inference.ImageSlicer(first_image.shape, slicer_params["tile_size"], slicer_params["tile_step"])
 
     if training_transform is None:
         training_transform = get_training_augmentation("percentile", lo=1, hi=99)
