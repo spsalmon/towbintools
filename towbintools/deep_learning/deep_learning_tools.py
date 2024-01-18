@@ -84,35 +84,25 @@ def create_segmentation_model(
     return model
 
 
-def load_pretrained_segmentation_model_from_checkpoint(
-    checkpoint_path,
-):
-    """Loads a pretrained segmentation model from a checkpoint.
-    Automatically determines the architecture and encoder.
-
-    Parameters:
-        checkpoint_path (str): Path to a checkpoint file.
-
-    Returns:
-        PretrainedSegmentationModel: The pretrained segmentation model.
-
-    """
-
-    model = PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
-    return model
-
-def load_segmentation_model_from_checkpoint(
-    checkpoint_path,
-):
+def load_segmentation_model_from_checkpoint(checkpoint_path):
     """Loads a segmentation model from a checkpoint.
 
+    This function first tries to load the model as a PretrainedSegmentationModel. If that fails,
+    it tries to load it as a SegmentationModel. If both attempts fail, it raises an error.
+
     Parameters:
         checkpoint_path (str): Path to a checkpoint file.
 
     Returns:
-        SegmentationModel: The segmentation model.
+        SegmentationModel or PretrainedSegmentationModel: The segmentation model.
 
+    Raises:
+        ValueError: If the model cannot be loaded from the checkpoint.
     """
-
-    model = SegmentationModel.load_from_checkpoint(checkpoint_path)
-    return model
+    try:
+        return PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
+    except Exception as e:
+        try:
+            return SegmentationModel.load_from_checkpoint(checkpoint_path)
+        except Exception as e2:
+            raise ValueError(f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}")
