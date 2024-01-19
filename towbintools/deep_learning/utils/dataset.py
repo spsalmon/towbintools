@@ -169,13 +169,13 @@ def create_segmentation_training_dataframes(image_directories, mask_directories,
 
     return training_dataframe, validation_dataframe
 
-def create_segmentation_dataloaders(training_dataframe, validation_dataframe, slicer_params, batch_size=5, num_workers=32, pin_memory=True, tile_images = True, training_transform=None, validation_transform=None, RGB=True):
+def create_segmentation_dataloaders(training_dataframe, validation_dataframe, channel_to_segment, batch_size=5, num_workers=32, pin_memory=True, train_on_tiles = True, tiler_params = None, training_transform=None, validation_transform=None, RGB=True):
     
-    if not tile_images:
+    if not train_on_tiles:
         train_loader = DataLoader(
             SegmentationDataloader(
                 training_dataframe,
-                channel_to_segment=1,
+                channel_to_segment=channel_to_segment,
                 mask_column="mask",
                 image_column="image",
                 transform=training_transform,
@@ -189,7 +189,7 @@ def create_segmentation_dataloaders(training_dataframe, validation_dataframe, sl
         val_loader = DataLoader(
             SegmentationDataloader(
                 validation_dataframe,
-                channel_to_segment=1,
+                channel_to_segment=channel_to_segment,
                 mask_column="mask",
                 image_column="image",
                 transform=validation_transform,
@@ -202,11 +202,13 @@ def create_segmentation_dataloaders(training_dataframe, validation_dataframe, sl
         )
         return train_loader, val_loader
     
+    assert tiler_params is not None, "If train_on_tiles is True, tiler_params must be provided"
+
     first_image = image_handling.read_tiff_file(
         training_dataframe["image"].values[0], [0]
     )
 
-    image_slicer = inference.ImageSlicer(first_image.shape, slicer_params["tile_size"], slicer_params["tile_step"])
+    image_slicer = inference.ImageSlicer(first_image.shape, tiler_params["tile_size"], tiler_params["tile_step"])
 
     if training_transform is None:
         training_transform = get_training_augmentation("percentile", lo=1, hi=99)
@@ -217,7 +219,7 @@ def create_segmentation_dataloaders(training_dataframe, validation_dataframe, sl
         TiledSegmentationDataloader(
             training_dataframe,
             image_slicer,
-            channel_to_segment=1,
+            channel_to_segment=channel_to_segment,
             mask_column="mask",
             image_column="image",
             transform=training_transform,
@@ -232,7 +234,7 @@ def create_segmentation_dataloaders(training_dataframe, validation_dataframe, sl
         TiledSegmentationDataloader(
             validation_dataframe,
             image_slicer,
-            channel_to_segment=1,
+            channel_to_segment=channel_to_segment,
             mask_column="mask",
             image_column="image",
             transform=validation_transform,
@@ -245,7 +247,7 @@ def create_segmentation_dataloaders(training_dataframe, validation_dataframe, sl
     )
     return train_loader, val_loader
 
-def create_segmentation_training_dataframes_and_dataloaders(image_directories, mask_directories, save_dir, train_test_split_ratio=0.25, batch_size=5, num_workers=32, pin_memory=True, image_slicer=None, training_transform=None, validation_transform=None, RGB=True):
+def create_segmentation_training_dataframes_and_dataloaders(image_directories, mask_directories, save_dir, channel_to_segment, train_test_split_ratio=0.25, batch_size=5, num_workers=32, pin_memory=True, train_on_tiles = True, tiler_params=None, training_transform=None, validation_transform=None, RGB=True):
     training_dataframe, validation_dataframe = create_segmentation_training_dataframes(image_directories, mask_directories, save_dir, train_test_split_ratio=train_test_split_ratio)
-    train_loader, val_loader = create_segmentation_dataloaders(training_dataframe, validation_dataframe, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, image_slicer=image_slicer, training_transform=training_transform, validation_transform=validation_transform, RGB=RGB)
+    train_loader, val_loader = create_segmentation_dataloaders(training_dataframe, validation_dataframe, channel_to_segment, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, train_on_tiles=train_on_tiles, tiler_params=tiler_params, training_transform=training_transform, validation_transform=validation_transform, RGB=RGB)
     return training_dataframe, validation_dataframe, train_loader, val_loader
