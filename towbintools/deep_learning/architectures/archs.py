@@ -3,6 +3,7 @@ from torch import nn
 
 # from https://github.com/4uiiurz1/pytorch-nested-unet
 
+
 class VGGBlock(nn.Module):
     def __init__(self, in_channels, middle_channels, out_channels):
         super().__init__()

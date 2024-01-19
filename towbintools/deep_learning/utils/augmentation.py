@@ -2,7 +2,6 @@ import albumentations as albu
 from towbintools.foundation import image_handling
 import numpy as np
 import torch
-from albumentations.pytorch import ToTensorV2
 from albumentations.core.transforms_interface import ImageOnlyTransform
 from csbdeep.utils import normalize
 
@@ -95,6 +94,10 @@ def grayscale_to_rgb(grayscale_img):
     # Check if the image is a pytorch tensor, if not, convert it to one
     if not isinstance(grayscale_img, torch.Tensor):
         grayscale_img = torch.tensor(grayscale_img, dtype=torch.float32)
+
+    assert (
+        len(grayscale_img.shape) == 2 or len(grayscale_img.shape) == 3
+    ), "Currently, zstacks are not supported"
     # Assuming grayscale_img has a shape of (H, W)
     # we will unsqueeze it to have a shape of (1, H, W)
     if len(grayscale_img.shape) == 2:
@@ -103,9 +106,14 @@ def grayscale_to_rgb(grayscale_img):
     # Assuming grayscale_img has a shape of (C, H, W)
     if grayscale_img.shape[0] == 3:
         return grayscale_img
-    
+
     if grayscale_img.shape[0] == 2:
         grayscale_img = torch.cat((grayscale_img, grayscale_img[0].unsqueeze(0)), 0)
+
+    if grayscale_img.shape[0] > 3:
+        raise ValueError(
+            "The image has more than 3 channels, and thus cannot be converted to RGB"
+        )
 
     # Repeat the single channel image three times along the channel dimension (dimension 0)
     return grayscale_img.repeat((3, 1, 1))

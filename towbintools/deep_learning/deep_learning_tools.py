@@ -1,4 +1,7 @@
-from towbintools.deep_learning.architectures import PretrainedSegmentationModel, SegmentationModel
+from towbintools.deep_learning.architectures import (
+    PretrainedSegmentationModel,
+    SegmentationModel,
+)
 
 
 def create_pretrained_segmentation_model(
@@ -26,7 +29,9 @@ def create_pretrained_segmentation_model(
 
     """
     if checkpoint_path is not None:
-        model = PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path, map_location="cpu")
+        model = PretrainedSegmentationModel.load_from_checkpoint(
+            checkpoint_path, map_location="cpu"
+        )
         # change the learning rate and normalization
         model.learning_rate = learning_rate
         model.normalization = normalization
@@ -105,4 +110,6 @@ def load_segmentation_model_from_checkpoint(checkpoint_path):
         try:
             return SegmentationModel.load_from_checkpoint(checkpoint_path)
         except Exception as e2:
-            raise ValueError(f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}")
+            raise ValueError(
+                f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
+            )
