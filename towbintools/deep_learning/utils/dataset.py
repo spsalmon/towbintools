@@ -21,7 +21,7 @@ class OldTiledSegmentationDataloader(Dataset):
         self,
         dataset,
         image_slicer,
-        channel_to_segment,
+        channels,
         mask_column,
         image_column="raw",
         transform=None,
@@ -69,7 +69,7 @@ class TiledSegmentationDataloader(Dataset):
         self,
         dataset,
         image_slicer,
-        channel_to_segment,
+        channels,
         mask_column="mask",
         image_column="image",
         transform=None,
@@ -113,7 +113,7 @@ class SegmentationDataloader(Dataset):
     def __init__(
         self,
         dataset,
-        channel_to_segment,
+        channels,
         mask_column="mask",
         image_column="image",
         transform=None,
@@ -198,7 +198,7 @@ def create_segmentation_dataloaders(
         train_loader = DataLoader(
             SegmentationDataloader(
                 training_dataframe,
-                channel_to_segment=channel_to_segment,
+                channels=channel_to_segment,
                 mask_column="mask",
                 image_column="image",
                 transform=training_transform,
@@ -212,7 +212,7 @@ def create_segmentation_dataloaders(
         val_loader = DataLoader(
             SegmentationDataloader(
                 validation_dataframe,
-                channel_to_segment=channel_to_segment,
+                channels=channel_to_segment,
                 mask_column="mask",
                 image_column="image",
                 transform=validation_transform,
@@ -246,7 +246,7 @@ def create_segmentation_dataloaders(
         TiledSegmentationDataloader(
             training_dataframe,
             image_slicer,
-            channel_to_segment=channel_to_segment,
+            channels=channel_to_segment,
             mask_column="mask",
             image_column="image",
             transform=training_transform,
@@ -261,7 +261,7 @@ def create_segmentation_dataloaders(
         TiledSegmentationDataloader(
             validation_dataframe,
             image_slicer,
-            channel_to_segment=channel_to_segment,
+            channels=channel_to_segment,
             mask_column="mask",
             image_column="image",
             transform=validation_transform,
