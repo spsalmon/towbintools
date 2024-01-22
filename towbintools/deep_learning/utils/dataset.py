@@ -34,7 +34,7 @@ class OldTiledSegmentationDataloader(Dataset):
         self.mask_tiles = []
 
         for image, ground_truth in zip(images, ground_truth):
-            img = image_handling.read_tiff_file(image, [channel_to_segment])
+            img = image_handling.read_tiff_file(image, [channels])
             mask = image_handling.read_tiff_file(ground_truth)
 
             if transform is not None:
@@ -77,7 +77,7 @@ class TiledSegmentationDataloader(Dataset):
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
-        self.channel_to_segment = channel_to_segment
+        self.channels = channels
         self.image_slicer = image_slicer
         self.transform = transform
         self.RGB = RGB
@@ -86,7 +86,7 @@ class TiledSegmentationDataloader(Dataset):
         return len(self.images)
 
     def __getitem__(self, i):
-        img = image_handling.read_tiff_file(self.images[i], [self.channel_to_segment])
+        img = image_handling.read_tiff_file(self.images[i], [self.channels])
         mask = image_handling.read_tiff_file(self.ground_truth[i])
 
         if self.transform is not None:
@@ -121,7 +121,7 @@ class SegmentationDataloader(Dataset):
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
-        self.channel_to_segment = channel_to_segment
+        self.channels = channels
         self.transform = transform
         self.RGB = RGB
 
@@ -129,7 +129,7 @@ class SegmentationDataloader(Dataset):
         return len(self.images)
 
     def __getitem__(self, i):
-        img = image_handling.read_tiff_file(self.images[i], [self.channel_to_segment])
+        img = image_handling.read_tiff_file(self.images[i], [self.channels])
         mask = image_handling.read_tiff_file(self.ground_truth[i])
 
         if self.transform is not None:
@@ -184,7 +184,7 @@ def create_segmentation_training_dataframes(
 def create_segmentation_dataloaders(
     training_dataframe,
     validation_dataframe,
-    channel_to_segment,
+    channels,
     batch_size=5,
     num_workers=32,
     pin_memory=True,
@@ -198,7 +198,7 @@ def create_segmentation_dataloaders(
         train_loader = DataLoader(
             SegmentationDataloader(
                 training_dataframe,
-                channels=channel_to_segment,
+                channels=channels,
                 mask_column="mask",
                 image_column="image",
                 transform=training_transform,
@@ -212,7 +212,7 @@ def create_segmentation_dataloaders(
         val_loader = DataLoader(
             SegmentationDataloader(
                 validation_dataframe,
-                channels=channel_to_segment,
+                channels=channels,
                 mask_column="mask",
                 image_column="image",
                 transform=validation_transform,
@@ -246,7 +246,7 @@ def create_segmentation_dataloaders(
         TiledSegmentationDataloader(
             training_dataframe,
             image_slicer,
-            channels=channel_to_segment,
+            channels=channels,
             mask_column="mask",
             image_column="image",
             transform=training_transform,
@@ -261,7 +261,7 @@ def create_segmentation_dataloaders(
         TiledSegmentationDataloader(
             validation_dataframe,
             image_slicer,
-            channels=channel_to_segment,
+            channels=channels,
             mask_column="mask",
             image_column="image",
             transform=validation_transform,
@@ -279,7 +279,7 @@ def create_segmentation_training_dataframes_and_dataloaders(
     image_directories,
     mask_directories,
     save_dir,
-    channel_to_segment,
+    channels,
     train_test_split_ratio=0.25,
     batch_size=5,
     num_workers=32,
@@ -299,7 +299,7 @@ def create_segmentation_training_dataframes_and_dataloaders(
     train_loader, val_loader = create_segmentation_dataloaders(
         training_dataframe,
         validation_dataframe,
-        channel_to_segment,
+        channels,
         batch_size=batch_size,
         num_workers=num_workers,
         pin_memory=pin_memory,
