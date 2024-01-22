@@ -310,3 +310,48 @@ def create_segmentation_training_dataframes_and_dataloaders(
         RGB=RGB,
     )
     return training_dataframe, validation_dataframe, train_loader, val_loader
+
+def create_dataloaders_from_filemap(
+        filemap_path,
+        save_dir,
+        channels,
+        train_test_split_ratio=0.25,
+        batch_size=5,
+        num_workers=32,
+        pin_memory=True,
+        train_on_tiles=True,
+        tiler_params=None,
+        training_transform=None,
+        validation_transform=None,
+        RGB=True,
+):
+    dataframe = pd.read_csv(filemap_path)
+    training_dataframe, validation_dataframe = train_test_split(
+        dataframe, test_size=train_test_split_ratio, random_state=42
+    )
+
+    # backup the training and validation dataframes
+    database_backup_dir = os.path.join(save_dir, "database_backup")
+    current_date = datetime.datetime.now().strftime("%Y%m%d")
+    os.makedirs(database_backup_dir, exist_ok=True)
+    training_dataframe.to_csv(
+        os.path.join(database_backup_dir, f"training_dataframe_{current_date}.csv")
+    )
+    validation_dataframe.to_csv(
+        os.path.join(database_backup_dir, f"validation_dataframe_{current_date}.csv")
+    )
+
+    train_loader, val_loader = create_segmentation_dataloaders(
+        training_dataframe,
+        validation_dataframe,
+        channels,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        train_on_tiles=train_on_tiles,
+        tiler_params=tiler_params,
+        training_transform=training_transform,
+        validation_transform=validation_transform,
+        RGB=RGB,
+    )
+    return training_dataframe, validation_dataframe, train_loader, val_loader
