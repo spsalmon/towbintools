@@ -316,6 +316,8 @@ def create_dataloaders_from_filemap(
     filemap_path,
     save_dir,
     channels,
+    image_column = "image",
+    mask_column = "mask",
     train_test_split_ratio=0.25,
     batch_size=5,
     num_workers=32,
@@ -327,6 +329,8 @@ def create_dataloaders_from_filemap(
     RGB=True,
 ):
     dataframe = pd.read_csv(filemap_path)
+    # rename image column to "image" and mask column to "mask"
+    dataframe = dataframe.rename(columns={image_column: "image", mask_column: "mask"})
     training_dataframe, validation_dataframe = train_test_split(
         dataframe, test_size=train_test_split_ratio, random_state=42
     )
