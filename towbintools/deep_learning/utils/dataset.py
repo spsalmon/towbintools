@@ -7,7 +7,7 @@ from .augmentation import grayscale_to_rgb
 import os
 import pandas as pd
 
-from utils.augmentation import (
+from towbintools.deep_learning.utils.augmentation import (
     get_training_augmentation,
     get_prediction_augmentation,
 )
