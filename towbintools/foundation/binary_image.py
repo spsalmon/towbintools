@@ -3,7 +3,6 @@ import numpy as np
 import scipy.ndimage
 import skimage.morphology
 from scipy.spatial import distance
-from skimage.util import img_as_ubyte
 
 
 def find_endpoints(

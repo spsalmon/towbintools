@@ -1,7 +1,6 @@
 from typing import Tuple
 
 import numpy as np
-from numpy.polynomial.polynomial import polyfit
 from scipy.ndimage import uniform_filter1d
 from scipy.signal import find_peaks, medfilt, savgol_filter
 from scipy.stats import linregress
@@ -82,7 +81,12 @@ def find_mid_molts(
     log_volume = np.log(volume)
     log_volume = interpolate_peaks(log_volume)
     medfilt_log_volume = medfilt(log_volume, 3)
-    savgol_log_volume = savgol_filter(medfilt_log_volume, 9, 3)
+
+    try:
+        savgol_log_volume = savgol_filter(medfilt_log_volume, 9, 3)
+    except Exception as e:
+        print(f"Caught an exception while running SavGol filter: {e}")
+        savgol_log_volume = medfilt_log_volume
 
     # Calculate derivative
     log_diff = np.diff(savgol_log_volume)
@@ -204,7 +208,7 @@ def find_end_molts(
                 slope2[h] = p2.slope  # type: ignore
             second_derivative = slope2 - slope1
 
-            a = np.max(second_derivative[search_window])
+            # a = np.max(second_derivative[search_window])
             b = np.argmax(second_derivative[search_window])
             # if np.isfinite(a):
             #     fit_range = np.arange(max(b - 4, 0), min(b + 4 + 1, len(medfilt_log_volume)))
@@ -255,7 +259,10 @@ def compute_volume_at_ecdysis(
             try:
                 p = np.polyfit(filtered_fit_x, fit_y, 1)
                 volume_at_hatch = np.exp(np.polyval(p, hatch_time))
-            except:
+            except Exception as e:
+                print(
+                    f"Caught an exception while interpolating volume at hatch, returning nan : {e}"
+                )
                 volume_at_hatch = np.nan
         else:
             volume_at_hatch = np.nan
@@ -274,7 +281,10 @@ def compute_volume_at_ecdysis(
                 try:
                     p = np.polyfit(filtered_fit_x, fit_y, 1)
                     volume_at_molt = np.exp(np.polyval(p, molt))
-                except:
+                except Exception as e:
+                    print(
+                        f"Caught an exception while interpolating volume at molt, returning nan : {e}"
+                    )
                     volume_at_molt = np.nan
                 volume_at_molts[i] = volume_at_molt
             else:
@@ -320,7 +330,10 @@ def compute_volume_at_time(
             fit_y = np.log(volume[filtered_fit_x])
             try:
                 p = np.polyfit(filtered_fit_x, fit_y, 1)
-            except:
+            except Exception as e:
+                print(
+                    f"Caught an exception while interpolating volume at time, returning nan : {e}"
+                )
                 return np.nan
             volume_at_time = np.exp(np.polyval(p, time))
         else:

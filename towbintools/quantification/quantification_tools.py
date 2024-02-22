@@ -14,9 +14,7 @@ def fluorescence_in_mask(image, mask, pixelsize, normalization="area"):
         float: Quantification of the fluorescence of the image in the mask.
     """
     if normalization == "area":
-        return np.sum(image * mask * (pixelsize**2)) / (
-            np.sum(mask) * (pixelsize**2)
-        )
+        return np.sum(image * mask * (pixelsize**2)) / (np.sum(mask) * (pixelsize**2))
     elif normalization == "mean":
         return np.mean(image * mask * (pixelsize**2))
     elif normalization == "max":

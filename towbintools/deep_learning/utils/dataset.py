@@ -145,30 +145,42 @@ class SegmentationDataloader(Dataset):
 
         return img, mask
 
+
 def split_dataset(file_path, validation_size, test_size):
     # Load the dataset
     dataframe = pd.read_csv(file_path)
 
     # Ensure the sizes are valid
     if validation_size + test_size >= 1.0:
-        raise ValueError("The sum of validation_size and test_size should be less than 1.")
+        raise ValueError(
+            "The sum of validation_size and test_size should be less than 1."
+        )
 
     # Calculate the size of the temporary set (validation + test)
     temp_size = validation_size + test_size
 
     # Split the dataframe into training and temporary set
-    train_dataframe, temp_dataframe = train_test_split(dataframe, test_size=temp_size, random_state=42)
+    train_dataframe, temp_dataframe = train_test_split(
+        dataframe, test_size=temp_size, random_state=42
+    )
 
     # Calculate the proportion of validation and test set relative to the temporary set
     validation_proportion = validation_size / temp_size
 
     # Split the temporary set into validation and test sets
-    validation_dataframe, test_dataframe = train_test_split(temp_dataframe, test_size=1-validation_proportion, random_state=42)
+    validation_dataframe, test_dataframe = train_test_split(
+        temp_dataframe, test_size=1 - validation_proportion, random_state=42
+    )
 
     return train_dataframe, validation_dataframe, test_dataframe
 
+
 def create_segmentation_training_dataframes(
-    image_directories, mask_directories, save_dir, validation_set_ratio=0.25, test_set_ratio=0.1,
+    image_directories,
+    mask_directories,
+    save_dir,
+    validation_set_ratio=0.25,
+    test_set_ratio=0.1,
 ):
     images = []
     masks = []
@@ -184,8 +196,10 @@ def create_segmentation_training_dataframes(
         )
 
     dataframe = pd.DataFrame({"image": images, "mask": masks})
-    
-    training_dataframe, validation_dataframe, test_dataframe = split_dataset(dataframe, validation_set_ratio, test_set_ratio)
+
+    training_dataframe, validation_dataframe, test_dataframe = split_dataset(
+        dataframe, validation_set_ratio, test_set_ratio
+    )
 
     # backup the training and validation dataframes
     database_backup_dir = os.path.join(save_dir, "database_backup")
@@ -193,13 +207,16 @@ def create_segmentation_training_dataframes(
     os.makedirs(database_backup_dir, exist_ok=True)
 
     training_dataframe.to_csv(
-        os.path.join(database_backup_dir, f"training_dataframe_{current_date}.csv"), index=False
+        os.path.join(database_backup_dir, f"training_dataframe_{current_date}.csv"),
+        index=False,
     )
     validation_dataframe.to_csv(
-        os.path.join(database_backup_dir, f"validation_dataframe_{current_date}.csv"), index=False
+        os.path.join(database_backup_dir, f"validation_dataframe_{current_date}.csv"),
+        index=False,
     )
     test_dataframe.to_csv(
-        os.path.join(database_backup_dir, f"test_dataframe_{current_date}.csv"), index=False
+        os.path.join(database_backup_dir, f"test_dataframe_{current_date}.csv"),
+        index=False,
     )
 
     return training_dataframe, validation_dataframe
@@ -298,6 +315,7 @@ def create_segmentation_dataloaders(
     )
     return train_loader, val_loader
 
+
 def create_segmentation_training_dataframes_and_dataloaders(
     image_directories,
     mask_directories,
@@ -341,8 +359,8 @@ def create_dataloaders_from_filemap(
     filemap_path,
     save_dir,
     channels,
-    image_column = "image",
-    mask_column = "mask",
+    image_column="image",
+    mask_column="mask",
     validation_set_ratio=0.25,
     test_set_ratio=0.1,
     batch_size=5,
@@ -357,14 +375,16 @@ def create_dataloaders_from_filemap(
     dataframe = pd.read_csv(filemap_path)
     # rename image column to "image" and mask column to "mask"
     dataframe = dataframe.rename(columns={image_column: "image", mask_column: "mask"})
-    
-    training_dataframe, validation_dataframe, test_dataframe = split_dataset(filemap_path, validation_set_ratio, test_set_ratio)
+
+    training_dataframe, validation_dataframe, test_dataframe = split_dataset(
+        filemap_path, validation_set_ratio, test_set_ratio
+    )
 
     # backup the training and validation dataframes
     database_backup_dir = os.path.join(save_dir, "database_backup")
     current_date = datetime.datetime.now().strftime("%Y%m%d")
     os.makedirs(database_backup_dir, exist_ok=True)
-    
+
     training_dataframe.to_csv(
         os.path.join(database_backup_dir, f"training_dataframe_{current_date}.csv"),
         index=False,

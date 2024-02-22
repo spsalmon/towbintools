@@ -3,7 +3,7 @@ from typing import Tuple, Optional
 import cv2
 import numpy as np
 import skimage.metrics
-from tifffile import imread, imwrite
+from tifffile import imread
 from tifffile import tiffcomment
 import ome_types
 
@@ -266,7 +266,8 @@ def get_image_size_metadata(file_path: str) -> Optional[dict]:
             "t_dim": tdim,
             "c_dim": cdim,
         }
-    except:
+    except Exception as e:
+        print(f"Caught exception when trying to read OME-TIFF metadata: {e}")
         return None
 
 
@@ -290,5 +291,6 @@ def check_if_zstack(file_path: str) -> bool:
         ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels  # type: ignore
         zdim = ome_metadata.size_z
         return zdim > 1
-    except:
+    except Exception as e:
+        print(f"Caught exception when trying to read OME-TIFF metadata: {e}")
         return False
