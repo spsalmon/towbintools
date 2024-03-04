@@ -298,13 +298,18 @@ def get_acquisition_date(file_path: str) -> Optional[datetime]:
     """
     Extract the acquisition date from the OME-TIFF metadata of the given file.
 
+    Returns None if the metadata cannot be read or the file is not a valid OME-TIFF.
+
     Parameters:
-        raw_path (str): Path to the OME-TIFF image file.
+        file_path (str): Path to the OME-TIFF image file.
+
+    Returns:
+        Optional[datetime]: The acquisition date of the image, or None if the metadata cannot be read or the file is not a valid OME-TIFF.
+
     """
     try:
         ome_metadata = ome_types.from_tiff(file_path)
-        date = ome_metadata.images[0].acquisition_date
+        return ome_metadata.images[0].acquisition_date
     except Exception as e:
         print(f"Error extracting date from {file_path}: {e}")
-        date = None
-    return date
+        return None
