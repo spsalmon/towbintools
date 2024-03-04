@@ -6,6 +6,7 @@ import skimage.metrics
 from tifffile import imread
 from tifffile import tiffcomment
 import ome_types
+from datetime import datetime
 
 
 def pad_to_correct_dim(
@@ -251,8 +252,7 @@ def get_image_size_metadata(file_path: str) -> Optional[dict]:
               Returns None if the metadata cannot be read or the file is not a valid OME-TIFF.
     """
     try:
-        ome_xml = tiffcomment(file_path)
-        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels  # type: ignore
+        ome_metadata = ome_types.from_tiff(file_path).images[0].pixels  # type: ignore
         xdim = ome_metadata.size_x
         ydim = ome_metadata.size_y
         zdim = ome_metadata.size_z
@@ -287,10 +287,24 @@ def check_if_zstack(file_path: str) -> bool:
         bool: True if the image is a z-stack (z_dim > 1), False otherwise or if the file is not a valid OME-TIFF or the metadata cannot be read.
     """
     try:
-        ome_xml = tiffcomment(file_path)
-        ome_metadata = ome_types.from_xml(ome_xml).images[0].pixels  # type: ignore
+        ome_metadata = ome_types.from_tiff(file_path).images[0].pixels  # type: ignore
         zdim = ome_metadata.size_z
         return zdim > 1
     except Exception as e:
         print(f"Caught exception when trying to read OME-TIFF metadata: {e}")
         return False
+    
+def get_acquisition_date(file_path: str) -> Optional[datetime]:
+    """
+    Extract the acquisition date from the OME-TIFF metadata of the given file.
+
+    Parameters:
+        raw_path (str): Path to the OME-TIFF image file.
+    """
+    try:
+        ome_metadata = ome_types.from_tiff(file_path)
+        date = ome_metadata.images[0].acquisition_date
+    except Exception as e:
+        print(f"Error extracting date from {file_path}: {e}")
+        date = None
+    return date
