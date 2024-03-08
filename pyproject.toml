@@ -18,6 +18,8 @@ dependencies = [
     "scikit-learn",
     "opencv-contrib-python",
     "ome-types",
+    "lxml",
+    "aicsimageio",
     "scipy",
     "pandas",
     "tifffile",

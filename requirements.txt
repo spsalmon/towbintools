@@ -10,6 +10,8 @@ xgboost
 joblib
 pyyaml
 ome-types
+aicsimageio
+lxml
 albumentations
 pretrained-microscopy-models @ git+https://github.com/nasa/pretrained-microscopy-models
 numba
