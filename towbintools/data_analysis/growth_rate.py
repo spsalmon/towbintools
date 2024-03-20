@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter, medfilt
+from towbintools.foundation.utils import nan_helper
 
 def compute_growth_rate_linear(volume, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
@@ -99,10 +100,15 @@ def compute_growth_rate_classified(volume, time, worm_type, method='exponential'
     # Assert that the volume, time, and worm_type have the same length
     assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
 
-    worms_indices = worm_type == 'worm'
-    volume_worms = volume[worms_indices]
-    time_worms = time[worms_indices]
+    # Set the volume of non worms to NaN
+    non_worms_indices = worm_type != 'worm'
+    volume_worms = volume.copy()
+    volume_worms[non_worms_indices] = np.nan
 
+    # Interpolate the NaNs
+    nans, x = nan_helper(volume_worms)
+    volume_worms[nans] = np.interp(x(nans), x(~nans), volume_worms[~nans])
+    
     if method == 'exponential':
         growth_rate = compute_growth_rate_exponential(volume_worms, time_worms, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
     elif method == 'linear':
@@ -118,10 +124,14 @@ def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol
     # Assert that the volume, time, and worm_type have the same length
     assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
 
-    worms_indices = worm_type == 'worm'
-    volume_worms = volume[worms_indices]
-    time_worms = time[worms_indices]
+    # Set the volume of non worms to NaN
+    non_worms_indices = worm_type != 'worm'
+    volume_worms = volume.copy()
+    volume_worms[non_worms_indices] = np.nan
 
+    # Interpolate the NaNs
+    nans, x = nan_helper(volume_worms)
+    volume_worms[nans] = np.interp(x(nans), x(~nans), volume_worms[~nans])
     growth_rate = compute_instantaneous_growth_rate(volume_worms, time_worms, savgol_filter_window, savgol_filter_order)
     
     return growth_rate
