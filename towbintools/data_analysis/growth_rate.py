@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter, medfilt
 
 def compute_growth_rate_linear(volume, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
@@ -26,6 +26,10 @@ def compute_growth_rate_linear(volume, time, ignore_start_fraction=0., ignore_en
         time = time[num_ignore_start:-num_ignore_end]
         volume = volume[num_ignore_start:-num_ignore_end]
     
+    # Remove extreme outliers with a small median filter
+    volume = medfilt(volume, 3)
+
+    # Smooth the volume time series a bit more with a Savitzky-Golay filter
     volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
 
     # Compute linear regression
@@ -57,10 +61,68 @@ def compute_growth_rate_exponential(volume, time, ignore_start_fraction=0., igno
         time = time[num_ignore_start:-num_ignore_end]
         volume = volume[num_ignore_start:-num_ignore_end]
     
+    # Remove extreme outliers with a small median filter
+    volume = medfilt(volume, 3)
+
+    # Smooth the volume time series a bit more with a Savitzky-Golay filter
     volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
 
     # Compute exponential regression
     slope, intercept = np.polyfit(time, np.log(volume), 1)
 
     return slope
+
+def compute_instantaneous_growth_rate(volume, time, savgol_filter_window=15, savgol_filter_order=3):
+    """
+    Compute the instantaneous growth rate of a volume time series.
+    """
+
+    # Assert that the volume and time have the same length
+    assert len(volume) == len(time), "The volume and time must have the same length."
+    
+    # Remove extreme outliers with a small median filter
+    volume = medfilt(volume, 3)
+
+    # Smooth the volume time series a bit more with a Savitzky-Golay filter
+    volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
+
+    # Compute the instantaneous growth rate
+    growth_rate = np.gradient(volume, time)
+
+    return growth_rate
+
+def compute_growth_rate_classified(volume, time, worm_type, method='exponential', ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
+    """
+    Compute the growth rate of a volume time series, using only points correctly classified as worms.
+    """
+
+    # Assert that the volume, time, and worm_type have the same length
+    assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
+
+    worms_indices = worm_type == 'worm'
+    volume_worms = volume[worms_indices]
+    time_worms = time[worms_indices]
+
+    if method == 'exponential':
+        growth_rate = compute_growth_rate_exponential(volume_worms, time_worms, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+    elif method == 'linear':
+        growth_rate = compute_growth_rate_linear(volume_worms, time_worms, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+    
+    return growth_rate
+
+def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol_filter_window=5, savgol_filter_order=3):
+    """
+    Compute the instantaneous growth rate of a volume time series, using only points correctly classified as worms.
+    """
+
+    # Assert that the volume, time, and worm_type have the same length
+    assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
+
+    worms_indices = worm_type == 'worm'
+    volume_worms = volume[worms_indices]
+    time_worms = time[worms_indices]
+
+    growth_rate = compute_instantaneous_growth_rate(volume_worms, time_worms, savgol_filter_window, savgol_filter_order)
+    
+    return growth_rate
 
