@@ -110,13 +110,13 @@ def compute_growth_rate_classified(volume, time, worm_type, method='exponential'
     volume_worms[nans] = np.interp(x(nans), x(~nans), volume_worms[~nans])
     
     if method == 'exponential':
-        growth_rate = compute_growth_rate_exponential(volume_worms, time_worms, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+        growth_rate = compute_growth_rate_exponential(volume_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
     elif method == 'linear':
-        growth_rate = compute_growth_rate_linear(volume_worms, time_worms, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+        growth_rate = compute_growth_rate_linear(volume_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
     
     return growth_rate
 
-def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol_filter_window=5, savgol_filter_order=3):
+def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol_filter_window=15, savgol_filter_order=3):
     """
     Compute the instantaneous growth rate of a volume time series, using only points correctly classified as worms.
     """
@@ -132,7 +132,7 @@ def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol
     # Interpolate the NaNs
     nans, x = nan_helper(volume_worms)
     volume_worms[nans] = np.interp(x(nans), x(~nans), volume_worms[~nans])
-    growth_rate = compute_instantaneous_growth_rate(volume_worms, time_worms, savgol_filter_window, savgol_filter_order)
+    growth_rate = compute_instantaneous_growth_rate(volume_worms, time, savgol_filter_window, savgol_filter_order)
     
     return growth_rate
 
