@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter, medfilt
 from towbintools.foundation.utils import nan_helper
+from scipy.ndimage import uniform_filter1d
 
 def compute_growth_rate_linear(volume, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
@@ -73,7 +74,7 @@ def compute_growth_rate_exponential(volume, time, ignore_start_fraction=0., igno
 
     return slope
 
-def compute_instantaneous_growth_rate(volume, time, savgol_filter_window=15, savgol_filter_order=3):
+def compute_instantaneous_growth_rate(volume, time, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
     """
     Compute the instantaneous growth rate of a volume time series.
     """
@@ -84,8 +85,12 @@ def compute_instantaneous_growth_rate(volume, time, savgol_filter_window=15, sav
     # Remove extreme outliers with a small median filter
     volume = medfilt(volume, 3)
 
-    # Smooth the volume time series a bit more with a Savitzky-Golay filter
-    volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
+    if smoothing_method == "savgol":
+        # Smooth the volume time series a bit more with a Savitzky-Golay filter
+        volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
+    elif smoothing_method == "moving_average":
+        # Smooth the volume time series a bit more with a moving average filter
+        volume = uniform_filter1d(volume, size=moving_average_window)
 
     # Compute the instantaneous growth rate
     growth_rate = np.gradient(volume, time)
@@ -102,7 +107,7 @@ def compute_growth_rate_classified(volume, time, worm_type, method='exponential'
 
     # Correct the volume time series
     volume_worms = correct_volume_time_series(volume, worm_type)
-    
+
     if method == 'exponential':
         growth_rate = compute_growth_rate_exponential(volume_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
     elif method == 'linear':
@@ -110,7 +115,7 @@ def compute_growth_rate_classified(volume, time, worm_type, method='exponential'
     
     return growth_rate
 
-def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol_filter_window=15, savgol_filter_order=3):
+def compute_instantaneous_growth_rate_classified(volume, time, worm_type, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
     """
     Compute the instantaneous growth rate of a volume time series, using only points correctly classified as worms.
     """
@@ -120,7 +125,7 @@ def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol
 
     # Correct the volume time series
     volume_worms = correct_volume_time_series(volume, worm_type)
-    growth_rate = compute_instantaneous_growth_rate(volume_worms, time, savgol_filter_window, savgol_filter_order)
+    growth_rate = compute_instantaneous_growth_rate(volume_worms, time, smoothing_method, savgol_filter_window, savgol_filter_order, moving_average_window)
     
     return growth_rate
 
