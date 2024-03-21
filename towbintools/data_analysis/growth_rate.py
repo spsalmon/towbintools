@@ -100,14 +100,8 @@ def compute_growth_rate_classified(volume, time, worm_type, method='exponential'
     # Assert that the volume, time, and worm_type have the same length
     assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
 
-    # Set the volume of non worms to NaN
-    non_worms_indices = worm_type != 'worm'
-    volume_worms = volume.copy()
-    volume_worms[non_worms_indices] = np.nan
-
-    # Interpolate the NaNs
-    nans, x = nan_helper(volume_worms)
-    volume_worms[nans] = np.interp(x(nans), x(~nans), volume_worms[~nans])
+    # Correct the volume time series
+    volume_worms = correct_volume_time_series(volume, worm_type)
     
     if method == 'exponential':
         growth_rate = compute_growth_rate_exponential(volume_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
@@ -124,6 +118,17 @@ def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol
     # Assert that the volume, time, and worm_type have the same length
     assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
 
+    # Correct the volume time series
+    volume_worms = correct_volume_time_series(volume, worm_type)
+    growth_rate = compute_instantaneous_growth_rate(volume_worms, time, savgol_filter_window, savgol_filter_order)
+    
+    return growth_rate
+
+def correct_volume_time_series(volume, worm_type):
+    """
+    Remove the volume of non-worms from the volume time series and interpolate them back.
+    """
+
     # Set the volume of non worms to NaN
     non_worms_indices = worm_type != 'worm'
     volume_worms = volume.copy()
@@ -132,7 +137,6 @@ def compute_instantaneous_growth_rate_classified(volume, time, worm_type, savgol
     # Interpolate the NaNs
     nans, x = nan_helper(volume_worms)
     volume_worms[nans] = np.interp(x(nans), x(~nans), volume_worms[~nans])
-    growth_rate = compute_instantaneous_growth_rate(volume_worms, time, savgol_filter_window, savgol_filter_order)
     
-    return growth_rate
+    return volume_worms
 
