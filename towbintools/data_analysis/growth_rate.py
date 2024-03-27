@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter, medfilt
-from towbintools.foundation.utils import nan_helper
+from towbintools.foundation.utils import interpolate_nans
 from scipy.ndimage import uniform_filter1d
 
 def compute_growth_rate_linear(volume, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
@@ -140,8 +140,42 @@ def correct_volume_time_series(volume, worm_type):
     volume_worms[non_worms_indices] = np.nan
 
     # Interpolate the NaNs
-    nans, x = nan_helper(volume_worms)
-    volume_worms[nans] = np.interp(x(nans), x(~nans), volume_worms[~nans])
+    volume_worms = interpolate_nans(volume_worms)
     
     return volume_worms
 
+def compute_growth_rate_per_larval_stage(volume, time, worm_type, ecdysis, method = "exponential", ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
+    """
+    Compute the growth rate of a volume time series per larval stage.
+    """
+
+    # Assert that the volume, time, and worm_type have the same length
+    assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type, must have the same length."
+
+    # Correct the volume time series
+    volume_worms = correct_volume_time_series(volume, worm_type)
+
+    # extract ecdisis indices
+    hatch_time = ecdysis['HatchTime']
+    M1 = ecdysis['M1']
+    M2 = ecdysis['M2']
+    M3 = ecdysis['M3']
+    M4 = ecdysis['M4']
+
+    growth_rates = {}
+
+    # Compute the growth rate per larval stage
+    for i, (start, end) in enumerate(zip([hatch_time, M1, M2, M3], [M1, M2, M3, M4])):
+        # check if start or end is NaN
+        if np.isnan(start) or np.isnan(end):
+            growth_rates[f"L{i+1}"] = np.nan
+            
+        else:
+            volume_worms_stage = volume_worms[start:end]
+            time_stage = time[start:end]
+            worm_type_stage = worm_type[start:end]
+
+            growth_rate_stage = compute_growth_rate_classified(volume_worms_stage, time_stage, worm_type_stage, method, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+            growth_rates[f"L{i+1}"] = growth_rate_stage
+    
+    return growth_rates

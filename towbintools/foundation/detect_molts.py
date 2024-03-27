@@ -5,29 +5,7 @@ from scipy.ndimage import uniform_filter1d
 from scipy.signal import find_peaks, medfilt, savgol_filter
 from scipy.stats import linregress
 
-from .utils import nan_helper
-
-
-def interpolate_nans(
-    signal: np.ndarray,
-) -> np.ndarray:
-    """
-    Interpolate NaN values in a given signal.
-
-    Uses linear interpolation to estimate and replace NaN values in the provided
-    signal based on the values of non-NaN neighbors.
-
-    Parameters:
-        signal (np.ndarray): The input signal array, which might contain NaN values.
-
-    Returns:
-        np.ndarray: The signal array with NaN values interpolated.
-    """
-
-    nans, x = nan_helper(signal)
-    signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
-    return signal
-
+from .utils import interpolate_nans
 
 def interpolate_peaks(
     signal: np.ndarray,
