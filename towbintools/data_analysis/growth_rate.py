@@ -4,16 +4,16 @@ from scipy.signal import savgol_filter, medfilt
 from towbintools.foundation.utils import interpolate_nans
 from scipy.ndimage import uniform_filter1d
 
-def compute_growth_rate_linear(volume, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
+def compute_growth_rate_linear(series, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
-    Compute the growth rate of a volume time series using linear regression.
+    Compute the growth rate of a time series using linear regression.
     """
 
-    # Assert that the volume and time have the same length
-    assert len(volume) == len(time), "The volume and time must have the same length."
+    # Assert that the series and time have the same length
+    assert len(series) == len(time), "The series and time must have the same length."
 
     # Compute the number of points to ignore at the beginning and end
-    num_points = len(volume)
+    num_points = len(series)
     num_ignore_start = int(ignore_start_fraction * num_points)
     num_ignore_end = int(ignore_end_fraction * num_points)
 
@@ -23,32 +23,32 @@ def compute_growth_rate_linear(volume, time, ignore_start_fraction=0., ignore_en
     # Correctly handle slicing when ignore fractions are 0
     if num_ignore_end == 0:
         time = time[num_ignore_start:]
-        volume = volume[num_ignore_start:]
+        series = series[num_ignore_start:]
     else:
         time = time[num_ignore_start:-num_ignore_end]
-        volume = volume[num_ignore_start:-num_ignore_end]
+        series = series[num_ignore_start:-num_ignore_end]
     
     # Remove extreme outliers with a small median filter
-    volume = medfilt(volume, 3)
+    series = medfilt(series, 3)
 
-    # Smooth the volume time series a bit more with a Savitzky-Golay filter
-    volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
+    # Smooth the series time series a bit more with a Savitzky-Golay filter
+    series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
 
     # Compute linear regression
-    slope, intercept = np.polyfit(time, volume, 1)
+    slope, intercept = np.polyfit(time, series, 1)
 
     return slope
 
-def compute_growth_rate_exponential(volume, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
+def compute_growth_rate_exponential(series, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
-    Compute the growth rate of a volume time series using exponential regression.
+    Compute the growth rate of a time series using exponential regression.
     """
 
-    # Assert that the volume and time have the same length
-    assert len(volume) == len(time), "The volume and time must have the same length."
+    # Assert that the series and time have the same length
+    assert len(series) == len(time), "The series and time must have the same length."
 
     # Compute the number of points to ignore at the beginning and end
-    num_points = len(volume)
+    num_points = len(series)
     num_ignore_start = int(ignore_start_fraction * num_points)
     num_ignore_end = int(ignore_end_fraction * num_points)
 
@@ -58,102 +58,102 @@ def compute_growth_rate_exponential(volume, time, ignore_start_fraction=0., igno
     # Correctly handle slicing when ignore fractions are 0
     if num_ignore_end == 0:
         time = time[num_ignore_start:]
-        volume = volume[num_ignore_start:]
+        series = series[num_ignore_start:]
     else:
         time = time[num_ignore_start:-num_ignore_end]
-        volume = volume[num_ignore_start:-num_ignore_end]
+        series = series[num_ignore_start:-num_ignore_end]
     
     # Remove extreme outliers with a small median filter
-    volume = medfilt(volume, 3)
+    series = medfilt(series, 3)
 
-    # Smooth the volume time series a bit more with a Savitzky-Golay filter
-    volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
+    # Smooth the series time series a bit more with a Savitzky-Golay filter
+    series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
 
     # Compute exponential regression
-    slope, intercept = np.polyfit(time, np.log(volume), 1)
+    slope, intercept = np.polyfit(time, np.log(series), 1)
 
     return slope
 
-def compute_instantaneous_growth_rate(volume, time, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
+def compute_instantaneous_growth_rate(series, time, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
     """
-    Compute the instantaneous growth rate of a volume time series.
+    Compute the instantaneous growth rate of a time series.
     """
 
-    # Assert that the volume and time have the same length
-    assert len(volume) == len(time), "The volume and time must have the same length."
+    # Assert that the series and time have the same length
+    assert len(series) == len(time), "The series and time must have the same length."
     
     # Remove extreme outliers with a small median filter
-    volume = medfilt(volume, 3)
+    series = medfilt(series, 3)
 
     if smoothing_method == "savgol":
-        # Smooth the volume time series a bit more with a Savitzky-Golay filter
-        volume = savgol_filter(volume, savgol_filter_window, savgol_filter_order)
+        # Smooth the series time series a bit more with a Savitzky-Golay filter
+        series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
     elif smoothing_method == "moving_average":
-        # Smooth the volume time series a bit more with a moving average filter
-        volume = uniform_filter1d(volume, size=moving_average_window)
+        # Smooth the series time series a bit more with a moving average filter
+        series = uniform_filter1d(series, size=moving_average_window)
 
     # Compute the instantaneous growth rate
-    growth_rate = np.gradient(volume, time)
+    growth_rate = np.gradient(series, time)
 
     return growth_rate
 
-def compute_growth_rate_classified(volume, time, worm_type, method='exponential', ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
+def compute_growth_rate_classified(series, time, worm_type, method='exponential', ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
-    Compute the growth rate of a volume time series, using only points correctly classified as worms.
+    Compute the growth rate of a time series, using only points correctly classified as worms.
     """
 
-    # Assert that the volume, time, and worm_type have the same length
-    assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
+    # Assert that the series, time, and worm_type have the same length
+    assert len(series) == len(time) == len(worm_type), "The series, time, and worm_type must have the same length."
 
-    # Correct the volume time series
-    volume_worms = correct_volume_time_series(volume, worm_type)
+    # Correct the series time series
+    series_worms = correct_series_time_series(series, worm_type)
 
     if method == 'exponential':
-        growth_rate = compute_growth_rate_exponential(volume_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+        growth_rate = compute_growth_rate_exponential(series_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
     elif method == 'linear':
-        growth_rate = compute_growth_rate_linear(volume_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+        growth_rate = compute_growth_rate_linear(series_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
     
     return growth_rate
 
-def compute_instantaneous_growth_rate_classified(volume, time, worm_type, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
+def compute_instantaneous_growth_rate_classified(series, time, worm_type, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
     """
-    Compute the instantaneous growth rate of a volume time series, using only points correctly classified as worms.
+    Compute the instantaneous growth rate of a time series, using only points correctly classified as worms.
     """
 
-    # Assert that the volume, time, and worm_type have the same length
-    assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type must have the same length."
+    # Assert that the series, time, and worm_type have the same length
+    assert len(series) == len(time) == len(worm_type), "The series, time, and worm_type must have the same length."
 
-    # Correct the volume time series
-    volume_worms = correct_volume_time_series(volume, worm_type)
-    growth_rate = compute_instantaneous_growth_rate(volume_worms, time, smoothing_method, savgol_filter_window, savgol_filter_order, moving_average_window)
+    # Correct the series time series
+    series_worms = correct_series_time_series(series, worm_type)
+    growth_rate = compute_instantaneous_growth_rate(series_worms, time, smoothing_method, savgol_filter_window, savgol_filter_order, moving_average_window)
     
     return growth_rate
 
-def correct_volume_time_series(volume, worm_type):
+def correct_series_time_series(series, worm_type):
     """
-    Remove the volume of non-worms from the volume time series and interpolate them back.
+    Remove the series of non-worms from the time series and interpolate them back.
     """
 
-    # Set the volume of non worms to NaN
+    # Set the series of non worms to NaN
     non_worms_indices = worm_type != 'worm'
-    volume_worms = volume.copy()
-    volume_worms[non_worms_indices] = np.nan
+    series_worms = series.copy()
+    series_worms[non_worms_indices] = np.nan
 
     # Interpolate the NaNs
-    volume_worms = interpolate_nans(volume_worms)
+    series_worms = interpolate_nans(series_worms)
     
-    return volume_worms
+    return series_worms
 
-def compute_growth_rate_per_larval_stage(volume, time, worm_type, ecdysis, method = "exponential", ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
+def compute_growth_rate_per_larval_stage(series, time, worm_type, ecdysis, method = "exponential", ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
-    Compute the growth rate of a volume time series per larval stage.
+    Compute the growth rate of a time series per larval stage.
     """
 
-    # Assert that the volume, time, and worm_type have the same length
-    assert len(volume) == len(time) == len(worm_type), "The volume, time, and worm_type, must have the same length."
+    # Assert that the series, time, and worm_type have the same length
+    assert len(series) == len(time) == len(worm_type), "The series, time, and worm_type, must have the same length."
 
-    # Correct the volume time series
-    volume_worms = correct_volume_time_series(volume, worm_type)
+    # Correct the series time series
+    series_worms = correct_series_time_series(series, worm_type)
 
     # extract ecdisis indices
     hatch_time = ecdysis['HatchTime']
@@ -171,11 +171,11 @@ def compute_growth_rate_per_larval_stage(volume, time, worm_type, ecdysis, metho
             growth_rates[f"L{i+1}"] = np.nan
             
         else:
-            volume_worms_stage = volume_worms[start:end]
+            series_worms_stage = series_worms[start:end]
             time_stage = time[start:end]
             worm_type_stage = worm_type[start:end]
 
-            growth_rate_stage = compute_growth_rate_classified(volume_worms_stage, time_stage, worm_type_stage, method, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
+            growth_rate_stage = compute_growth_rate_classified(series_worms_stage, time_stage, worm_type_stage, method, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
             growth_rates[f"L{i+1}"] = growth_rate_stage
     
     return growth_rates
