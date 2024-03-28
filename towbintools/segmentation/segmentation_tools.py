@@ -4,15 +4,15 @@ from typing import List, Union
 import cv2
 import numpy as np
 import skimage
+import skimage.exposure
 import skimage.feature
 import skimage.morphology
-from skimage.filters import threshold_otsu
-from skimage.util import img_as_ubyte
-from towbintools.deep_learning import augmentation
-from towbintools.deep_learning import util
-
-from towbintools.foundation import binary_image, image_handling
 import torch
+from skimage.filters import threshold_otsu, threshold_triangle
+from skimage.util import img_as_ubyte
+
+from towbintools.deep_learning import augmentation, util
+from towbintools.foundation import binary_image, image_handling
 
 
 def edge_based_segmentation(
@@ -152,6 +152,17 @@ def deep_learning_segmentation(
     return mask
 
 
+def threshold_segmentation(image):
+    # keep bins 2**8 even though our images are 2**16 because none of the images cover the whole dynamic range of 2**16. This will bin lower abundance signal pixels into fewer histogram bins
+    mask = image > _custom_threshold_otsu(image, nbins=2**8)
+    mask = cv2.medianBlur(img_as_ubyte(mask), 5)
+    mask = skimage.morphology.remove_small_objects(
+        mask.astype(bool), 20, connectivity=2
+    )
+    mask = img_as_ubyte(mask)
+    return mask
+
+
 def segment_image(
     image: Union[str, np.ndarray],
     method: str,
@@ -213,6 +224,8 @@ def segment_image(
             activation=activation,
             batch_size=batch_size,
         )
+    elif method == "threshold":
+        segment_fn = threshold_segmentation
 
     else:
         raise ValueError("Invalid segmentation method.")
@@ -226,3 +239,68 @@ def segment_image(
         return mask
 
     return segment_fn(image)
+
+
+def _mode_limited_mean(image, nbins=2**8, histogram=None):
+    """
+    Brocher, Jan. (2014). Qualitative and Quantitative Evaluation of Two New Histogram Limiting Binarization Algorithms.
+    International Journal of Image Processing (IJIP). 8. 30-48.
+    Section 2.2 - Mode Limited Mean (MoLiM)
+    """
+    # basic idea of the paper and MoLiM is that most thresholding algorithms work on histograms
+    # if most of the image is 'background', then the histogram will be dominated by a single background peak, which will affect how the threshold is calculated
+    # MoLiM is the mean of the image with some of the background already classified as background
+    # this limited mean value can either itself be a threshold, or can be used as a starting point for more sophisticated thresholding algorithms
+    if histogram is None:
+        hist, bin_centers = skimage.exposure.histogram(image, nbins=nbins)
+    else:
+        hist, bin_centers = histogram
+
+    mode = bin_centers[hist.argmax()]
+    molim = np.mean(image[image > mode])
+    return molim
+
+
+def _custom_threshold_otsu(image, nbins=2**8):
+    # for consistent behaviour with regards to dtype and nbins, explicitly convert image to float
+    # this is because skimage.filters.threshold_... and skimage.exposure.histogram ignore nbins in case of integer dtype
+    # additionally, I think skimage trims histogram values below image.min() and above image.max() since they are zero
+    # so all in all, when trying to troubleshoot threshold algorithm behaviour, and make it consistent across different channels, rescale the image as float in range (0, 1)
+
+    # save the image range and dtype to later convert threshold back to what is expected
+    image_range = image.min(), image.max()
+    image_dtype = image.dtype
+    image = skimage.exposure.rescale_intensity(image, out_range=(0, 1))
+    # calculate histogram once and reuse in later thresholding steps
+    histogram = skimage.exposure.histogram(image, nbins=nbins)
+    hist_vals, bin_centers = histogram
+    # limited_mean lies somewhere in the histogram peak for background
+    limited_mean = _mode_limited_mean(image, histogram=histogram)
+    # threshold_triangle by-and-large finds the threshold for the bottom of background peak
+    # so it's a good starting point for otsu threshold, which can struggle in the case when background is so large as a proportion of the image that the overall histogram appears to be unimodal
+    # thresh_lower_bound = skimage.filters.threshold_triangle(
+    #     image[image > limited_mean], nbins=nbins
+    # )
+    thresh_lower_bound = image.min()
+    while thresh_lower_bound < limited_mean:
+        # >= to allow possibility of thresh_lower_bound == limited_mean
+        thresh_lower_bound = threshold_triangle(
+            image[image >= thresh_lower_bound], nbins=nbins
+        )
+
+    # don't start right at lower bound because the histogram information below thresh_lower_bound may be useful in determining a good threshold in the last iteration
+    # for example, when thresh_lower_bound is already a decent threshold, in which case the the very information used to calculate it would have been discarded
+    thresh = image.min()
+    while thresh < thresh_lower_bound:
+        # crop histogram to only include values above the current threshold
+        hist_vals = hist_vals[bin_centers >= thresh]
+        bin_centers = bin_centers[bin_centers >= thresh]
+        thresh = threshold_otsu(hist=(hist_vals, bin_centers))
+
+    # rescale threshold back to original image range and dtype since threshold is in (0, 1)
+    # rather than do the math ourselves, let skimage do it as it also handles float quantization
+    thresh = skimage.exposure.rescale_intensity(
+        np.array(thresh).reshape(1, 1), in_range=(0, 1), out_range=image_range
+    ).astype(image_dtype)[0, 0]
+
+    return thresh
