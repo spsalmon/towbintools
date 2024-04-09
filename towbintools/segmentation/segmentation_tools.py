@@ -1,5 +1,5 @@
 import sys
-from typing import List, Union
+from typing import List, Optional, Union
 
 import cv2
 import numpy as np
@@ -166,7 +166,7 @@ def threshold_segmentation(image):
 def segment_image(
     image: Union[str, np.ndarray],
     method: str,
-    channels: List[int] = [],
+    channels: Optional[List[int]] = None,
     pixelsize: float = None,
     sigma_canny: float = 1,
     preprocessing_fn=None,

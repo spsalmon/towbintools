@@ -1,4 +1,4 @@
-from typing import Tuple, Optional
+from typing import List, Tuple, Optional
 
 import cv2
 import numpy as np
@@ -214,20 +214,21 @@ def augment_contrast(
 
 def read_tiff_file(
     file_path: str,
-    channels_to_keep: list = [],
+    channels_to_keep: Optional[List[int]] = None,
 ) -> np.ndarray:
     """
     Read a TIFF file and optionally select specific channels from the image.
 
     Parameters:
             file_path (str): Path to the TIFF image file.
-            channels_to_keep (list): List of channel indices to keep. If empty, all channels are kept.
+            channels_to_keep (list): List of channel indices to keep. If empty or None, all channels are kept.
 
     Returns:
             np.ndarray: The image data as a NumPy array. The number of dimensions may vary depending on the input and selected channels.
     """
     image = imread(file_path)
 
+    # If no channels are specified, return the image as is.
     if image.ndim == 2 or not channels_to_keep:
         return image
 
