@@ -152,7 +152,7 @@ def deep_learning_segmentation(
     return mask
 
 
-def threshold_segmentation(image):
+def double_threshold_segmentation(image):
     # keep bins 2**8 even though our images are 2**16 because none of the images cover the whole dynamic range of 2**16. This will bin lower abundance signal pixels into fewer histogram bins
     mask = image > _custom_threshold_otsu(image, nbins=2**8)
     mask = cv2.medianBlur(img_as_ubyte(mask), 5)
@@ -224,8 +224,8 @@ def segment_image(
             activation=activation,
             batch_size=batch_size,
         )
-    elif method == "threshold":
-        segment_fn = threshold_segmentation
+    elif method == "double_threshold":
+        segment_fn = double_threshold_segmentation
 
     else:
         raise ValueError("Invalid segmentation method.")
@@ -278,9 +278,6 @@ def _custom_threshold_otsu(image, nbins=2**8):
     limited_mean = _mode_limited_mean(image, histogram=histogram)
     # threshold_triangle by-and-large finds the threshold for the bottom of background peak
     # so it's a good starting point for otsu threshold, which can struggle in the case when background is so large as a proportion of the image that the overall histogram appears to be unimodal
-    # thresh_lower_bound = skimage.filters.threshold_triangle(
-    #     image[image > limited_mean], nbins=nbins
-    # )
     thresh_lower_bound = image.min()
     while thresh_lower_bound < limited_mean:
         # >= to allow possibility of thresh_lower_bound == limited_mean
