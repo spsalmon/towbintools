@@ -279,20 +279,29 @@ def _custom_threshold_otsu(image, nbins=2**8):
     # threshold_triangle by-and-large finds the threshold for the bottom of background peak
     # so it's a good starting point for otsu threshold, which can struggle in the case when background is so large as a proportion of the image that the overall histogram appears to be unimodal
     thresh_lower_bound = image.min()
+    i = 0
     while thresh_lower_bound < limited_mean:
         # >= to allow possibility of thresh_lower_bound == limited_mean
         thresh_lower_bound = threshold_triangle(
             image[image >= thresh_lower_bound], nbins=nbins
         )
+        if i > 64:
+            break
+        i += 1
 
     # don't start right at lower bound because the histogram information below thresh_lower_bound may be useful in determining a good threshold in the last iteration
     # for example, when thresh_lower_bound is already a decent threshold, in which case the the very information used to calculate it would have been discarded
     thresh = image.min()
+    i = 0
     while thresh < thresh_lower_bound:
         # crop histogram to only include values above the current threshold
-        hist_vals = hist_vals[bin_centers >= thresh]
-        bin_centers = bin_centers[bin_centers >= thresh]
+        hist_vals = hist_vals[bin_centers > thresh]
+        bin_centers = bin_centers[bin_centers > thresh]
         thresh = threshold_otsu(hist=(hist_vals, bin_centers))
+
+        if i > 64:
+            break
+        i += 1
 
     # rescale threshold back to original image range and dtype since threshold is in (0, 1)
     # rather than do the math ourselves, let skimage do it as it also handles float quantization
