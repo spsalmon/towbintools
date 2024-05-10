@@ -1,6 +1,6 @@
 import os
 import re
-
+import numpy as np
 import pandas as pd
 
 
@@ -28,17 +28,16 @@ def get_all_timepoints_from_dir(
 
     # Iterate through each image path.
     for image_path in images_path:
-        if image_path.endswith(".tiff"):
-            # Search for the time and point in the image path using the pattern.
-            match = pattern.search(image_path)
-            if match:
-                # Extract the time and point as integers from the matched groups.
-                time = int(match.group(1))
-                point = int(match.group(2))
-                # Add the time, point, and image path to the list as a dictionary.
-                timepoint_list.append(
-                    {"Time": time, "Point": point, "ImagePath": image_path}
-                )
+        # Search for the time and point in the image path using the pattern.
+        match = pattern.search(image_path)
+        if match:
+            # Extract the time and point as integers from the matched groups.
+            time = int(match.group(1))
+            point = int(match.group(2))
+            # Add the time, point, and image path to the list as a dictionary.
+            timepoint_list.append(
+                {"Time": time, "Point": point, "ImagePath": image_path}
+            )
 
     return timepoint_list
 
@@ -148,7 +147,14 @@ def get_experiment_dir_filemap(
     experiment_filemap = experiment_filemap.fillna("")
     return experiment_filemap
 
-
-# def get_directory_filemap(
-#     dir_path: str,
-# ) -> pd.DataFrame:
+def add_dir_to_experiment_filemap(experiment_filemap, dir_path, subdir_name):
+    subdir_filemap = get_dir_filemap(dir_path)
+    subdir_filemap.rename(columns={"ImagePath": subdir_name}, inplace=True)
+    # check if column already exists
+    if subdir_name in experiment_filemap.columns:
+        experiment_filemap.drop(columns=[subdir_name], inplace=True)
+    experiment_filemap = experiment_filemap.merge(
+        subdir_filemap, on=["Time", "Point"], how="left"
+    )
+    experiment_filemap = experiment_filemap.replace(np.nan, "", regex=True)
+    return experiment_filemap
