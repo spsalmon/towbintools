@@ -128,7 +128,7 @@ def compute_features_of_label(current_label, mask_plane, image_plane, all_featur
         if len(image_plane.shape) == 3:
             context_features = worm_features.get_context_features(context, image_plane[0], all_features, extra_properties)
             for i in range(1, image_plane.shape[0]):
-                context_features += worm_features.get_context_features(context, image_plane[i], intensity_features, extra_intensity_features)
+                context_features += worm_features.get_context_features(context, image_plane[i],  all_features, extra_properties)
             feature_vector += context_features
         else:
             context_features = worm_features.get_context_features(context, image_plane, all_features, extra_properties)
