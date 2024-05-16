@@ -275,7 +275,7 @@ def get_context(current_label, mask_of_current_label, mask_of_labels, num_closes
         binary_mask_of_closest_labels = np.isin(mask_of_labels, closest_labels).astype("uint8")
         mask_of_closest_labels = mask_of_labels.copy()
         mask_of_closest_labels[binary_mask_of_closest_labels == 0] = 0
-        return mask_of_closest_labels
+        return mask_of_closest_labels.astype("uint8")
 
 
 def get_context_features(mask_of_labels, intensity_image, features, extra_properties):

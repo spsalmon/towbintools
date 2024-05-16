@@ -114,13 +114,25 @@ def compute_features_of_label(current_label, mask_plane, image_plane, all_featur
 
     if patches is not None:
         for patch_size in patches:
-            patch_features = worm_features.compute_patch_features(mask_of_current_label, image_plane, patch_size=patch_size)
-            feature_vector += patch_features
+            if len(image_plane.shape) == 3:
+                patch_features = worm_features.compute_patch_features(mask_of_current_label, image_plane[0], patch_size=patch_size)
+                for i in range(1, image_plane.shape[0]):
+                    patch_features += worm_features.compute_patch_features(mask_of_current_label, image_plane[i], patch_size=patch_size)
+                feature_vector += patch_features
+            else:
+                patch_features = worm_features.compute_patch_features(mask_of_current_label, image_plane, patch_size=patch_size)
+                feature_vector += patch_features
 
     if num_closest is not None:
         context = worm_features.get_context(current_label, mask_of_current_label, mask_plane, num_closest=num_closest)
-        context_features = worm_features.get_context_features(context, image_plane, all_features, extra_properties)
-        feature_vector += context_features
+        if len(image_plane.shape) == 3:
+            context_features = worm_features.get_context_features(context, image_plane[0], all_features, extra_properties)
+            for i in range(1, image_plane.shape[0]):
+                context_features += worm_features.get_context_features(context, image_plane[i], intensity_features, extra_intensity_features)
+            feature_vector += context_features
+        else:
+            context_features = worm_features.get_context_features(context, image_plane, all_features, extra_properties)
+            feature_vector += context_features
 
     return feature_vector
 
