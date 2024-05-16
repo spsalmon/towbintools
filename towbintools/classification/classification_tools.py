@@ -3,6 +3,8 @@ import xgboost
 
 from towbintools.foundation import image_handling, worm_features
 from typing import Callable
+from joblib import Parallel, delayed
+from towbintools.foundation.image_handling import check_if_zstack
 
 
 def classify_worm_type(
@@ -79,3 +81,65 @@ def classify_image(
     pred_class = np.argmax(prediction)
     prediction = classes[pred_class]
     return prediction
+
+def compute_features_of_label(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None):
+    """
+    Compute a set of features for a single label, including context features and patch features.
+
+    Parameters:
+        current_label (int): The label of the current region.
+        mask_plane (np.ndarray): The mask of all regions.
+        image_plane (np.ndarray): The intensity image.
+        all_features (list): The list of features to compute.
+        extra_properties (list): The list of extra properties to compute.
+        intensity_features (list): The list of intensity features to compute.
+        extra_intensity_features (list): The list of extra intensity features to compute.
+        num_closest (int): The number of closest regions to consider.
+        patches (list): The list of patch sizes to consider.
+
+    Returns:
+        list: A list of features for the label.
+    """
+
+    mask_of_current_label = (mask_plane == current_label).astype("uint8")
+    # check if image_plane has multiple channels
+    if len(image_plane.shape) == 3:
+        # compute all the features on the first channel and then intensity features on the other ones
+        feature_vector = worm_features.compute_base_label_features(mask_of_current_label, image_plane[0], all_features, extra_properties)
+        for i in range(1, image_plane.shape[0]):
+            intensity_features = worm_features.compute_base_label_features(mask_of_current_label, image_plane[i], intensity_features, extra_intensity_features)
+            feature_vector += intensity_features
+    else:
+        feature_vector = worm_features.compute_base_label_features(mask_of_current_label, image_plane, all_features, extra_properties)
+
+    if patches is not None:
+        for patch_size in patches:
+            patch_features = worm_features.compute_patch_features(mask_of_current_label, image_plane, patch_size=patch_size)
+            feature_vector += patch_features
+
+    if num_closest is not None:
+        context = worm_features.get_context(current_label, mask_of_current_label, mask_plane, num_closest=num_closest)
+        context_features = worm_features.get_context_features(context, image_plane, all_features, extra_properties)
+        feature_vector += context_features
+
+    return feature_vector
+
+def compute_features_of_plane(mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1):
+    if parallel:
+        features_of_all_labels = Parallel(n_jobs=n_jobs)(delayed(compute_features_of_label)(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches) for current_label in np.unique(mask_plane)[1:])
+    else:
+        features_of_all_labels = [compute_features_of_label(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches) for current_label in np.unique(mask_plane)[1:]]
+    return features_of_all_labels
+    
+def classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1):
+    if check_if_zstack(image) or len(image.shape) > 3:
+        assert mask.shape[0] == image.shape[0], "The number of planes in the mask and the image should be the same."
+        predictions = []
+        for i in range(image.shape[0]):
+            features = compute_features_of_plane(mask[i], image[i], all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs)
+            prediction = classifier.predict_proba(features)
+            predictions.append(prediction)
+    else:
+        features = compute_features_of_plane(mask, image, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs)
+        predictions = classifier.predict_proba(features)
+    return predictions
