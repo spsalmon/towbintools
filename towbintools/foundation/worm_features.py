@@ -262,6 +262,7 @@ def get_context(current_label, mask_of_current_label, mask_of_labels, num_closes
 
     mask_of_all_other_labels = mask_of_labels.copy()
     mask_of_all_other_labels[mask_of_all_other_labels == current_label] = 0
+    mask_of_all_other_labels = mask_of_all_other_labels.astype("uint8")
 
     if num_closest == -1:
         return mask_of_all_other_labels
