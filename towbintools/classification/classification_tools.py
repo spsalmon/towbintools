@@ -161,3 +161,12 @@ def classify_labels(mask, image, classifier, all_features, extra_properties, int
         return [classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold) for mask_plane, image_plane in zip(mask, image)]
     else:
         return classify_plane(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold)
+    
+def convert_classification_to_mask(mask, classification):
+    new_mask = np.zeros_like(mask)
+    for i, plane_classification in enumerate(classification):
+        if plane_classification is not None:
+            for j, label in enumerate(np.unique(mask[i])[1:]):
+                new_mask[i][mask[i] == label] = plane_classification[j] + 1
+    return new_mask
+
