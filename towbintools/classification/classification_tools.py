@@ -107,8 +107,8 @@ def compute_features_of_label(current_label, mask_plane, image_plane, all_featur
         # compute all the features on the first channel and then intensity features on the other ones
         feature_vector = worm_features.compute_base_label_features(mask_of_current_label, image_plane[0], all_features, extra_properties)
         for i in range(1, image_plane.shape[0]):
-            intensity_features = worm_features.compute_base_label_features(mask_of_current_label, image_plane[i], intensity_features, extra_intensity_features)
-            feature_vector += intensity_features
+            other_channel_intensity_features = worm_features.compute_base_label_features(mask_of_current_label, image_plane[i], intensity_features, extra_intensity_features)
+            feature_vector += other_channel_intensity_features
     else:
         feature_vector = worm_features.compute_base_label_features(mask_of_current_label, image_plane, all_features, extra_properties)
 
@@ -128,7 +128,7 @@ def compute_features_of_label(current_label, mask_plane, image_plane, all_featur
         if len(image_plane.shape) == 3:
             context_features = worm_features.get_context_features(context, image_plane[0], all_features, extra_properties)
             for i in range(1, image_plane.shape[0]):
-                context_features += worm_features.get_context_features(context, image_plane[i],  all_features, extra_properties)
+                context_features += worm_features.get_context_features(context, image_plane[i], intensity_features, extra_intensity_features)
             feature_vector += context_features
         else:
             context_features = worm_features.get_context_features(context, image_plane, all_features, extra_properties)
@@ -143,15 +143,21 @@ def compute_features_of_plane(mask_plane, image_plane, all_features, extra_prope
         features_of_all_labels = [compute_features_of_label(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches) for current_label in np.unique(mask_plane)[1:]]
     return features_of_all_labels
     
-def classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1):
-    if check_if_zstack(image) or len(image.shape) > 3:
+def classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, confidence_threshold=None):
+    features = compute_features_of_plane(mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs)
+    if len(features) == 0:
+        return None
+    predictions = classifier.predict_proba(features)
+    predicted_classes = np.argmax(predictions, axis=1)
+    if confidence_threshold is not None:
+        for i, predicted_class in enumerate(predicted_classes):
+            if np.max(predictions[i]) < confidence_threshold:
+                predicted_classes[i] = None
+    return predicted_classes
+
+def classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    if is_zstack or len(image.shape) > 3:
         assert mask.shape[0] == image.shape[0], "The number of planes in the mask and the image should be the same."
-        predictions = []
-        for i in range(image.shape[0]):
-            features = compute_features_of_plane(mask[i], image[i], all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs)
-            prediction = classifier.predict_proba(features)
-            predictions.append(prediction)
+        return [classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold) for mask_plane, image_plane in zip(mask, image)]
     else:
-        features = compute_features_of_plane(mask, image, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs)
-        predictions = classifier.predict_proba(features)
-    return predictions
+        return classify_plane(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold)
