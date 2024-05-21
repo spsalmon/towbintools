@@ -170,3 +170,6 @@ def convert_classification_to_mask(mask, classification):
                 new_mask[i][mask[i] == label] = plane_classification[j] + 1
     return new_mask
 
+def classify_labels_and_convert_to_mask(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    classification = classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+    return convert_classification_to_mask(mask, classification)
