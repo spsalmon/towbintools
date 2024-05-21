@@ -101,7 +101,7 @@ def compute_features_of_label(current_label, mask_plane, image_plane, all_featur
     Returns:
         list: A list of features for the label.
     """
-
+    
     mask_of_current_label = (mask_plane == current_label).astype("uint8")
     # check if image_plane has multiple channels
     if len(image_plane.shape) == 3:
