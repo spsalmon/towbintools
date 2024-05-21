@@ -138,6 +138,25 @@ def compute_features_of_label(current_label, mask_plane, image_plane, all_featur
     return feature_vector
 
 def compute_features_of_plane(mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1):
+    """
+    Compute a set of features for a single label, including context features and patch features for all labels in a plane.
+
+    Parameters:
+        mask_plane (np.ndarray): The mask of all regions.
+        image_plane (np.ndarray): The intensity image.
+        all_features (list): The list of features to compute.
+        extra_properties (list): The list of extra properties to compute.
+        intensity_features (list): The list of intensity features to compute.
+        extra_intensity_features (list): The list of extra intensity features to compute.
+        num_closest (int): The number of closest regions to consider.
+        patches (list): The list of patch sizes to consider.
+        parallel (bool): Whether to compute features in parallel.
+        n_jobs (int): The number of jobs to run in parallel.
+
+    Returns:
+        list: A list of lists of features for all labels.
+    """
+
     if parallel:
         features_of_all_labels = Parallel(n_jobs=n_jobs)(delayed(compute_features_of_label)(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches) for current_label in np.unique(mask_plane)[1:])
     else:
@@ -145,44 +164,167 @@ def compute_features_of_plane(mask_plane, image_plane, all_features, extra_prope
     return features_of_all_labels
     
 def classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, confidence_threshold=None):
+    """
+    Compute the features of all the labels in a plane and classify them using an XGBoost classifier.
+
+    Parameters:
+        mask_plane (np.ndarray): The mask of all regions.
+        image_plane (np.ndarray): The intensity image.
+        classifier (xgboost.XGBClassifier): The trained classifier object.
+        all_features (list): The list of features to compute.
+        extra_properties (list): The list of extra properties to compute.
+        intensity_features (list): The list of intensity features to compute.
+        extra_intensity_features (list): The list of extra intensity features to compute.
+        num_closest (int): The number of closest regions to consider.
+        patches (list): The list of patch sizes to consider.
+        parallel (bool): Whether to compute features in parallel.
+        n_jobs (int): The number of jobs to run in parallel.
+        confidence_threshold (float): The confidence threshold for predictions to be considered valid.
+
+    Returns:
+        list: A list of predicted classes for all labels in the plane.
+    """
+    
     features = compute_features_of_plane(mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs)
     if len(features) == 0:
         return None
     predictions = classifier.predict_proba(features)
     predicted_classes = np.argmax(predictions, axis=1)
     if confidence_threshold is not None:
-        for i, predicted_class in enumerate(predicted_classes):
+        for i in range(len(predicted_classes)):
             if np.max(predictions[i]) < confidence_threshold:
                 predicted_classes[i] = None
     return predicted_classes
 
 def classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    """
+    Compute the features of all the labels in a mask and classify them using an XGBoost classifier.
+
+    Parameters:
+        mask (np.ndarray): The mask of all regions.
+        image (np.ndarray): The intensity image.
+        classifier (xgboost.XGBClassifier): The trained classifier object.
+        all_features (list): The list of features to compute.
+        extra_properties (list): The list of extra properties to compute.
+        intensity_features (list): The list of intensity features to compute.
+        extra_intensity_features (list): The list of extra intensity features to compute.
+        num_closest (int): The number of closest regions to consider.
+        patches (list): The list of patch sizes to consider.
+        parallel (bool): Whether to compute features in parallel.
+        n_jobs (int): The number of jobs to run in parallel.
+        is_zstack (bool): Whether the image is a z-stack.
+        confidence_threshold (float): The confidence threshold for predictions to be considered valid.
+
+    Returns:
+        list: A list of predicted classes for all labels in the mask.
+    """
+
     if is_zstack or len(image.shape) > 3:
         assert mask.shape[0] == image.shape[0], "The number of planes in the mask and the image should be the same."
         return [classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold) for mask_plane, image_plane in zip(mask, image)]
     else:
         return classify_plane(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold)
     
-def convert_classification_to_mask(mask, classification):
+def convert_classification_to_mask(mask, classification, is_zstack=False):
+    """
+    Convert a classification (list of predicted classes) to a mask.
+
+    Parameters:
+        mask (np.ndarray): The mask of all regions.
+        classification (list): The list of predicted classes for all labels.
+        is_zstack (bool): Whether the image is a z-stack.
+
+    Returns:
+        np.ndarray: The given mask with pixel values replaced with class number + 1.
+    """
+
     new_mask = np.zeros_like(mask)
-    for i, plane_classification in enumerate(classification):
-        if plane_classification is not None:
-            for j, label in enumerate(np.unique(mask[i])[1:]):
-                new_mask[i][mask[i] == label] = plane_classification[j] + 1
+
+    if is_zstack or len(mask.shape) > 2:    
+        for i, plane_classification in enumerate(classification):
+            if plane_classification is not None:
+                for j, label in enumerate(np.unique(mask[i])[1:]):
+                    new_mask[i][mask[i] == label] = plane_classification[j] + 1
+    else:
+        if classification is not None:
+            for i, label in enumerate(np.unique(mask)[1:]):
+                new_mask[mask == label] = classification[i] + 1
+
     return new_mask
 
-def convert_classification_to_dataframe(mask, classification):
+def convert_classification_to_dataframe(mask, classification, is_zstack=False):
+    """
+    Convert a classification (list of predicted classes) to a pandas DataFrame.
+
+    Parameters:
+        mask (np.ndarray): The mask of all regions.
+        classification (list): The list of predicted classes for all labels.
+        is_zstack (bool): Whether the image is a z-stack.
+
+    Returns:
+        pd.DataFrame: A DataFrame with columns "Plane", "Label", and "Class".
+    """
+
     data = []
-    for i, plane_classification in enumerate(classification):
-        if plane_classification is not None:
-            for j, label in enumerate(np.unique(mask[i])[1:]):
-                data.append({"Plane": i, "Label": label, "Prediction": plane_classification[j] + 1})
+    if is_zstack or len(mask.shape) > 2:
+        for i, plane_classification in enumerate(classification):
+            if plane_classification is not None:
+                for j, label in enumerate(np.unique(mask[i])[1:]):
+                    data.append({"Plane": i, "Label": int(label), "Class": plane_classification[j]})
+    else:
+        if classification is not None:
+            for i, label in enumerate(np.unique(mask)[1:]):
+                data.append({"Plane": 0, "Label": int(label), "Class": classification[i]})
     return pd.DataFrame(data)
 
 def classify_labels_and_convert_to_mask(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    """
+    Classify all the labels in a mask using an XGBoost classifier and convert the classification to a mask.
+    
+    Parameters:
+        mask (np.ndarray): The mask of all regions.
+        image (np.ndarray): The intensity image.
+        classifier (xgboost.XGBClassifier): The trained classifier object.
+        all_features (list): The list of features to compute.
+        extra_properties (list): The list of extra properties to compute.
+        intensity_features (list): The list of intensity features to compute.
+        extra_intensity_features (list): The list of extra intensity features to compute.
+        num_closest (int): The number of closest regions to consider.
+        patches (list): The list of patch sizes to consider.
+        parallel (bool): Whether to compute features in parallel.
+        n_jobs (int): The number of jobs to run in parallel.
+        is_zstack (bool): Whether the image is a z-stack.
+        confidence_threshold (float): The confidence threshold for predictions to be considered valid.
+
+    Returns:
+        np.ndarray: The given mask with pixel values replaced with class number + 1.
+    """
+    
     classification = classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
     return convert_classification_to_mask(mask, classification)
 
 def classify_labels_and_convert_to_dataframe(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    """
+    Classify all the labels in a mask using an XGBoost classifier and convert the classification to a pandas DataFrame.
+
+    Parameters:
+        mask (np.ndarray): The mask of all regions.
+        image (np.ndarray): The intensity image.
+        classifier (xgboost.XGBClassifier): The trained classifier object.
+        all_features (list): The list of features to compute.
+        extra_properties (list): The list of extra properties to compute.
+        intensity_features (list): The list of intensity features to compute.
+        extra_intensity_features (list): The list of extra intensity features to compute.
+        num_closest (int): The number of closest regions to consider.
+        patches (list): The list of patch sizes to consider.
+        parallel (bool): Whether to compute features in parallel.
+        n_jobs (int): The number of jobs to run in parallel.
+        is_zstack (bool): Whether the image is a z-stack.
+        confidence_threshold (float): The confidence threshold for predictions to be considered valid.
+
+    Returns:
+        pd.DataFrame: A DataFrame with columns "Plane", "Label", and "Class".
+    """
+    
     classification = classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
     return convert_classification_to_dataframe(mask, classification)
