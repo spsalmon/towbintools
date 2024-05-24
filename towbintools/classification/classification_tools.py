@@ -193,7 +193,7 @@ def classify_plane(mask_plane, image_plane, classifier, all_features, extra_prop
     if confidence_threshold is not None:
         for i in range(len(predicted_classes)):
             if np.max(predictions[i]) < confidence_threshold:
-                predicted_classes[i] = None
+                predicted_classes[i] = np.nan
     return predicted_classes
 
 def classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
