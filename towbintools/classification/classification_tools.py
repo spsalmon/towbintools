@@ -224,7 +224,10 @@ def classify_labels(mask, image, classifier, all_features, extra_properties, int
         return [classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold) for mask_plane, image_plane in zip(mask, image)]
     else:
         return classify_plane(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold)
-    
+
+def classify_labels_features_dict(mask, image, clf, features_dict, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    return classify_labels(mask, image, clf, features_dict['all_features'], features_dict['extra_properties'], features_dict['intensity_features'], features_dict['extra_intensity_features'], num_closest=features_dict['num_closest'], patches=features_dict['patches'], parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+
 def convert_classification_to_mask(mask, classification, is_zstack=False):
     """
     Convert a classification (list of predicted classes) to a mask.
@@ -328,3 +331,11 @@ def classify_labels_and_convert_to_dataframe(mask, image, classifier, all_featur
     
     classification = classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
     return convert_classification_to_dataframe(mask, classification)
+
+def classify_labels_and_convert_to_mask_features_dict(mask, image, clf, features_dict, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    classification = classify_labels_features_dict(mask, image, clf, features_dict, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+    return convert_classification_to_mask(mask, classification, is_zstack=is_zstack)
+
+def classify_labels_and_convert_to_dataframe_features_dict(mask, image, clf, features_dict, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+    classification = classify_labels_features_dict(mask, image, clf, features_dict, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+    return convert_classification_to_dataframe(mask, classification, is_zstack=is_zstack)
