@@ -31,7 +31,7 @@ def compute_fluorescence_in_mask(image, mask, aggregation="sum"):
             'Aggregation must be one of "sum", "mean", "median", "max", "min", or "std".'
         )
 
-def compute_background_value(image, foreground_mask, aggregation="mean"):
+def compute_background_fluorescence(image, foreground_mask, aggregation="mean"):
     """Estimate the background value of an image.
 
     Parameters:
