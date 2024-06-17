@@ -225,8 +225,14 @@ def read_tiff_file(
 
     Returns:
             np.ndarray: The image data as a NumPy array. The number of dimensions may vary depending on the input and selected channels.
+            
+    Raises:
+            ValueError: If the image file cannot be read.
     """
-    image = imread(file_path)
+    try:
+        image = imread(file_path)
+    except Exception as e:
+        raise ValueError(f"Error while reading image file {file_path} : {e}")
 
     # If no channels are specified, return the image as is.
     if image.ndim == 2 or not channels_to_keep:
