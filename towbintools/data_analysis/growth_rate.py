@@ -7,6 +7,17 @@ from scipy.ndimage import uniform_filter1d
 def compute_growth_rate_linear(series, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
     Compute the growth rate of a time series using linear regression.
+
+    Parameters:
+        series (np.ndarray): The series of values to compute the growth rate of.
+        time (np.ndarray): The time data corresponding to the series.
+        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
+        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
+        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
+        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+
+    Returns:
+        float: The linear growth rate of the time series.
     """
 
     # Assert that the series and time have the same length
@@ -42,6 +53,17 @@ def compute_growth_rate_linear(series, time, ignore_start_fraction=0., ignore_en
 def compute_growth_rate_exponential(series, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
     Compute the growth rate of a time series using exponential regression.
+
+    Parameters:
+        series (np.ndarray): The series of values to compute the growth rate of.
+        time (np.ndarray): The time data corresponding to the series.
+        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
+        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
+        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
+        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+
+    Returns:
+        float: The exponential growth rate of the time series.
     """
 
     # Assert that the series and time have the same length
@@ -77,6 +99,17 @@ def compute_growth_rate_exponential(series, time, ignore_start_fraction=0., igno
 def compute_instantaneous_growth_rate(series, time, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
     """
     Compute the instantaneous growth rate of a time series.
+
+    Parameters:
+        series (np.ndarray): The series of values to compute the growth rate of.
+        time (np.ndarray): The time data corresponding to the series.
+        smoothing_method (str): The method to use for smoothing the series. Can be either 'savgol' or 'moving_average'.
+        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
+        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+        moving_average_window (int): The window size of the moving average filter.
+
+    Returns:
+        np.ndarray: The instantaneous growth rate of the time series.
     """
 
     # Assert that the series and time have the same length
@@ -97,9 +130,44 @@ def compute_instantaneous_growth_rate(series, time, smoothing_method = "savgol",
 
     return growth_rate
 
+def correct_series_time_series(series, worm_type):
+    """
+    Remove the points of non-worms from the time series and interpolate them back.
+
+    Parameters:
+        series (np.ndarray): The time series of values.
+        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+
+    Returns:
+        np.ndarray: The corrected time series.
+    """
+
+    # Set the series of non worms to NaN
+    non_worms_indices = worm_type != 'worm'
+    series_worms = series.copy()
+    series_worms[non_worms_indices] = np.nan
+
+    # Interpolate the NaNs
+    series_worms = interpolate_nans(series_worms)
+    
+    return series_worms
+
 def compute_growth_rate_classified(series, time, worm_type, method='exponential', ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
-    Compute the growth rate of a time series, using only points correctly classified as worms.
+    Compute the growth rate of a time series after correcting the non-worm points by removing them and interpolating them back.
+
+    Parameters:
+        series (np.ndarray): The time series of values.
+        time (np.ndarray): The time data corresponding to the series.
+        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        method (str): The method to use for computing the growth rate. Can be either 'exponential' or 'linear'.
+        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
+        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
+        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
+        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+
+    Returns:
+        float: The growth rate of the time series.
     """
 
     # Assert that the series, time, and worm_type have the same length
@@ -117,7 +185,19 @@ def compute_growth_rate_classified(series, time, worm_type, method='exponential'
 
 def compute_instantaneous_growth_rate_classified(series, time, worm_type, smoothing_method = "savgol", savgol_filter_window=15, savgol_filter_order=3, moving_average_window=15):
     """
-    Compute the instantaneous growth rate of a time series, using only points correctly classified as worms.
+    Compute the instantaneous growth rate of a time series after correcting the non-worm points by removing them and interpolating them back.
+
+    Parameters:
+        series (np.ndarray): The time series of values.
+        time (np.ndarray): The time data corresponding to the series.
+        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        smoothing_method (str): The method to use for smoothing the series. Can be either 'savgol' or 'moving_average'.
+        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
+        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+        moving_average_window (int): The window size of the moving average filter.
+
+    Returns:
+        np.ndarray: The instantaneous growth rate of the time series.
     """
 
     # Assert that the series, time, and worm_type have the same length
@@ -129,24 +209,23 @@ def compute_instantaneous_growth_rate_classified(series, time, worm_type, smooth
     
     return growth_rate
 
-def correct_series_time_series(series, worm_type):
-    """
-    Remove the series of non-worms from the time series and interpolate them back.
-    """
-
-    # Set the series of non worms to NaN
-    non_worms_indices = worm_type != 'worm'
-    series_worms = series.copy()
-    series_worms[non_worms_indices] = np.nan
-
-    # Interpolate the NaNs
-    series_worms = interpolate_nans(series_worms)
-    
-    return series_worms
-
 def compute_growth_rate_per_larval_stage(series, time, worm_type, ecdysis, method = "exponential", ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
     Compute the growth rate of a time series per larval stage.
+
+    Parameters:
+        series (np.ndarray): The time series of values.
+        time (np.ndarray): The time data corresponding to the series.
+        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        ecdysis (dict): The ecdysis events of the worm.
+        method (str): The method to use for computing the growth rate. Can be either 'exponential' or 'linear'.
+        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
+        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
+        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
+        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+
+    Returns:
+        dict: The growth rate per larval stage.
     """
 
     # Assert that the series, time, and worm_type have the same length
