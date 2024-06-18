@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath("../../"))
 # -- Project information -----------------------------------------------------
 
 project = "towbintools"
-copyright = "2023, Sacha Psalmon"
+copyright = "2024, Sacha Psalmon"
 author = "Sacha Psalmon"
 release = "0.1.0"
 

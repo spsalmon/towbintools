@@ -10,4 +10,5 @@ towbintools API documentation
    towbintools_straightening
    towbintools_classification
    towbintools_quantification
+   towbintools_data_analysis
    

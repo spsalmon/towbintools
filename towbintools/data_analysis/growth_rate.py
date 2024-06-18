@@ -130,7 +130,7 @@ def compute_instantaneous_growth_rate(series, time, smoothing_method = "savgol",
 
     return growth_rate
 
-def correct_series_time_series(series, worm_type):
+def correct_series_with_classification(series, worm_type):
     """
     Remove the points of non-worms from the time series and interpolate them back.
 
@@ -174,7 +174,7 @@ def compute_growth_rate_classified(series, time, worm_type, method='exponential'
     assert len(series) == len(time) == len(worm_type), "The series, time, and worm_type must have the same length."
 
     # Correct the series time series
-    series_worms = correct_series_time_series(series, worm_type)
+    series_worms = correct_series_with_classification(series, worm_type)
 
     if method == 'exponential':
         growth_rate = compute_growth_rate_exponential(series_worms, time, ignore_start_fraction, ignore_end_fraction, savgol_filter_window, savgol_filter_order)
@@ -204,7 +204,7 @@ def compute_instantaneous_growth_rate_classified(series, time, worm_type, smooth
     assert len(series) == len(time) == len(worm_type), "The series, time, and worm_type must have the same length."
 
     # Correct the series time series
-    series_worms = correct_series_time_series(series, worm_type)
+    series_worms = correct_series_with_classification(series, worm_type)
     growth_rate = compute_instantaneous_growth_rate(series_worms, time, smoothing_method, savgol_filter_window, savgol_filter_order, moving_average_window)
     
     return growth_rate
@@ -232,7 +232,7 @@ def compute_growth_rate_per_larval_stage(series, time, worm_type, ecdysis, metho
     assert len(series) == len(time) == len(worm_type), "The series, time, and worm_type, must have the same length."
 
     # Correct the series time series
-    series_worms = correct_series_time_series(series, worm_type)
+    series_worms = correct_series_with_classification(series, worm_type)
 
     # extract ecdisis indices
     hatch_time = ecdysis['HatchTime']
