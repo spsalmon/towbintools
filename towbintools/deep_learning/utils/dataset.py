@@ -145,10 +145,48 @@ class SegmentationDataloader(Dataset):
 
         return img, mask
 
+class ClassificationDataloader(Dataset):
+    def __init(
+        self,
+        dataset,
+        channels,
+        n_classes,
+        class_column="class",
+        image_column="image",
+        transform=None,
+        RGB=True,
+    ):
+        self.images = dataset[image_column].values.tolist()
+        self.ground_truth = dataset[class_column].values.tolist()
+        self.channels = channels
+        self.transform = transform
+        self.RGB = RGB
 
-def split_dataset(file_path, validation_size, test_size):
+        # convert ground truth to one-hot encoding
+        self.ground_truth = np.eye(n_classes)[self.ground_truth]
+
+    def __len__(self):
+        return len(self.images)
+    
+    def __getitem__(self, i):
+        img = image_handling.read_tiff_file(self.images[i], [self.channels])
+        class_value = self.ground_truth[i]
+
+        if self.transform is not None:
+            transformed = self.transform(image=img)
+            img = transformed["image"]
+
+        if self.RGB:
+            img = grayscale_to_rgb(img)
+        else:
+            img = img[np.newaxis, ...]
+
+        return img, class_value
+
+def split_dataset(dataframe, validation_size, test_size):
     # Load the dataset
-    dataframe = pd.read_csv(file_path)
+    if isinstance(dataframe, str):
+        dataframe = pd.read_csv(dataframe)
 
     # Ensure the sizes are valid
     if validation_size + test_size >= 1.0:
@@ -182,19 +220,25 @@ def create_segmentation_training_dataframes(
     validation_set_ratio=0.25,
     test_set_ratio=0.1,
 ):
+    if not isinstance(image_directories, list):
+        image_directories = [image_directories]
+    if not isinstance(mask_directories, list):
+        mask_directories = [mask_directories]
+        
     images = []
     masks = []
     for image_directory, mask_directory in zip(image_directories, mask_directories):
         images.extend(
-            [
+            sorted([
                 os.path.join(image_directory, file)
                 for file in os.listdir(image_directory)
-            ]
+            ])
         )
         masks.extend(
-            [os.path.join(mask_directory, file) for file in os.listdir(mask_directory)]
+            sorted([os.path.join(mask_directory, file) for file in os.listdir(mask_directory)])
         )
 
+    assert len(images) == len(masks), "The number of images and masks in the directories must be equal"
     dataframe = pd.DataFrame({"image": images, "mask": masks})
 
     training_dataframe, validation_dataframe, test_dataframe = split_dataset(
@@ -355,7 +399,7 @@ def create_segmentation_training_dataframes_and_dataloaders(
     return training_dataframe, validation_dataframe, train_loader, val_loader
 
 
-def create_dataloaders_from_filemap(
+def create_segmentation_dataloaders_from_filemap(
     filemap_path,
     save_dir,
     channels,

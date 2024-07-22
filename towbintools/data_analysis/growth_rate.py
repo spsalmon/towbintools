@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter, medfilt
 from towbintools.foundation.utils import interpolate_nans
+from towbintools.data_analysis.time_series import correct_series_with_classification
 from scipy.ndimage import uniform_filter1d
 
 def compute_growth_rate_linear(series, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
@@ -130,28 +131,6 @@ def compute_instantaneous_growth_rate(series, time, smoothing_method = "savgol",
 
     return growth_rate
 
-def correct_series_with_classification(series, worm_type):
-    """
-    Remove the points of non-worms from the time series and interpolate them back.
-
-    Parameters:
-        series (np.ndarray): The time series of values.
-        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-
-    Returns:
-        np.ndarray: The corrected time series.
-    """
-
-    # Set the series of non worms to NaN
-    non_worms_indices = worm_type != 'worm'
-    series_worms = series.copy()
-    series_worms[non_worms_indices] = np.nan
-
-    # Interpolate the NaNs
-    series_worms = interpolate_nans(series_worms)
-    
-    return series_worms
-
 def compute_growth_rate_classified(series, time, worm_type, method='exponential', ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
     Compute the growth rate of a time series after correcting the non-worm points by removing them and interpolating them back.
@@ -258,3 +237,32 @@ def compute_growth_rate_per_larval_stage(series, time, worm_type, ecdysis, metho
             growth_rates[f"L{i+1}"] = growth_rate_stage
     
     return growth_rates
+
+def compute_larval_stage_duration(ecdysis):
+    """
+    Compute the duration of each larval stage.
+
+    Parameters:
+        ecdysis (dict): The ecdysis events of the worm.
+
+    Returns:
+        dict: The duration of each larval stage.
+    """
+
+    # extract ecdisis indices
+    hatch_time = ecdysis['HatchTime']
+    M1 = ecdysis['M1']
+    M2 = ecdysis['M2']
+    M3 = ecdysis['M3']
+    M4 = ecdysis['M4']
+
+    ls_durations = {}
+
+    for i, (start, end) in enumerate(zip([hatch_time, M1, M2, M3], [M1, M2, M3, M4])):
+        # check if start or end is NaN
+        if np.isnan(start) or np.isnan(end):
+            ls_durations[f"L{i+1}"] = np.nan
+        else:
+            ls_durations[f"L{i+1}"] = end - start
+
+    return ls_durations
