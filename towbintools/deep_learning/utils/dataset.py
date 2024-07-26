@@ -146,7 +146,7 @@ class SegmentationDataloader(Dataset):
         return img, mask
 
 class ClassificationDataloader(Dataset):
-    def __init(
+    def __init__(
         self,
         dataset,
         channels,
@@ -157,13 +157,14 @@ class ClassificationDataloader(Dataset):
         RGB=True,
     ):
         self.images = dataset[image_column].values.tolist()
-        self.ground_truth = dataset[class_column].values.tolist()
+        self.ground_truth = dataset[class_column].values.astype(float).tolist()
         self.channels = channels
         self.transform = transform
         self.RGB = RGB
 
         # convert ground truth to one-hot encoding
-        self.ground_truth = np.eye(n_classes)[self.ground_truth]
+        if n_classes > 2:
+            self.ground_truth = np.eye(n_classes)[self.ground_truth]
 
     def __len__(self):
         return len(self.images)
@@ -178,7 +179,7 @@ class ClassificationDataloader(Dataset):
 
         if self.RGB:
             img = grayscale_to_rgb(img)
-        else:
+        elif len(self.channels) == 1:
             img = img[np.newaxis, ...]
 
         return img, class_value
@@ -456,3 +457,100 @@ def create_segmentation_dataloaders_from_filemap(
         RGB=RGB,
     )
     return training_dataframe, validation_dataframe, train_loader, val_loader
+    
+def create_classification_training_dataframes(
+    ground_truth_csv_paths,
+    image_columns,
+    class_columns,
+    save_dir,
+    validation_set_ratio=0.25,
+    test_set_ratio=0.1,
+):
+    if not isinstance(ground_truth_csv_paths, list):
+        ground_truth_csv_paths = [ground_truth_csv_paths]
+    if isinstance(image_columns, str):
+        image_columns = [image_columns]
+    if isinstance(class_columns, str):
+        class_columns = [class_columns]
+
+    if len(image_columns) == 1:
+        image_columns = image_columns * len(ground_truth_csv_paths)
+    if len(class_columns) == 1:
+        image_columns = image_columns * len(class_columns)
+
+    ground_truth_df = pd.DataFrame()
+    for i, ground_truth_csv in enumerate(ground_truth_csv_paths):
+        gt_df = pd.read_csv(ground_truth_csv)
+        images = gt_df[image_columns[i]].values.tolist()
+        classes = gt_df[class_columns[i]].values.tolist()
+        new_gt_df = pd.DataFrame({"image": images, "class": classes})
+        ground_truth_df = pd.concat([ground_truth_df, new_gt_df], ignore_index=True)
+
+    training_dataframe, validation_dataframe, test_dataframe = split_dataset(
+        ground_truth_df, validation_set_ratio, test_set_ratio
+    )
+
+    # backup the training and validation dataframes
+    database_backup_dir = os.path.join(save_dir, "database_backup")
+    current_date = datetime.datetime.now().strftime("%Y%m%d")
+    os.makedirs(database_backup_dir, exist_ok=True)
+
+    training_dataframe.to_csv(
+        os.path.join(database_backup_dir, f"training_dataframe_{current_date}.csv"),
+        index=False,
+    )
+    validation_dataframe.to_csv(
+        os.path.join(database_backup_dir, f"validation_dataframe_{current_date}.csv"),
+        index=False,
+    )
+    test_dataframe.to_csv(
+        os.path.join(database_backup_dir, f"test_dataframe_{current_date}.csv"),
+        index=False,
+    )
+
+    return training_dataframe, validation_dataframe
+
+def create_classification_dataloaders(
+    training_dataframe,
+    validation_dataframe,
+    channels,
+    n_classes,
+    batch_size=64,
+    num_workers=32,
+    pin_memory=True,
+    training_transform=None,
+    validation_transform=None,
+    RGB=False,
+):
+        
+    train_loader = DataLoader(
+        ClassificationDataloader(
+            training_dataframe,
+            channels=channels,
+            n_classes=n_classes,
+            class_column="class",
+            image_column="image",
+            transform=training_transform,
+            RGB=RGB,
+            ),
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+    )
+    val_loader = DataLoader(
+        ClassificationDataloader(
+            validation_dataframe,
+            channels=channels,
+            n_classes=n_classes,
+            class_column="class",
+            image_column="image",
+            transform=validation_transform,
+            RGB=RGB,
+        ),
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+    )
+    return train_loader, val_loader
