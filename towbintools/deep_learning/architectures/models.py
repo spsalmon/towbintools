@@ -108,7 +108,7 @@ class PretrainedClassificationModel(pl.LightningModule):
             return torch.sigmoid(self.model(x))
         else:
             return torch.softmax(self.model(x), dim=1)
-
+        
     def log_tb_images(self, viz_batch) -> None:
         # Get tensorboard logger
         tb_logger = None
@@ -122,9 +122,10 @@ class PretrainedClassificationModel(pl.LightningModule):
 
     def training_step(self, batch):
         x, y = batch
-        y_hat = self.model(x).squeeze()
+        y_hat = self.forward(x).squeeze()
         if y_hat.dim() == 0:
             y_hat = y_hat.unsqueeze(0)
+        y = y.to(torch.float)
         loss = self.criterion(y_hat, y)
         self.log(
             "train_loss",
@@ -150,9 +151,10 @@ class PretrainedClassificationModel(pl.LightningModule):
 
     def validation_step(self, batch):
         x, y = batch
-        y_hat = self.model(x).squeeze()
+        y_hat = self.forward(x).squeeze()
         if y_hat.dim() == 0:
             y_hat = y_hat.unsqueeze(0)
+        y = y.to(torch.float)
         loss = self.criterion(y_hat, y)
         self.log(
             "val_loss",
