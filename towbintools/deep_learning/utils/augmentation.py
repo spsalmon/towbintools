@@ -31,7 +31,7 @@ class NormalizeMeanStd(ImageOnlyTransform):
 
 
 class NormalizePercentile(ImageOnlyTransform):
-    def __init__(self, lo, hi, axis, always_apply=True, p=1.0):
+    def __init__(self, lo, hi, axis = None, always_apply=True, p=1.0):
         super().__init__(always_apply, p)
         self.lo = lo
         self.hi = hi
@@ -97,8 +97,10 @@ def get_training_augmentation(normalization_type, **kwargs):
     elif normalization_type == "mean_std":
         train_transform.append(NormalizeMeanStd(kwargs["mean"], kwargs["std"]))
     elif normalization_type == "percentile":
-        train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"]))
-
+        try:
+            train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"]))
+        except KeyError:
+            train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
     return albu.Compose(train_transform)
 
 
@@ -110,7 +112,10 @@ def get_prediction_augmentation(normalization_type, **kwargs):
     elif normalization_type == "mean_std":
         prediction_transform.append(NormalizeMeanStd(kwargs["mean"], kwargs["std"]))
     elif normalization_type == "percentile":
-        prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"]))
+        try:
+            prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"]))
+        except KeyError:
+            prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
 
     return albu.Compose(prediction_transform)
 
