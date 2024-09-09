@@ -6,6 +6,7 @@ from scipy.signal import find_peaks, medfilt, savgol_filter
 from scipy.stats import linregress
 
 from .utils import interpolate_nans
+from towbintools.data_analysis import compute_series_at_ecdysis_classified
 
 def interpolate_peaks(
     signal: np.ndarray,
@@ -198,130 +199,6 @@ def find_end_molts(
 
     return endmolts
 
-
-def compute_volume_at_ecdysis(
-    volume: np.ndarray,
-    worm_types: np.ndarray,
-    hatch_time: float,
-    endmolts: np.ndarray,
-    fit_width: int = 10,
-) -> Tuple[float, np.ndarray]:
-    """
-    Compute the volume of a worm at ecdysis (shedding or molting) based on the given hatch time and end-molts.
-
-    This function uses linear regression on a logarithmic transformation of the volume data to predict
-    the volume at the specified hatch time and end-molts. Only data points where `worm_types` is "worm"
-    are used for fitting. The function returns the volume at hatch and volumes at the specified end-molts.
-
-    Parameters:
-        volume (np.ndarray): A time series representing volume.
-        worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
-        hatch_time (float): The time at which the worm hatched.
-        endmolts (np.ndarray): An array of identified end-molt locations.
-        fit_width (int, optional): Width for the linear regression fit used in computing the volume. Default is 10.
-
-    Returns:
-        float: Volume at hatch.
-        np.ndarray: Volumes at the specified end-molts.
-    """
-
-    if np.isfinite(hatch_time):
-        fit_x = np.arange(
-            max(0, hatch_time - fit_width),
-            min(len(volume), hatch_time + fit_width),
-            dtype=int,
-        )
-        filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
-        if filtered_fit_x.size != 0:
-            fit_y = np.log(volume[filtered_fit_x])
-            try:
-                p = np.polyfit(filtered_fit_x, fit_y, 1)
-                volume_at_hatch = np.exp(np.polyval(p, hatch_time))
-            except Exception as e:
-                print(
-                    f"Caught an exception while interpolating volume at hatch, returning nan : {e}"
-                )
-                volume_at_hatch = np.nan
-        else:
-            volume_at_hatch = np.nan
-    else:
-        volume_at_hatch = np.nan
-
-    volume_at_molts = np.full_like(endmolts, np.nan)
-    for i, molt in enumerate(endmolts):
-        if np.isfinite(molt):
-            fit_x = np.arange(
-                max(0, molt - fit_width), min(len(volume), molt + fit_width), dtype=int
-            )
-            filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
-            if filtered_fit_x.size != 0:
-                fit_y = np.log(volume[filtered_fit_x])
-                try:
-                    p = np.polyfit(filtered_fit_x, fit_y, 1)
-                    volume_at_molt = np.exp(np.polyval(p, molt))
-                except Exception as e:
-                    print(
-                        f"Caught an exception while interpolating volume at molt, returning nan : {e}"
-                    )
-                    volume_at_molt = np.nan
-                volume_at_molts[i] = volume_at_molt
-            else:
-                volume_at_molts[i] = np.nan
-        else:
-            volume_at_molts[i] = np.nan
-
-    return volume_at_hatch, volume_at_molts
-
-
-def compute_volume_at_time(
-    volume: np.ndarray,
-    worm_types: np.ndarray,
-    time: float,
-    fit_width: int = 10,
-) -> float:
-    """
-    Compute the volume of a worm at a specific time
-
-    This function uses linear regression on a logarithmic transformation of the volume data to predict
-    the volume at the specified hatch time and end-molts. Only data points where `worm_types` is "worm"
-    are used for fitting. The function returns the volume at desired time.
-
-    Parameters:
-        volume (np.ndarray): A time series representing volume.
-        worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
-        time (float): The time at which the volume is to be computed.
-        fit_width (int, optional): Width for the linear regression fit used in computing the volume. Default is 10.
-
-    Returns:
-        float: Volume at desired time.
-    """
-
-    if np.isfinite(time):
-        fit_x = np.arange(
-            max(0, int(time - fit_width)),
-            min(len(volume), int(time + fit_width)),
-            dtype=int,
-        )
-
-        filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
-        if filtered_fit_x.size != 0:
-            fit_y = np.log(volume[filtered_fit_x])
-            try:
-                p = np.polyfit(filtered_fit_x, fit_y, 1)
-            except Exception as e:
-                print(
-                    f"Caught an exception while interpolating volume at time, returning nan : {e}"
-                )
-                return np.nan
-            volume_at_time = np.exp(np.polyval(p, time))
-        else:
-            volume_at_time = np.nan
-    else:
-        volume_at_time = np.nan
-
-    return float(volume_at_time)
-
-
 def find_hatch_time(
     worm_types: np.ndarray,
 ) -> float:
@@ -394,9 +271,8 @@ def find_molts(
         volume_for_finding_molts, midmolts, search_width, fit_width
     )
 
-    volume_at_hatch, volume_at_molts = compute_volume_at_ecdysis(
-        volume, worm_types, hatch_time, endmolts
-    )
+    ecdysis_array = np.array([hatch_time, *endmolts])
+    volume_at_ecdysis = compute_series_at_ecdysis_classified(volume, worm_types, ecdysis_array, fit_width = fit_width)
 
     ecdysis = {
         "hatch_time": hatch_time,
@@ -406,10 +282,10 @@ def find_molts(
         "M4": endmolts[3],
     }
     volume_at_ecdysis = {
-        "volume_at_hatch": volume_at_hatch,
-        "volume_at_M1": volume_at_molts[0],
-        "volume_at_M2": volume_at_molts[1],
-        "volume_at_M3": volume_at_molts[2],
-        "volume_at_M4": volume_at_molts[3],
+        "volume_at_hatch": volume_at_ecdysis[0],
+        "volume_at_M1": volume_at_ecdysis[1],
+        "volume_at_M2": volume_at_ecdysis[2],
+        "volume_at_M3": volume_at_ecdysis[3],
+        "volume_at_M4": volume_at_ecdysis[4],
     }
     return ecdysis, volume_at_ecdysis
