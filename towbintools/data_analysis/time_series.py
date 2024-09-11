@@ -1,6 +1,7 @@
 import numpy as np
 from towbintools.foundation.utils import interpolate_nans
 from scipy import interpolate
+from scipy.signal import savgol_filter, medfilt
 
 def correct_series_with_classification(series, worm_type):
     """
@@ -82,7 +83,7 @@ def interpolate_entire_development_classified(time, series, ecdysis, worm_type, 
     
     return interpolate_entire_development(time, series, ecdysis, n_points)
 
-def compute_series_at_time_classified(
+def compute_exponential_series_at_time_classified(
     series: np.ndarray,
     worm_types: np.ndarray,
     time: float,
@@ -130,12 +131,45 @@ def compute_series_at_time_classified(
 
     return float(series_at_time)
 
-def compute_series_at_ecdysis_classified(
+def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray, time: np.ndarray, series_time = None, medfilt_window = 7, savgol_window = 7, savgol_order = 3, bspline_order=3) -> np.ndarray:
+    """
+    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using a Savitzky-Golay filter, and finally interpolated using b-splines.
+
+    Parameters:
+        series (np.ndarray): The time series.
+        worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        time (np.ndarray): The time points at which the series is to be computed.
+        series_time (np.ndarray, optional): The time points of the original series. Default is None. If None, the time points are assumed to be the indices of the series.
+        medfilt_window (int, optional): The window size for the median filter. Default is 7.
+        savgol_window (int, optional): The window size for the Savitzky-Golay filter. Default is 7.
+        savgol_order (int, optional): The order of the Savitzky-Golay filter. Default is 3.
+        bspline_order (int, optional): The order of the b-spline interpolation. Default is 3.
+
+    Returns:
+        np.ndarray: The series at the given time(s).
+    """
+
+    # Remove the points of non-worms from the time series and interpolate them back
+    series = correct_series_with_classification(series, worm_types)
+
+    # Median filter to remove outliers
+    series = medfilt(series, medfilt_window)
+
+    # Savitzky-Golay filter to smooth the data
+    series = savgol_filter(series, savgol_window, savgol_order)
+
+    # Interpolate the series using b-splines
+    if series_time is None:
+        series_time = np.arange(len(series))
+    interpolated_series = interpolate.make_interp_spline(series_time, series, k=bspline_order)
+
+    return interpolated_series(time)
+
+def compute_exponential_series_at_ecdysis_classified(
     series: np.ndarray,
     worm_types: np.ndarray,
     ecdysis: np.ndarray,
-    fit_width: int = 10,
-) -> np.ndarray:
+    fit_width: int = 10,) -> np.ndarray:
     """
     Compute the value of a time series at the time of ecdysis using linear regression on a logarithmic transformation of the data.
 
@@ -159,7 +193,6 @@ def compute_series_at_ecdysis_classified(
         series_at_ecdysis[i] = compute_series_at_time_classified(
             series, worm_types, time, fit_width
         )
-
     return series_at_ecdysis
 
 def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
