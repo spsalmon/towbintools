@@ -86,11 +86,11 @@ def interpolate_entire_development_classified(time, series, ecdysis, worm_type, 
 def compute_exponential_series_at_time_classified(
     series: np.ndarray,
     worm_types: np.ndarray,
-    time: float,
+    time: np.ndarray,
     fit_width: int = 10,
 ) -> float:
     """
-    Compute the value of a time series at a given time using linear regression on a logarithmic transformation of the data.
+    Compute the value of a time series at a given time(s) using linear regression on a logarithmic transformation of the data.
 
     This function uses linear regression on a logarithmic transformation of the volume data to predict
     the volume at the specified hatch time and end-molts. Only data points where `worm_types` is "worm"
@@ -99,37 +99,42 @@ def compute_exponential_series_at_time_classified(
     Parameters:
         volume (np.ndarray): A time series representing volume.
         worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
-        time (float): The time at which the volume is to be computed.
+        time (np.ndarray): The time(s) at which the volume is to be computed.
         fit_width (int, optional): Width for the linear regression fit used in computing the volume. Default is 10.
 
     Returns:
-        float: Volume at desired time.
+        np.ndarray: Volume at desired time(s).
     """
 
-    if np.isfinite(time):
-        fit_x = np.arange(
-            max(0, int(time - fit_width)),
-            min(len(series), int(time + fit_width)),
-            dtype=int,
-        )
+    def compute_single_time(time: float) -> float:
+        if np.isfinite(time):
+            fit_x = np.arange(
+                max(0, int(time - fit_width)),
+                min(len(series), int(time + fit_width)),
+                dtype=int,
+            )
 
-        filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
-        if filtered_fit_x.size != 0:
-            fit_y = np.log(series[filtered_fit_x])
-            try:
-                p = np.polyfit(filtered_fit_x, fit_y, 1)
-            except Exception as e:
-                print(
-                    f"Caught an exception while interpolating volume at time {time}, returning nan : {e}"
-                )
-                return np.nan
-            series_at_time = np.exp(np.polyval(p, time))
+            filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
+            if filtered_fit_x.size != 0:
+                fit_y = np.log(series[filtered_fit_x])
+                try:
+                    p = np.polyfit(filtered_fit_x, fit_y, 1)
+                except Exception as e:
+                    print(
+                        f"Caught an exception while interpolating volume at time {time}, returning nan : {e}"
+                    )
+                    return np.nan
+                series_at_time = np.exp(np.polyval(p, time))
+            else:
+                series_at_time = np.nan
         else:
             series_at_time = np.nan
-    else:
-        series_at_time = np.nan
 
-    return float(series_at_time)
+        return float(series_at_time)
+
+    result = np.array([compute_single_time(t) for t in time])
+
+    return result
 
 def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray, time: np.ndarray, series_time = None, medfilt_window = 7, savgol_window = 7, savgol_order = 3, bspline_order=3) -> np.ndarray:
     """
@@ -149,6 +154,13 @@ def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray
         np.ndarray: The series at the given time(s).
     """
 
+    # Check if the series has any non nan values
+    if np.all(np.isnan(series)):
+        return np.full(time.shape, np.nan)
+
+    # Interpolate the nans
+    series = interpolate_nans(series)
+    
     # Remove the points of non-worms from the time series and interpolate them back
     series = correct_series_with_classification(series, worm_types)
 
@@ -161,39 +173,10 @@ def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray
     # Interpolate the series using b-splines
     if series_time is None:
         series_time = np.arange(len(series))
+
     interpolated_series = interpolate.make_interp_spline(series_time, series, k=bspline_order)
 
     return interpolated_series(time)
-
-def compute_exponential_series_at_ecdysis_classified(
-    series: np.ndarray,
-    worm_types: np.ndarray,
-    ecdysis: np.ndarray,
-    fit_width: int = 10,) -> np.ndarray:
-    """
-    Compute the value of a time series at the time of ecdysis using linear regression on a logarithmic transformation of the data.
-
-    This function uses linear regression on a logarithmic transformation of the volume data to predict
-    the volume at the specified hatch time and end-molts. Only data points where `worm_types` is "worm"
-    are used for fitting. The function returns the volume at desired time.
-
-    Parameters:
-        volume (np.ndarray): A time series representing volume.
-        worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
-        ecdysis (np.ndarray): An array indicating the time of ecdysis.
-        fit_width (int, optional): Width for the linear regression fit used in computing the volume. Default is 10.
-
-    Returns:
-        np.ndarray: Volume at desired time.
-    """
-
-    series_at_ecdysis = np.zeros_like(ecdysis, dtype=float)
-
-    for i, time in enumerate(ecdysis):
-        series_at_ecdysis[i] = compute_series_at_time_classified(
-            series, worm_types, time, fit_width
-        )
-    return series_at_ecdysis
 
 def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
     """

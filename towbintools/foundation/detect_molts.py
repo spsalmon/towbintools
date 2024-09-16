@@ -6,7 +6,7 @@ from scipy.signal import find_peaks, medfilt, savgol_filter
 from scipy.stats import linregress
 
 from .utils import interpolate_nans
-from towbintools.data_analysis import compute_series_at_ecdysis_classified
+from towbintools.data_analysis import compute_series_at_time_classified
 
 def interpolate_peaks(
     signal: np.ndarray,
@@ -272,7 +272,7 @@ def find_molts(
     )
 
     ecdysis_array = np.array([hatch_time, *endmolts])
-    volume_at_ecdysis = compute_series_at_ecdysis_classified(volume, worm_types, ecdysis_array, fit_width = fit_width)
+    volume_at_ecdysis = compute_series_at_time_classified(volume, worm_types, ecdysis_array)
 
     ecdysis = {
         "hatch_time": hatch_time,
