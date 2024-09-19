@@ -192,6 +192,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
             encoder (str): The encoder of the segmentation model.
             pretrained_weights (str): Dataset the encoder was trained on. Can be one of the following: "imagenet", "image-micronet", "micronet" or "None".
             normalization (dict): Parameters for the normalization.
+            criterion (torch.nn.Module): The loss function to use for training. Default is FocalTverskyLoss.
 
     """
 
@@ -203,6 +204,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
         encoder,
         pretrained_weights,
         normalization,
+        criterion = None,
     ):
         super().__init__()
         model = pmm.segmentation_training.create_segmentation_model(
@@ -213,7 +215,15 @@ class PretrainedSegmentationModel(pl.LightningModule):
         )
         self.model = model
         self.learning_rate = learning_rate
-        self.criterion = FocalTverskyLoss()
+        
+        if criterion is None:
+            if n_classes == 1:
+                self.criterion = FocalTverskyLoss()
+            else:
+                self.criterion = nn.CrossEntropyLoss()
+        else:
+            self.criterion = criterion
+
         self.f1_score = BinaryF1Score()
         self.normalization = normalization
         self.save_hyperparameters()
@@ -296,6 +306,7 @@ class SegmentationModel(pl.LightningModule):
         learning_rate,
         normalization,
         deep_supervision,
+        criterion = None,
     ):
         """Pytorch Lightning Module for training a segmentation model.
 
@@ -306,6 +317,7 @@ class SegmentationModel(pl.LightningModule):
             learning_rate (float): The learning rate for the optimizer.
             normalization (dict): Parameters for the normalization.
             deep_supervision (bool): Whether to use deep supervision or not.
+            criterion (torch.nn.Module): The loss function to use for training. Default is FocalTverskyLoss.
 
         """
 
@@ -324,7 +336,15 @@ class SegmentationModel(pl.LightningModule):
             )
         self.model = model
         self.learning_rate = learning_rate
-        self.criterion = FocalTverskyLoss()
+
+        if criterion is None:
+            if n_classes == 1:
+                self.criterion = FocalTverskyLoss()
+            else:
+                self.criterion = nn.CrossEntropyLoss()
+        else:
+            self.criterion = criterion
+            
         self.f1_score = BinaryF1Score()
         self.normalization = normalization
         self.save_hyperparameters()
