@@ -12,6 +12,7 @@ def create_pretrained_segmentation_model(
     normalization={"type": "percentile", "lo": 1, "hi": 99},
     learning_rate=1e-5,
     checkpoint_path=None,
+    criterion=None,
 ):
     """Creates a segmentation model with a pretrained encoder.
 
@@ -23,6 +24,7 @@ def create_pretrained_segmentation_model(
         pretrained_weights (str): Dataset the encoder was trained on. Can be one of the following: "imagenet", "image-micronet", "micronet" or "None".
         normalization (dict): Parameters for the normalization.
         checkpoint_path (str): Path to a checkpoint file.
+        criterion (torch.nn.Module): The loss function.
 
     Returns:
         PretrainedSegmentationModel: The segmentation model with a pretrained encoder.
@@ -44,6 +46,7 @@ def create_pretrained_segmentation_model(
         encoder=encoder,
         pretrained_weights=pretrained_weights,
         normalization=normalization,
+        criterion=criterion,
     )
     return model
 
@@ -56,6 +59,7 @@ def create_segmentation_model(
     learning_rate=1e-5,
     deep_supervision=False,
     checkpoint_path=None,
+    criterion=None,
 ):
     """Creates a segmentation model.
 
@@ -67,6 +71,7 @@ def create_segmentation_model(
         normalization (dict): Parameters for the normalization.
         deep_supervision (bool): Whether to use deep supervision or not.
         checkpoint_path (str): Path to a checkpoint file.
+        criterion (torch.nn.Module): The loss function.
 
     Returns:
         SegmentationModel: The segmentation model.
@@ -84,6 +89,7 @@ def create_segmentation_model(
         learning_rate=learning_rate,
         normalization=normalization,
         deep_supervision=deep_supervision,
+        criterion=criterion,
     )
 
     return model
