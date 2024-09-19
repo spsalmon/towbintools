@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 from torchmetrics.classification import BinaryF1Score
-from towbintools.deep_learning.utils.loss import FocalTverskyLoss
+from towbintools.deep_learning.utils.loss import FocalTverskyLoss, BCELossWithIgnore
 from towbintools.deep_learning.utils.util import (change_first_conv_layer_input, change_last_fc_layer_output, rename_keys_and_adjust_dimensions)
 import pretrained_microscopy_models as pmm
 from .archs import Unet, UnetPlusPlus
@@ -193,6 +193,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
             pretrained_weights (str): Dataset the encoder was trained on. Can be one of the following: "imagenet", "image-micronet", "micronet" or "None".
             normalization (dict): Parameters for the normalization.
             criterion (torch.nn.Module): The loss function to use for training. Default is FocalTverskyLoss.
+            ignore_index (int): Index to ignore in the loss calculation and F1Score.
 
     """
 
@@ -205,6 +206,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
         pretrained_weights,
         normalization,
         criterion = None,
+        ignore_index=None,
     ):
         super().__init__()
         model = pmm.segmentation_training.create_segmentation_model(
@@ -215,16 +217,28 @@ class PretrainedSegmentationModel(pl.LightningModule):
         )
         self.model = model
         self.learning_rate = learning_rate
+        self.ignore_index = ignore_index
         
         if criterion is None:
             if n_classes == 1:
-                self.criterion = FocalTverskyLoss()
+                self.criterion = FocalTverskyLoss(ignore_index=self.ignore_index)
             else:
-                self.criterion = nn.CrossEntropyLoss()
+                self.criterion = nn.CrossEntropyLoss(ignore_index=self.ignore_index)
         else:
             self.criterion = criterion
 
-        self.f1_score = BinaryF1Score()
+        try:
+            if n_classes == 1:
+                self.f1_score = BinaryF1Score(ignore_index=self.ignore_index)
+            else:
+                self.f1_score = MulticlassF1Score(num_classes=n_classes, ignore_index=self.ignore_index)
+        except Exception as e:
+            print(f'Criterion does not support ignore_index: {e}')
+            if n_classes == 1:
+                self.f1_score = BinaryF1Score()
+            else:
+                self.f1_score = MulticlassF1Score(num_classes=n_classes)
+
         self.normalization = normalization
         self.save_hyperparameters()
 
@@ -307,6 +321,7 @@ class SegmentationModel(pl.LightningModule):
         normalization,
         deep_supervision,
         criterion = None,
+        ignore_index=None,
     ):
         """Pytorch Lightning Module for training a segmentation model.
 
@@ -318,6 +333,7 @@ class SegmentationModel(pl.LightningModule):
             normalization (dict): Parameters for the normalization.
             deep_supervision (bool): Whether to use deep supervision or not.
             criterion (torch.nn.Module): The loss function to use for training. Default is FocalTverskyLoss.
+            ignore_index (int): Index to ignore in the loss calculation and F1Score.
 
         """
 
@@ -339,13 +355,24 @@ class SegmentationModel(pl.LightningModule):
 
         if criterion is None:
             if n_classes == 1:
-                self.criterion = FocalTverskyLoss()
+                self.criterion = FocalTverskyLoss(ignore_index=self.ignore_index)
             else:
-                self.criterion = nn.CrossEntropyLoss()
+                self.criterion = nn.CrossEntropyLoss(ignore_index=self.ignore_index)
         else:
             self.criterion = criterion
-            
-        self.f1_score = BinaryF1Score()
+
+        try:
+            if n_classes == 1:
+                self.f1_score = BinaryF1Score(ignore_index=self.ignore_index)
+            else:
+                self.f1_score = MulticlassF1Score(num_classes=n_classes, ignore_index=self.ignore_index)
+        except Exception as e:
+            print(f'Criterion does not support ignore_index: {e}')
+            if n_classes == 1:
+                self.f1_score = BinaryF1Score()
+            else:
+                self.f1_score = MulticlassF1Score(num_classes=n_classes)
+
         self.normalization = normalization
         self.save_hyperparameters()
 
