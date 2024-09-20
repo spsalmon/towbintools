@@ -229,9 +229,9 @@ class PretrainedSegmentationModel(pl.LightningModule):
 
         try:
             if n_classes == 1:
-                self.f1_score = BinaryF1Score(ignore_index=self.ignore_index)
+                self.f1_score = BinaryF1Score(ignore_index=self.criterion.ignore_index)
             else:
-                self.f1_score = MulticlassF1Score(num_classes=n_classes, ignore_index=self.ignore_index)
+                self.f1_score = MulticlassF1Score(num_classes=n_classes, ignore_index=self.criterion.ignore_index)
         except Exception as e:
             print(f'Criterion does not support ignore_index: {e}')
             if n_classes == 1:
@@ -363,9 +363,9 @@ class SegmentationModel(pl.LightningModule):
 
         try:
             if n_classes == 1:
-                self.f1_score = BinaryF1Score(ignore_index=self.ignore_index)
+                self.f1_score = BinaryF1Score(ignore_index=self.criterion.ignore_index)
             else:
-                self.f1_score = MulticlassF1Score(num_classes=n_classes, ignore_index=self.ignore_index)
+                self.f1_score = MulticlassF1Score(num_classes=n_classes, ignore_index=self.criterion.ignore_index)
         except Exception as e:
             print(f'Criterion does not support ignore_index: {e}')
             if n_classes == 1:
