@@ -1,8 +1,15 @@
 import torch.nn as nn
+from math import ceil, floor
 
 def divide_batch(l, n):
     for i in range(0, l.shape[0], n):
         yield l[i : i + n, ::]
+
+def get_closest_upper_multiple(dim, multiple):
+    return int(multiple * ceil(dim / multiple))
+
+def get_closest_lower_multiple(dim, multiple):
+    return int(multiple * floor(dim / multiple))
 
 def adjust_tensor_dimensions(source_tensor, target_tensor_shape):
     # Squeeze out unnecessary dimensions from source tensor

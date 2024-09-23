@@ -186,6 +186,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
     Because of the way they were pretrained, input images are required to have 3 channels.
 
     Parameters:
+            input_channels (int): The number of input channels.
             n_classes (int): The number of classes in the segmentation task.
             learning_rate (float): The learning rate for the optimizer.
             architecture (str): The architecture of the segmentation model.
@@ -199,6 +200,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
 
     def __init__(
         self,
+        input_channels,
         n_classes,
         learning_rate,
         architecture,
@@ -215,6 +217,10 @@ class PretrainedSegmentationModel(pl.LightningModule):
             encoder_weights=pretrained_weights,
             classes=n_classes,
         )
+
+        if input_channels != 3:
+            change_first_conv_layer_input(model, input_channels)
+
         self.model = model
         self.learning_rate = learning_rate
         self.ignore_index = ignore_index
@@ -240,7 +246,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
                 self.f1_score = MulticlassF1Score(num_classes=n_classes)
 
         self.normalization = normalization
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["criterion"])
 
     def forward(self, x):
         return self.model(x)

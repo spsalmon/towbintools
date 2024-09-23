@@ -8,8 +8,7 @@ from tifffile import tiffcomment
 import ome_types
 from datetime import datetime
 
-
-def pad_to_correct_dim(
+def pad_to_dim(
     image: np.ndarray,
     xdim: int,
     ydim: int,
@@ -32,7 +31,7 @@ def pad_to_correct_dim(
     return np.pad(image, ((0, xpad), (0, ypad)), "constant", constant_values=(0, 0))  # type: ignore
 
 
-def pad_to_correct_dim_equally(
+def pad_to_dim_equally(
     image: np.ndarray,
     xdim: int,
     ydim: int,
@@ -65,6 +64,55 @@ def pad_to_correct_dim_equally(
         constant_values=(0, 0),
     )  # type: ignore
 
+def crop_to_dim(
+    image: np.ndarray,
+    xdim: int,
+    ydim: int,
+) -> np.ndarray:
+    """
+    Crop an image to the correct dimensions by removing pixels from its right and bottom.
+
+    Parameters:
+            image (np.ndarray): The input image as a NumPy array.
+            xdim (int): The desired X dimension of the cropped image.
+            ydim (int): The desired Y dimension of the cropped image.
+
+    Returns:
+            np.ndarray: The cropped image as a NumPy array.
+    """
+    xpad = image.shape[0] - xdim
+    ypad = image.shape[1] - ydim
+
+    # Crop the image.
+    return image[xpad:, ypad:, ...]
+
+def crop_to_dim_equally(
+    image: np.ndarray,
+    xdim: int,
+    ydim: int,
+) -> np.ndarray:
+    """
+    Crop an image equally to the correct dimensions by removing pixels from both sides.
+
+    Parameters:
+            image (np.ndarray): The input image as a NumPy array.
+            xdim (int): The desired X dimension of the cropped image.
+            ydim (int): The desired Y dimension of the cropped image.
+
+    Returns:
+            np.ndarray: The equally cropped image as a NumPy array.
+    """
+    xpad = image.shape[0] - xdim
+    ypad = image.shape[1] - ydim
+
+    # Calculate the cropping for each dimension equally.
+    xpad_start = xpad // 2
+    xpad_end = xpad // 2 + xpad % 2
+    ypad_start = ypad // 2
+    ypad_end = ypad // 2 + ypad % 2
+
+    # Crop the image equally.
+    return image[xpad_start:-xpad_end, ypad_start:-ypad_end, ...]
 
 def crop_images_to_same_dim(
     image1: np.ndarray,
@@ -85,8 +133,8 @@ def crop_images_to_same_dim(
     min_width = min(image1.shape[1], image2.shape[1])
 
     # Crop the images to the same dimensions.
-    image1 = image1[:min_height, :min_width, ...]
-    image2 = image2[:min_height, :min_width, ...]
+    image1 = crop_to_dim_equally(image1, min_height, min_width)
+    image2 = crop_to_dim_equally(image2, min_height, min_width)
 
     return image1, image2
 
@@ -110,8 +158,8 @@ def pad_images_to_same_dim(
     max_width = max(image1.shape[1], image2.shape[1])
 
     # Pad the images to the same dimensions.
-    image1 = pad_to_correct_dim_equally(image1, max_height, max_width)
-    image2 = pad_to_correct_dim_equally(image2, max_height, max_width)
+    image1 = pad_to_dim_equally(image1, max_height, max_width)
+    image2 = pad_to_dim_equally(image2, max_height, max_width)
 
     return image1, image2
 

@@ -13,6 +13,7 @@ from towbintools.deep_learning.utils.augmentation import (
 )
 from pytorch_toolbelt import inference
 from torch.utils.data import DataLoader
+from towbintools.deep_learning.utils.util import get_closest_lower_multiple, get_closest_upper_multiple
 
 
 # Dataset where each image is split into tiles in the first place
@@ -25,7 +26,7 @@ class OldTiledSegmentationDataloader(Dataset):
         mask_column,
         image_column="raw",
         transform=None,
-        RGB=True,
+        RGB=False,
     ):
         images = dataset[image_column].values.tolist()
         ground_truth = dataset[mask_column].values.tolist()
@@ -73,7 +74,7 @@ class TiledSegmentationDataloader(Dataset):
         mask_column="mask",
         image_column="image",
         transform=None,
-        RGB=True,
+        RGB=False,
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
@@ -117,13 +118,25 @@ class SegmentationDataloader(Dataset):
         mask_column="mask",
         image_column="image",
         transform=None,
-        RGB=True,
+        RGB=False,
+        enforce_divisibility_by = 32,
+        pad_or_crop = "pad",
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
         self.channels = channels
         self.transform = transform
         self.RGB = RGB
+        self.enforce_divisibility_by = enforce_divisibility_by
+        if pad_or_crop not in ["pad", "crop"]:
+            raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
+
+        if pad_or_crop == "pad":
+            self.resize_function = image_handling.pad_to_dim_equally
+            self.multiplier_function = get_closest_upper_multiple
+        else:
+            self.resize_function = image_handling.crop_to_dim_equally
+            self.multiplier_function = get_closest_lower_multiple
 
     def __len__(self):
         return len(self.images)
@@ -139,6 +152,17 @@ class SegmentationDataloader(Dataset):
 
         if self.RGB:
             img = grayscale_to_rgb(img)
+
+        if self.enforce_divisibility_by is not None:
+            dim_x, dim_y = img.shape[-2:]
+
+            if dim_x % self.enforce_divisibility_by != 0 or dim_y % self.enforce_divisibility_by != 0:
+                new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
+                new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
+
+                img = self.resize_function(img, new_dim_x, new_dim_y)
+                mask = self.resize_function(mask, new_dim_x, new_dim_y)
+                
         else:
             img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]
@@ -154,7 +178,7 @@ class ClassificationDataloader(Dataset):
         class_column="class",
         image_column="image",
         transform=None,
-        RGB=True,
+        RGB=False,
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[class_column].values.astype(float).tolist()
@@ -278,7 +302,7 @@ def create_segmentation_dataloaders(
     tiler_params=None,
     training_transform=None,
     validation_transform=None,
-    RGB=True,
+    RGB=False,
 ):
     if not train_on_tiles:
         train_loader = DataLoader(
@@ -375,7 +399,7 @@ def create_segmentation_training_dataframes_and_dataloaders(
     tiler_params=None,
     training_transform=None,
     validation_transform=None,
-    RGB=True,
+    RGB=False,
 ):
     training_dataframe, validation_dataframe = create_segmentation_training_dataframes(
         image_directories,
@@ -415,7 +439,7 @@ def create_segmentation_dataloaders_from_filemap(
     tiler_params=None,
     training_transform=None,
     validation_transform=None,
-    RGB=True,
+    RGB=False,
 ):
     dataframe = pd.read_csv(filemap_path)
     # rename image column to "image" and mask column to "mask"
