@@ -121,7 +121,7 @@ class SegmentationDataloader(Dataset):
         RGB=False,
         enforce_divisibility_by = 32,
         pad_or_crop = "pad",
-        pad_value = -1,
+        mask_pad_value = -1,
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
@@ -133,10 +133,12 @@ class SegmentationDataloader(Dataset):
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
 
         if pad_or_crop == "pad":
-            self.resize_function = lambda dim, new_dim_x, new_dim_y: image_handling.pad_to_dim_equally(dim, new_dim_x, new_dim_y, pad_value = pad_value)
-            self.multiplier_function = get_closest_upper_multiple(pad_value = pad_value)
+            self.resize_function = image_handling.pad_to_dim_equally
+            self.mask_resize_function = lambda dim, new_dim_x, new_dim_y: image_handling.pad_to_dim_equally(dim, new_dim_x, new_dim_y, pad_value = mask_pad_value)
+            self.multiplier_function = get_closest_upper_multiple
         else:
             self.resize_function = image_handling.crop_to_dim_equally
+            self.mask_resize_function = image_handling.crop_to_dim_equally
             self.multiplier_function = get_closest_lower_multiple
 
     def __len__(self):
@@ -151,9 +153,6 @@ class SegmentationDataloader(Dataset):
             img = transformed["image"]
             mask = transformed["mask"]
 
-        if self.RGB:
-            img = grayscale_to_rgb(img)
-
         if self.enforce_divisibility_by is not None:
             dim_x, dim_y = img.shape[-2:]
 
@@ -162,8 +161,10 @@ class SegmentationDataloader(Dataset):
                 new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
 
                 img = self.resize_function(img, new_dim_x, new_dim_y)
-                mask = self.resize_function(mask, new_dim_x, new_dim_y)
+                mask = self.mask_resize_function(mask, new_dim_x, new_dim_y)
                 
+        if self.RGB:
+            img = grayscale_to_rgb(img)
         else:
             img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]

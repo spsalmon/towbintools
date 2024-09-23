@@ -1,5 +1,6 @@
 import torch.nn as nn
 from math import ceil, floor
+from efficientnet_pytorch.utils import Conv2dStaticSamePadding
 
 def divide_batch(l, n):
     for i in range(0, l.shape[0], n):
@@ -35,6 +36,24 @@ def rename_keys_and_adjust_dimensions(model, pretrained_model):
 
 def change_first_conv_layer_input(model, new_in_channels):
     for name, module in model.named_children():
+
+        if isinstance(module, Conv2dStaticSamePadding):
+            # Extract parameters from the original layer
+            out_channels = module.out_channels
+            kernel_size = module.kernel_size
+            stride = module.stride
+            dilation = module.dilation
+            groups = module.groups
+            bias = module.bias is not None
+            
+            # Create a new Conv2d layer with the desired number of input channels
+            new_conv = Conv2dStaticSamePadding(new_in_channels, out_channels, kernel_size=kernel_size, # type: ignore
+                                 stride=stride, dilation=dilation,  # type: ignore
+                                 groups=groups, bias=bias, image_size = 512) # I think the image_size parameter can be anything but is required anyway
+            
+            # Replace the original layer with the new one
+            setattr(model, name, new_conv)
+            break
         if isinstance(module, nn.Conv2d):
             # Extract parameters from the original layer
             out_channels = module.out_channels
@@ -53,6 +72,7 @@ def change_first_conv_layer_input(model, new_in_channels):
             # Replace the original layer with the new one
             setattr(model, name, new_conv)
             break
+
         elif len(list(module.children())) > 0:
             # Recursively call the function for nested modules (e.g., nn.Sequential)
             change_first_conv_layer_input(module, new_in_channels)
