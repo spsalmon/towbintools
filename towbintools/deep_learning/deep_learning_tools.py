@@ -5,6 +5,7 @@ from towbintools.deep_learning.architectures import (
 
 
 def create_pretrained_segmentation_model(
+    input_channels = 3,
     n_classes=1,
     architecture="UnetPlusPlus",
     encoder="efficientnet-b4",
@@ -40,6 +41,7 @@ def create_pretrained_segmentation_model(
         return model
 
     model = PretrainedSegmentationModel(
+        input_channels=input_channels,
         n_classes=n_classes,
         learning_rate=learning_rate,
         architecture=architecture,
