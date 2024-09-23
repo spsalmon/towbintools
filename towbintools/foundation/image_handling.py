@@ -12,6 +12,7 @@ def pad_to_dim(
     image: np.ndarray,
     xdim: int,
     ydim: int,
+    pad_value = 0,
 ) -> np.ndarray:
     """
     Pad an image to the correct dimensions by adding zeros on its right and bottom.
@@ -28,13 +29,14 @@ def pad_to_dim(
     ypad = ydim - image.shape[1]
 
     # Pad the image with zeros.
-    return np.pad(image, ((0, xpad), (0, ypad)), "constant", constant_values=(0, 0))  # type: ignore
+    return np.pad(image, ((0, xpad), (0, ypad)), "constant", constant_values=(pad_value, pad_value))  # type: ignore
 
 
 def pad_to_dim_equally(
     image: np.ndarray,
     xdim: int,
     ydim: int,
+    pad_value = 0,
 ) -> np.ndarray:
     """
     Pad an image equally to the correct dimensions by adding zeros on both sides.
@@ -61,7 +63,7 @@ def pad_to_dim_equally(
         image,
         ((xpad_start, xpad_end), (ypad_start, ypad_end)),  # type: ignore
         "constant",  # type: ignore
-        constant_values=(0, 0),
+        constant_values=(pad_value, pad_value),  # type: ignore
     )  # type: ignore
 
 def crop_to_dim(

@@ -121,6 +121,7 @@ class SegmentationDataloader(Dataset):
         RGB=False,
         enforce_divisibility_by = 32,
         pad_or_crop = "pad",
+        pad_value = -1,
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
@@ -132,8 +133,8 @@ class SegmentationDataloader(Dataset):
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
 
         if pad_or_crop == "pad":
-            self.resize_function = image_handling.pad_to_dim_equally
-            self.multiplier_function = get_closest_upper_multiple
+            self.resize_function = lambda dim, new_dim_x, new_dim_y: image_handling.pad_to_dim_equally(dim, new_dim_x, new_dim_y, pad_value = pad_value)
+            self.multiplier_function = get_closest_upper_multiple(pad_value = pad_value)
         else:
             self.resize_function = image_handling.crop_to_dim_equally
             self.multiplier_function = get_closest_lower_multiple
