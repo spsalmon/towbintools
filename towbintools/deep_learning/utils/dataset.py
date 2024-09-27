@@ -171,6 +171,58 @@ class SegmentationDataloader(Dataset):
 
         return img, mask
 
+class SegmentationPredictionDataloader(Dataset):
+    def __init__(
+        self,
+        image_paths,
+        channels,
+        transform=None,
+        RGB=False,
+        enforce_divisibility_by = 32,
+        pad_or_crop = "pad",
+    ):
+        self.images = image_paths
+        self.channels = channels
+        self.transform = transform
+        self.RGB = RGB
+        self.enforce_divisibility_by = enforce_divisibility_by
+        if pad_or_crop not in ["pad", "crop"]:
+            raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
+
+        if pad_or_crop == "pad":
+            self.resize_function = image_handling.pad_to_dim_equally
+            self.multiplier_function = get_closest_upper_multiple
+        else:
+            self.resize_function = image_handling.crop_to_dim_equally
+            self.multiplier_function = get_closest_lower_multiple
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, i):
+        img_path = self.images[i]
+        img = image_handling.read_tiff_file(img_path, [self.channels])
+
+        if self.transform is not None:
+            transformed = self.transform(image=img)
+            img = transformed["image"]
+
+        if self.enforce_divisibility_by is not None:
+            dim_x, dim_y = img.shape[-2:]
+
+            if dim_x % self.enforce_divisibility_by != 0 or dim_y % self.enforce_divisibility_by != 0:
+                new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
+                new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
+
+                img = self.resize_function(img, new_dim_x, new_dim_y)
+                
+        if self.RGB:
+            img = grayscale_to_rgb(img)
+        else:
+            img = img[np.newaxis, ...]
+
+        return img_path, img
+
 class ClassificationDataloader(Dataset):
     def __init__(
         self,
