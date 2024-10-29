@@ -136,6 +136,42 @@ def compute_exponential_series_at_time_classified(
 
     return result
 
+def smooth_series_classified(series: np.ndarray, worm_types: np.ndarray, medfilt_window = 7, savgol_window = 7, savgol_order = 3,) -> np.ndarray:
+    """
+    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using a Savitzky-Golay filter, and finally interpolated using b-splines.
+
+    Parameters:
+        series (np.ndarray): The time series.
+        worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        medfilt_window (int, optional): The window size for the median filter. Default is 7.
+        savgol_window (int, optional): The window size for the Savitzky-Golay filter. Default is 7.
+        savgol_order (int, optional): The order of the Savitzky-Golay filter. Default is 3.
+
+    Returns:
+        np.ndarray: The series at the given time(s).
+    """
+
+    # Check if the series has any non nan values
+    if np.all(np.isnan(series)):
+        return np.full(series.shape, np.nan)
+
+    # Interpolate the nans
+    series = interpolate_nans(series)
+    
+    # Remove the points of non-worms from the time series and interpolate them back
+    series = correct_series_with_classification(series, worm_types)
+
+    # Median filter to remove outliers
+    series = medfilt(series, medfilt_window)
+
+    # Savitzky-Golay filter to smooth the data
+    series = savgol_filter(series, savgol_window, savgol_order)
+
+    # Interpolate the nans again just in case
+    series = interpolate_nans(series)
+
+    return series
+
 def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray, time: np.ndarray, series_time = None, medfilt_window = 7, savgol_window = 7, savgol_order = 3, bspline_order=3) -> np.ndarray:
     """
     Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using a Savitzky-Golay filter, and finally interpolated using b-splines.
@@ -154,21 +190,8 @@ def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray
         np.ndarray: The series at the given time(s).
     """
 
-    # Check if the series has any non nan values
-    if np.all(np.isnan(series)):
-        return np.full(time.shape, np.nan)
-
-    # Interpolate the nans
-    series = interpolate_nans(series)
-    
-    # Remove the points of non-worms from the time series and interpolate them back
-    series = correct_series_with_classification(series, worm_types)
-
-    # Median filter to remove outliers
-    series = medfilt(series, medfilt_window)
-
-    # Savitzky-Golay filter to smooth the data
-    series = savgol_filter(series, savgol_window, savgol_order)
+    # Smooth the series
+    series = smooth_series_classified(series, worm_types, medfilt_window, savgol_window, savgol_order)
 
     # Interpolate the series using b-splines
     if series_time is None:

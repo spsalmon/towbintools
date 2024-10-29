@@ -57,7 +57,7 @@ def find_mid_molts(
 
     log_moult_size_range = np.log(molt_size_range)
     # Smooth volume time series
-    log_volume = np.log(volume)
+    log_volume = np.log(volume.astype(float))
     log_volume = interpolate_peaks(log_volume)
     medfilt_log_volume = medfilt(log_volume, 3)
 
@@ -146,7 +146,7 @@ def find_end_molts(
         np.ndarray: Indices of the identified end-molts in the input volume.
     """
     # Smooth volume time series
-    log_volume = np.log(volume)
+    log_volume = np.log(volume.astype(float))
     log_volume = interpolate_peaks(log_volume)
     log_volume = -interpolate_peaks(-log_volume)
 
@@ -261,6 +261,8 @@ def find_molts(
         dict: Dictionary containing the hatch time and end-molt times.
         dict: Dictionary containing the computed volumes at hatch and each molt event.
     """
+    volume = volume.astype(float)
+    
     errors = np.where(worm_types == "error")
     volume_for_finding_molts = volume.copy()
     volume_for_finding_molts[errors] = np.nan
