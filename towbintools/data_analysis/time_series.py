@@ -190,11 +190,11 @@ def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray
         np.ndarray: The series at the given time(s).
     """
 
-    # Smooth the series
-    series = smooth_series_classified(series, worm_types, medfilt_window, savgol_window, savgol_order)
-
     if np.all(np.isnan(series)):
         return np.full(time.shape, np.nan)
+        
+    # Smooth the series
+    series = smooth_series_classified(series, worm_types, medfilt_window, savgol_window, savgol_order)
 
     # Interpolate the series using b-splines
     if series_time is None:
