@@ -193,11 +193,18 @@ def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray
     # Smooth the series
     series = smooth_series_classified(series, worm_types, medfilt_window, savgol_window, savgol_order)
 
+    if np.all(np.isnan(series)):
+        return np.full(time.shape, np.nan)
+
     # Interpolate the series using b-splines
     if series_time is None:
         series_time = np.arange(len(series))
 
-    interpolated_series = interpolate.make_interp_spline(series_time, series, k=bspline_order)
+    try:
+        interpolated_series = interpolate.make_interp_spline(series_time, series, k=bspline_order)
+    except Exception as e:
+        print(f"Caught an exception while interpolating series: {e}")
+        return np.full(time.shape, np.nan)
 
     return interpolated_series(time)
 
