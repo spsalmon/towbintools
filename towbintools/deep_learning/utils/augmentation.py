@@ -57,7 +57,9 @@ class GrayscaleToRGB(ImageOnlyTransform):
 class CustomFlip(DualTransform):
     """Flip the input image horizontally or vertically with a given probability. Works well with images ordered in the OME-TIFF way."""
     def __init__(self, always_apply=False, p=0.5):
-        super(CustomFlip, self).__init__(always_apply, p)
+        always_apply = bool(always_apply)
+        p = float(p)
+        super().__init__(always_apply=always_apply, p=p)
         self.axis = np.random.choice([-1, -2])
 
     def apply(self, img, **params):
