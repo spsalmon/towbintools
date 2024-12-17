@@ -15,6 +15,8 @@ from pytorch_toolbelt import inference
 from torch.utils.data import DataLoader
 from towbintools.deep_learning.utils.util import get_closest_lower_multiple, get_closest_upper_multiple
 from tifffile import TiffFile
+from joblib import Parallel, delayed
+from typing import List
 
 
 # Dataset where each image is split into tiles in the first place
@@ -346,8 +348,28 @@ def create_segmentation_training_dataframes(
 
     return training_dataframe, validation_dataframe
 
-def get_unique_shapes(dataframe, image_column):
-
+def get_unique_shapes_from_tiffs(image_paths = List[str]) -> np.ndarray:
+    """
+    Get unique shapes from a list of TIFF images in parallel.
+    
+    Parameters:
+        image_paths (List[str]): List of image paths to extract shapes from
+        
+    Returns:
+        np.ndarray: Unique image shapes found in the dataframe
+    """
+    
+    shapes = Parallel(n_jobs=-1)(
+        delayed(image_handling.get_shape_from_tiff)(image_path) 
+        for image_path in image_paths
+    )
+    
+    valid_shapes = [shape for shape in shapes if shape is not None]
+    
+    if len(valid_shapes) == 0:
+        raise ValueError("No valid shapes found in the dataframe")
+    
+    return np.unique(valid_shapes, axis=0)
     
 def create_segmentation_dataloaders(
     training_dataframe,
@@ -397,13 +419,10 @@ def create_segmentation_dataloaders(
         tiler_params is not None
     ), "If train_on_tiles is True, tiler_params must be provided"
 
-    first_image = image_handling.read_tiff_file(
-        training_dataframe["image"].values[0], [0]
-    )
+    image_paths = training_dataframe["image"].values.tolist()
 
-    image_slicer = inference.ImageSlicer(
-        first_image.shape, tiler_params["tile_size"], tiler_params["tile_step"]
-    )
+    unique_shapes = get_unique_shapes_from_tiffs(image_paths)
+    image_slicers = {shape: inference.ImageSlicer(shape, tiler_params["tile_size"], tiler_params["tile_step"]) for shape in unique_shapes}
 
     if training_transform is None:
         training_transform = get_training_augmentation("percentile", lo=1, hi=99)
@@ -413,7 +432,7 @@ def create_segmentation_dataloaders(
     train_loader = DataLoader(
         TiledSegmentationDataloader(
             training_dataframe,
-            image_slicer,
+            image_slicers,
             channels=channels,
             mask_column="mask",
             image_column="image",
@@ -428,7 +447,7 @@ def create_segmentation_dataloaders(
     val_loader = DataLoader(
         TiledSegmentationDataloader(
             validation_dataframe,
-            image_slicer,
+            image_slicers,
             channels=channels,
             mask_column="mask",
             image_column="image",
