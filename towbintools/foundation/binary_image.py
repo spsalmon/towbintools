@@ -106,56 +106,57 @@ def fill_bright_holes(
     image: np.ndarray,
     mask: np.ndarray,
     scale: float,
-    small_hole_threshold: int = 15,
 ) -> np.ndarray:
     """
     Fill bright holes in an image based on a given mask and statistical properties of the background.
 
     Identifies holes in a provided mask and evaluates the brightness of these holes in the
     original image. Bright holes with a median brightness significantly greater than the background mean are filled.
-    Small holes are removed from the mask before processing to save computing time.
 
     Parameters:
             image (np.ndarray): The grayscale input image where holes need to be detected and potentially filled.
             mask (np.ndarray): Binary mask representing regions of interest in the image. Holes in this mask will be evaluated.
             scale (float): A scaling factor that defines how many standard deviations above the background mean a hole needs
                                        to be in order for it to be considered as 'bright' and filled.
-            small_hole_threshold (int, optional): Holes smaller than this size in the mask will be removed before processing.
-                                                                                     Default is 15.
 
     Returns:
             np.ndarray: A binary mask with the same dimensions as the input, where bright holes have been filled.
     """
 
-    mask = skimage.morphology.remove_small_holes(
-        mask.astype(bool), small_hole_threshold
-    ).astype(np.uint8)
     filled_mask = scipy.ndimage.binary_fill_holes(mask)
     holes = (filled_mask - mask).astype(np.uint8)
+    
+    # Early exit if no holes
+    if not np.any(holes):
+        return mask
+        
     number_of_holes, holes_labels = cv2.connectedComponents(holes, connectivity=4)
 
-    image_without_object = image * (1 - filled_mask)  # type: ignore
-
-    try:
-        background_thresholds = np.percentile(
-            image_without_object[image_without_object > 0], [10, 90]
-        )
-        background = image_without_object[
-            (image_without_object >= background_thresholds[0])
-            & (image_without_object <= background_thresholds[1])
-        ]
-        background_mean = np.mean(background)
-        background_std = np.std(background)
-
-        for label in range(1, number_of_holes):
-            mask_of_hole = holes_labels == label
-            median_of_hole = np.median(image[mask_of_hole])
-
-            if median_of_hole > (background_mean + scale * background_std):
-                mask[mask_of_hole] = 1
+    hole_medians = np.zeros(number_of_holes - 1)
+    for label in range(1, number_of_holes):
+        hole_pixels = image[holes_labels == label]
+        hole_medians[label - 1] = np.median(hole_pixels)
+    
+    image_without_object = image * (1 - filled_mask)
+    background_pixels = image_without_object[image_without_object > 0]
+    
+    if len(background_pixels) == 0:
         return mask
-    except IndexError:
-        return mask
+    
+    background_thresholds = np.percentile(background_pixels, [10, 90])
+    background_mask = (background_pixels >= background_thresholds[0]) & (background_pixels <= background_thresholds[1])
+    background = background_pixels[background_mask]
+    
+    background_mean = np.mean(background)
+    background_std = np.std(background)
+    threshold = background_mean + scale * background_std
+    
+    # Fill holes that meet the brightness criterion
+    for label, median in enumerate(hole_medians, start=1):
+        if median > threshold:
+            mask[holes_labels == label] = 1
+            
+    return mask
 
 
 def get_biggest_object(
