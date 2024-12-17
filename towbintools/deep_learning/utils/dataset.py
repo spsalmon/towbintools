@@ -14,6 +14,7 @@ from towbintools.deep_learning.utils.augmentation import (
 from pytorch_toolbelt import inference
 from torch.utils.data import DataLoader
 from towbintools.deep_learning.utils.util import get_closest_lower_multiple, get_closest_upper_multiple
+from tifffile import TiffFile
 
 
 # Dataset where each image is split into tiles in the first place
@@ -69,7 +70,7 @@ class TiledSegmentationDataloader(Dataset):
     def __init__(
         self,
         dataset,
-        image_slicer,
+        image_slicers,
         channels,
         mask_column="mask",
         image_column="image",
@@ -79,7 +80,7 @@ class TiledSegmentationDataloader(Dataset):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
         self.channels = channels
-        self.image_slicer = image_slicer
+        self.image_slicers = image_slicers
         self.transform = transform
         self.RGB = RGB
 
@@ -95,7 +96,8 @@ class TiledSegmentationDataloader(Dataset):
             img = transformed["image"]
             mask = transformed["mask"]
 
-        tiles = self.image_slicer.split(img)
+        slicer = self.image_slicers[img.shape]
+        tiles = slicer.split(img)
         if self.RGB:
             tiles = [grayscale_to_rgb(tile) for tile in tiles]
         else:
@@ -344,7 +346,9 @@ def create_segmentation_training_dataframes(
 
     return training_dataframe, validation_dataframe
 
+def get_unique_shapes(dataframe, image_column):
 
+    
 def create_segmentation_dataloaders(
     training_dataframe,
     validation_dataframe,

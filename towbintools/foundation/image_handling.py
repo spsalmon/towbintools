@@ -3,7 +3,7 @@ from typing import List, Tuple, Optional
 import cv2
 import numpy as np
 import skimage.metrics
-from tifffile import imread
+from tifffile import imread, TiffFile
 from tifffile import tiffcomment
 import ome_types
 from datetime import datetime
@@ -293,7 +293,31 @@ def read_tiff_file(
     else:
         return image[:, channels_to_keep, ...].squeeze()  # type: ignore
 
+def get_shape_from_tiff(file_path: str) -> Optional[Tuple]:
+    """
+    Get the shape of the image stored in the TIFF file.
 
+    Parameters:
+            file_path (str): Path to the TIFF image file.
+
+    Returns:
+            Tuple: The shape of the image as a tuple.
+                   Returns None if the file cannot be read.
+    """
+    try:
+        with TiffFile(file_path) as tif:
+            n_series = len(tif.series)
+            if n_series > 1:
+                print(f"Warning: {file_path} has multiple series ({n_series})")
+            shapes = [series.shape for series in tif.series]
+            if len(set(shapes)) > 1:
+                print(f"Warning: {file_path} has different shapes across series: {shapes}")
+                
+            return shapes[0]
+    except Exception as e:
+        print(f"Error while reading file {file_path} : {e}")
+        return None
+        
 def get_image_size_metadata(file_path: str) -> Optional[dict]:
     """
     Extract and return the size metadata of an image from its OME-TIFF file.
