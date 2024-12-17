@@ -89,7 +89,7 @@ def get_training_augmentation(normalization_type, **kwargs):
     train_transform = [
         CustomFlip(p=0.75),
         CustomRotate90(p=0.75),
-        albu.GaussNoise(p=0.5),
+        albu.Defocus(p=0.5),
         albu.RandomGamma(p=0.5),
     ]
 

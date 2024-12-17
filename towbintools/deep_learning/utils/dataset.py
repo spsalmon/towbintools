@@ -61,7 +61,7 @@ class OldTiledSegmentationDataloader(Dataset):
         mask = self.mask_tiles[i]
         mask = mask[np.newaxis, ...]
 
-        return img, mask
+        return img.astype(np.float32), mask
 
 
 # Dataset where the images are split into tiles on the fly
@@ -110,8 +110,7 @@ class TiledSegmentationDataloader(Dataset):
         mask = tiles_ground_truth[selected_tile]
         mask = mask[np.newaxis, ...]
 
-        return img, mask
-
+        return img.astype(np.float32), mask
 
 class SegmentationDataloader(Dataset):
     def __init__(
@@ -172,7 +171,7 @@ class SegmentationDataloader(Dataset):
             img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]
 
-        return img, mask
+        return img.astype(np.float32), mask
 
 class SegmentationPredictionDataloader(Dataset):
     def __init__(
@@ -224,7 +223,7 @@ class SegmentationPredictionDataloader(Dataset):
         else:
             img = img[np.newaxis, ...]
 
-        return img_path, img
+        return img_path, img.astype(np.float32)
 
 class ClassificationDataloader(Dataset):
     def __init__(
@@ -263,7 +262,7 @@ class ClassificationDataloader(Dataset):
         elif len(self.channels) == 1:
             img = img[np.newaxis, ...]
 
-        return img, class_value
+        return img.astype(np.float32), class_value
 
 def split_dataset(dataframe, validation_size, test_size):
     # Load the dataset
