@@ -1,10 +1,9 @@
 import numpy as np
 import xgboost
 
-from towbintools.foundation import image_handling, worm_features
+from towbintools.foundation import worm_features
 from typing import Callable
 from joblib import Parallel, delayed
-from towbintools.foundation.image_handling import check_if_zstack
 import pandas as pd
 
 

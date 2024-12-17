@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 import skimage.metrics
 from tifffile import imread, TiffFile
-from tifffile import tiffcomment
 import ome_types
 from datetime import datetime
 

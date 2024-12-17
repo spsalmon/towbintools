@@ -1,12 +1,12 @@
 import pytorch_lightning as pl
 from torchmetrics.classification import BinaryF1Score
-from towbintools.deep_learning.utils.loss import FocalTverskyLoss, BCELossWithIgnore
+from towbintools.deep_learning.utils.loss import FocalTverskyLoss
 from towbintools.deep_learning.utils.util import (change_first_conv_layer_input, change_last_fc_layer_output, rename_keys_and_adjust_dimensions)
 import pretrained_microscopy_models as pmm
 from .archs import Unet, UnetPlusPlus
 import torch
 import torch.nn as nn
-from torchmetrics.classification import BinaryF1Score, MulticlassF1Score
+from torchmetrics.classification import MulticlassF1Score
 import timm
 import torch.utils.model_zoo as model_zoo
 

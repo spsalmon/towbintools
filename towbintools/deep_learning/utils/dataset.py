@@ -14,7 +14,6 @@ from towbintools.deep_learning.utils.augmentation import (
 from pytorch_toolbelt import inference
 from torch.utils.data import DataLoader
 from towbintools.deep_learning.utils.util import get_closest_lower_multiple, get_closest_upper_multiple
-from tifffile import TiffFile
 from joblib import Parallel, delayed
 from typing import List
 
@@ -104,7 +103,7 @@ class TiledSegmentationDataloader(Dataset):
             tiles = [grayscale_to_rgb(tile) for tile in tiles]
         else:
             tiles = [tile[np.newaxis, ...] for tile in tiles]
-        tiles_ground_truth = self.image_slicer.split(mask)
+        tiles_ground_truth = slicer.split(mask)
 
         selected_tile = np.random.randint(0, len(tiles))
         img = tiles[selected_tile]

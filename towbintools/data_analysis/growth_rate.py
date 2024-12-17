@@ -1,7 +1,5 @@
 import numpy as np
-import pandas as pd
 from scipy.signal import savgol_filter, medfilt
-from towbintools.foundation.utils import interpolate_nans
 from towbintools.data_analysis.time_series import correct_series_with_classification
 from scipy.ndimage import uniform_filter1d
 
