@@ -422,7 +422,7 @@ def create_segmentation_dataloaders(
     image_paths = training_dataframe["image"].values.tolist()
 
     unique_shapes = get_unique_shapes_from_tiffs(image_paths)
-    image_slicers = {shape: inference.ImageSlicer(shape, tiler_params["tile_size"], tiler_params["tile_step"]) for shape in unique_shapes}
+    image_slicers = {tuple(shape): inference.ImageSlicer(shape, tiler_params["tile_size"], tiler_params["tile_step"]) for shape in unique_shapes}
 
     if training_transform is None:
         training_transform = get_training_augmentation("percentile", lo=1, hi=99)
