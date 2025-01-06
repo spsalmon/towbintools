@@ -8,17 +8,23 @@ import skimage.exposure
 import skimage.feature
 import skimage.morphology
 import torch
-from skimage.filters import threshold_otsu, threshold_triangle
+from skimage.filters import threshold_otsu, threshold_triangle, sobel
 from skimage.util import img_as_ubyte
 
 from towbintools.deep_learning import augmentation, util
 from towbintools.foundation import binary_image, image_handling
+from towbintools.foundation.binary_image import fill_bright_holes
 
 
-def edge_based_segmentation(
+def old_edge_based_segmentation(
     image: np.ndarray,
     pixelsize: float,
     sigma_canny: float = 1,
+    low_threshold_ratio: float = 5,
+    high_threshold_ratio: float = 2.5,
+    kernel_size: int = 5,
+    final_threshold_percentile: float = 30,
+    **kwargs,
 ) -> np.ndarray:
     """
     Python adaptation of the OG Matlab code for Sobel-based segmentation
@@ -26,7 +32,6 @@ def edge_based_segmentation(
     Parameters:
             image (np.ndarray): The input 2D grayscale image as a NumPy array.
             pixelsize (float): Pixel size to consider when removing small objects.
-            backbone (str, optional): The library to use for edge detection. Options are 'skimage' or 'opencv'. Default is 'skimage'.
             sigma_canny (float, optional): Standard deviation for the Gaussian filter used in Canny edge detection. Default is 1.
 
     Returns:
@@ -40,11 +45,12 @@ def edge_based_segmentation(
         raise ValueError("Image must be 2D.")
 
     thresh_otsu = threshold_otsu(image)
+    
     edges = skimage.feature.canny(
-        image.copy(),
+        image,
         sigma=sigma_canny,
-        low_threshold=thresh_otsu / 5,
-        high_threshold=thresh_otsu / 2.5,
+        low_threshold=thresh_otsu / low_threshold_ratio,
+        high_threshold=thresh_otsu / high_threshold_ratio,
     ).astype(np.uint8)
 
     edges = skimage.morphology.remove_small_objects(
@@ -53,44 +59,102 @@ def edge_based_segmentation(
 
     contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    if len(contours) > 20000:
+    if len(contours) > 10000:
         return np.zeros_like(image).astype(np.uint8)
 
     edges = binary_image.connect_endpoints(edges, max_distance=200)
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
     edges = (cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel) > 0).astype(int)
 
-    mask = binary_image.fill_bright_holes(image, edges, 10).astype(np.uint8)
+    mask = fill_bright_holes(image, edges, 10).astype(np.uint8)
     mask = skimage.morphology.remove_small_objects(
         mask.astype(bool), 422.5 / (pixelsize**2), connectivity=2
     ).astype(np.uint8)
 
-    mask = binary_image.fill_bright_holes(image, mask, 5).astype(np.uint8)
+    mask = fill_bright_holes(image, mask, 5).astype(np.uint8)
 
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    if len(contours) > 0:
-        out = np.zeros_like(mask)
-        for contour in contours:
-            cv2.drawContours(out, [contour], -1, 1, 1)
 
-        threshold = np.percentile(image[out > 0], 30)  # type: ignore
+    if not contours:
+        return np.zeros_like(image, dtype=np.uint8)
 
-        final_mask = (image > threshold).astype(np.uint8)
-        final_mask = skimage.morphology.remove_small_objects(
-            final_mask.astype(bool), 422.5 / (pixelsize**2), connectivity=2
-        ).astype(np.uint8)
+    out = np.zeros_like(mask)
+    cv2.drawContours(out, contours, -1, 1, 1)
 
-    else:
-        final_mask = np.zeros_like(image).astype(np.uint8)
+    threshold = np.percentile(image[out > 0], final_threshold_percentile)  # type: ignore
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    final_mask = (cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel) > 0).astype(int)
+    final_mask = (image > threshold)
+    final_mask = skimage.morphology.remove_small_objects(
+        final_mask, 422.5 / (pixelsize**2), connectivity=2
+    ).astype(np.uint8)
 
-    final_mask = binary_image.fill_bright_holes(image, final_mask, 10).astype(np.uint8)
+    final_mask = (cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel) > 0).astype(np.uint8)
+
+    final_mask = fill_bright_holes(image, final_mask, 10).astype(np.uint8)
     return final_mask
 
+def edge_based_segmentation(
+    image: np.ndarray,
+    pixelsize: float,
+    gaussian_filter_sigma: float = 1,
+    kernel_size: int = 30,
+    final_threshold_percentile: float = 87.5,
+    **kwargs,
+) -> np.ndarray:
+    """
+    Optimized and improved version of the original matlab edge-based segmentation method.
 
+    Parameters:
+            image (np.ndarray): The input 2D grayscale image as a NumPy array.
+            pixelsize (float): Pixel size to consider when removing small objects.
+            gaussian_filter_sigma (float, optional): Standard deviation for the Gaussian filter used in Canny edge detection. Default is 1.
+
+    Returns:
+            np.ndarray: The segmented image as a binary mask (NumPy array).
+
+    Raises:
+            ValueError: If the input image is not 2D.
+    """
+
+    if image.ndim > 2:
+        raise ValueError("Image must be 2D.")
+
+    smoothed = skimage.filters.gaussian(image, sigma=gaussian_filter_sigma)
+
+    edge_magnitudes = sobel(smoothed)
+
+    thresh = threshold_otsu(edge_magnitudes)
+
+    edge_mask = (edge_magnitudes > thresh).astype(np.uint8)
+
+    contours, _ = cv2.findContours(edge_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+    out = np.zeros_like(edge_mask)
+    cv2.drawContours(out, contours, -1, 1, 1)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+
+    out = cv2.morphologyEx(out, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size)))
+
+    new_contours, _ = cv2.findContours(out, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    new_out = np.zeros_like(out)
+    cv2.drawContours(new_out, new_contours, -1, 1, 1)
+
+    threshold = np.percentile(image[new_out > 0], final_threshold_percentile)  # type: ignore
+
+    final_mask = (image > threshold)
+    final_mask = skimage.morphology.remove_small_objects(
+        final_mask, 422.5 / (pixelsize**2), connectivity=2
+    ).astype(np.uint8)
+
+    final_mask = (cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel) > 0).astype(np.uint8)
+
+    final_mask = fill_bright_holes(image, final_mask, 10).astype(np.uint8)
+
+    return final_mask
+
+# TODO: Modify this function to allow for non tiled predictions / remove it entirely
 def deep_learning_segmentation(
     image,
     model,
@@ -106,7 +170,7 @@ def deep_learning_segmentation(
     else:
         try:
             tiles = tiler.split(image)
-        except:
+        except Exception:
             print("Error splitting image into tiles. Image shape: ", image.shape)
             sys.exit(1)
 
@@ -166,26 +230,24 @@ def segment_image(
     method: str,
     channels: Optional[List[int]] = None,
     pixelsize: float = None,
-    sigma_canny: float = 1,
-    preprocessing_fn=None,
-    model=None,
-    device=None,
-    tiler=None,
-    RGB=False,
-    activation=None,
-    batch_size=-1,
     is_zstack=True,
+    **kwargs,
 ) -> np.ndarray:
     """
     Segment an image using the specified method.
 
     Parameters:
             image (Union[str, np.ndarray]): Input image. If string, it's interpreted as the path to a TIFF file. If ndarray, it's the image data directly.
-            method (str): Segmentation method to use. Currently supported: "edge_based".
+            method (str): Segmentation method to use. Currently supported: "edge_based", "double_threshold".
             channels (List[int], optional): List of channel indices to keep if reading a multi-channel TIFF file. Default is empty, meaning all channels are kept.
-            pixelsize (Optional[float], optional): Pixel size to consider for edge-based segmentation. Must be specified if method is "edge_based".
-            edge_based_backbone (str, optional): The library to use for edge detection in "edge_based" method. Options are 'skimage' or 'opencv'. Default is 'skimage'.
-            sigma_canny (float, optional): Standard deviation for the Gaussian filter used in Canny edge detection if method is "edge_based". Default is 1.
+            pixelsize (Optional[float], optional): Physical pixel size to consider for edge-based segmentation. Must be specified if method is "edge_based".
+            is_zstack (bool, optional): Whether the input image is a z-stack. Default is True.
+
+            **kwargs: Additional keyword arguments to pass to the segmentation function.
+                gaussian_filter_sigma (float, optional): Standard deviation for the Gaussian filter used in edge-based methods. Default is 1.
+                final_threshold_percentile (float, optional): Percentile to use for the final thresholding step in edge-based methods. Default is 87.5.
+                kernel_size (int, optional): Size of the kernel to use for morphological operations in edge-based methods. Default is 30.
+
 
     Returns:
             np.ndarray: The segmented image as a binary mask (NumPy array).
@@ -193,35 +255,15 @@ def segment_image(
     Raises:
             ValueError: If method is not recognized or if pixelsize is not specified when required.
     """
-    if type(image) == str:
+    if isinstance(image, str):
         image = image_handling.read_tiff_file(image, channels_to_keep=channels)
 
     if method == "edge_based":
         if pixelsize is None:
             raise ValueError("Pixelsize must be specified for edge-based segmentation.")
+        def segment_fn(x):
+            return edge_based_segmentation(x, pixelsize, **kwargs)
 
-        image = image_handling.normalize_image(image, dest_dtype=np.uint16)
-        segment_fn = lambda x: edge_based_segmentation(
-            x, pixelsize, sigma_canny=sigma_canny
-        )
-
-    elif method == "deep_learning":
-        if not model:
-            raise ValueError("Model must be specified for deep learning segmentation.")
-        if not device:
-            raise ValueError("Device must be specified for deep learning segmentation.")
-
-        if preprocessing_fn:
-            image = preprocessing_fn(image=image)["image"]
-        segment_fn = lambda x: deep_learning_segmentation(
-            x,
-            model,
-            device,
-            tiler,
-            RGB=RGB,
-            activation=activation,
-            batch_size=batch_size,
-        )
     elif method == "double_threshold":
         segment_fn = double_threshold_segmentation
 
