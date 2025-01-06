@@ -209,21 +209,47 @@ class SegmentationPredictionDataset(Dataset):
             transformed = self.transform(image=img)
             img = transformed["image"]
 
-        if self.enforce_divisibility_by is not None:
-            dim_x, dim_y = img.shape[-2:]
+        # if self.enforce_divisibility_by is not None:
+        #     dim_x, dim_y = img.shape[-2:]
 
-            if dim_x % self.enforce_divisibility_by != 0 or dim_y % self.enforce_divisibility_by != 0:
-                new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
-                new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
+        #     if dim_x % self.enforce_divisibility_by != 0 or dim_y % self.enforce_divisibility_by != 0:
+        #         new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
+        #         new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
 
-                img = self.resize_function(img, new_dim_x, new_dim_y)
+        #         img = self.resize_function(img, new_dim_x, new_dim_y)
                 
         if self.RGB:
             img = grayscale_to_rgb(img)
         else:
             img = img[np.newaxis, ...]
 
-        return img_path, img.astype(np.float32)
+        return img_path, img.astype(np.float32), img.shape
+
+    @staticmethod
+    def collate_fn(batch, multiplier_function, enforce_divisibility_by, resize_function, pad_or_crop):
+        img_paths, imgs, original_shapes = zip(*batch)
+
+        if enforce_divisibility_by is None:
+            return img_paths, imgs, original_shapes
+
+        # find the maximum dimensions in the batch
+        if pad_or_crop == "pad":
+            dim_x = max([shape[-2] for shape in original_shapes])
+            dim_y = max([shape[-1] for shape in original_shapes])
+        else:
+            dim_x = min([shape[-2] for shape in original_shapes])
+            dim_y = min([shape[-1] for shape in original_shapes])
+
+        # find the new dimensions
+        new_dim_x = multiplier_function(dim_x, enforce_divisibility_by)
+        new_dim_y = multiplier_function(dim_y, enforce_divisibility_by)
+
+        # resize the images
+        resized_images = []
+        for img in imgs:
+            resized_images.append(resize_function(img, new_dim_x, new_dim_y))
+
+        return img_paths, resized_images, original_shapes
 
 class ClassificationDataset(Dataset):
     def __init__(
