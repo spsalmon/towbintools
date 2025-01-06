@@ -112,7 +112,7 @@ class TiledSegmentationDataset(Dataset):
 
         return img.astype(np.float32), mask
 
-class SegmentationDataloader(Dataset):
+class SegmentationDataset(Dataset):
     def __init__(
         self,
         dataset,
@@ -173,7 +173,7 @@ class SegmentationDataloader(Dataset):
 
         return img.astype(np.float32), mask
 
-class SegmentationPredictionDataloader(Dataset):
+class SegmentationPredictionDataset(Dataset):
     def __init__(
         self,
         image_paths,
@@ -384,7 +384,7 @@ def create_segmentation_dataloaders(
 ):
     if not train_on_tiles:
         train_loader = DataLoader(
-            SegmentationDataloader(
+            SegmentationDataset(
                 training_dataframe,
                 channels=channels,
                 mask_column="mask",
@@ -398,7 +398,7 @@ def create_segmentation_dataloaders(
             pin_memory=pin_memory,
         )
         val_loader = DataLoader(
-            SegmentationDataloader(
+            SegmentationDataset(
                 validation_dataframe,
                 channels=channels,
                 mask_column="mask",

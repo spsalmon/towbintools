@@ -24,46 +24,103 @@ def pad_to_dim(
     Returns:
             np.ndarray: The padded image as a NumPy array.
     """
-    xpad = xdim - image.shape[0]
-    ypad = ydim - image.shape[1]
+    xpad = xdim - image.shape[-2]
+    ypad = ydim - image.shape[-1]
 
-    # Pad the image with zeros.
-    return np.pad(image, ((0, xpad), (0, ypad)), "constant", constant_values=(pad_value, pad_value))  # type: ignore
+    pad_width = [(0, xpad), (0, ypad)]
 
+    if image.ndim > 2:
+        pad_width = [(0, 0)] * (image.ndim - 2) + pad_width
+
+    return np.pad(
+        image,
+        pad_width,
+        mode='constant',
+        constant_values=pad_value
+    )
+
+# def pad_to_dim_equally(
+#     image: np.ndarray,
+#     xdim: int,
+#     ydim: int,
+#     pad_value = 0,
+# ) -> np.ndarray:
+#     """
+#     Pad an image equally to the correct dimensions by adding zeros on both sides.
+
+#     Parameters:
+#             image (np.ndarray): The input image as a NumPy array.
+#             xdim (int): The desired X dimension of the padded image.
+#             ydim (int): The desired Y dimension of the padded image.
+
+#     Returns:
+#             np.ndarray: The equally padded image as a NumPy array.
+#     """
+#     xpad = xdim - image.shape[0]
+#     ypad = ydim - image.shape[1]
+
+#     # Calculate the padding for each dimension equally.
+#     xpad_start = xpad // 2
+#     xpad_end = xpad // 2 + xpad % 2
+#     ypad_start = ypad // 2
+#     ypad_end = ypad // 2 + ypad % 2
+
+#     # Pad the image with zeros equally.
+#     return np.pad(
+#         image,
+#         ((xpad_start, xpad_end), (ypad_start, ypad_end)),  # type: ignore
+#         "constant",  # type: ignore
+#         constant_values=(pad_value, pad_value),  # type: ignore
+#     )  # type: ignore
 
 def pad_to_dim_equally(
     image: np.ndarray,
     xdim: int,
     ydim: int,
-    pad_value = 0,
+    pad_value: float = 0,
 ) -> np.ndarray:
     """
-    Pad an image equally to the correct dimensions by adding zeros on both sides.
-
+    Efficiently pad an image equally on all sides to reach target dimensions.
+    
     Parameters:
-            image (np.ndarray): The input image as a NumPy array.
-            xdim (int): The desired X dimension of the padded image.
-            ydim (int): The desired Y dimension of the padded image.
-
+        image (np.ndarray): Input image array of shape (..., H, W).
+        xdim (int): Desired height of the padded image.
+        ydim (int): Desired width of the padded image.
+        pad_value (float): Value to use for padding (default: 0).
+    
     Returns:
-            np.ndarray: The equally padded image as a NumPy array.
+        np.ndarray: Padded image of shape (..., xdim, ydim).
+        
+    Raises:
+        ValueError: If target dimensions are smaller than input dimensions.
     """
-    xpad = xdim - image.shape[0]
-    ypad = ydim - image.shape[1]
+    if xdim < image.shape[0] or ydim < image.shape[1]:
+        raise ValueError("Target dimensions cannot be smaller than image dimensions")
+    
+    # Calculate total padding needed
+    x_total = xdim - image.shape[-2]
+    y_total = ydim - image.shape[-1]
+    
+    # Use bit shifting for faster division by 2
+    x_start = x_total >> 1
+    y_start = y_total >> 1
+    x_end = x_total - x_start
+    y_end = y_total - y_start
+    
+    pad_width = [(x_start, x_end), (y_start, y_end)]
 
-    # Calculate the padding for each dimension equally.
-    xpad_start = xpad // 2
-    xpad_end = xpad // 2 + xpad % 2
-    ypad_start = ypad // 2
-    ypad_end = ypad // 2 + ypad % 2
-
-    # Pad the image with zeros equally.
+    # Add padding configuration for additional dimensions if they exist
+    if image.ndim > 2:
+        # pad_width.extend((0, 0) for _ in range(image.ndim - 2))
+        pad_width = [(0, 0)] * (image.ndim - 2) + pad_width
+    
+    # Single np.pad call with optimized parameters
     return np.pad(
         image,
-        ((xpad_start, xpad_end), (ypad_start, ypad_end)),  # type: ignore
-        "constant",  # type: ignore
-        constant_values=(pad_value, pad_value),  # type: ignore
-    )  # type: ignore
+        pad_width,
+        mode='constant',
+        constant_values=pad_value
+    )
 
 def crop_to_dim(
     image: np.ndarray,
@@ -81,39 +138,67 @@ def crop_to_dim(
     Returns:
             np.ndarray: The cropped image as a NumPy array.
     """
-    xpad = image.shape[0] - xdim
-    ypad = image.shape[1] - ydim
 
-    # Crop the image.
-    return image[xpad:, ypad:, ...]
+    return image[..., :xdim, :ydim]
 
-def crop_to_dim_equally(
-    image: np.ndarray,
-    xdim: int,
-    ydim: int,
-) -> np.ndarray:
+# def crop_to_dim_equally(
+#     image: np.ndarray,
+#     xdim: int,
+#     ydim: int,
+# ) -> np.ndarray:
+#     """
+#     Crop an image equally to the correct dimensions by removing pixels from both sides.
+
+#     Parameters:
+#             image (np.ndarray): The input image as a NumPy array.
+#             xdim (int): The desired X dimension of the cropped image.
+#             ydim (int): The desired Y dimension of the cropped image.
+
+#     Returns:
+#             np.ndarray: The equally cropped image as a NumPy array.
+#     """
+#     xpad = image.shape[0] - xdim
+#     ypad = image.shape[1] - ydim
+
+#     # Calculate the cropping for each dimension equally.
+#     xpad_start = xpad // 2
+#     xpad_end = xpad // 2 + xpad % 2
+#     ypad_start = ypad // 2
+#     ypad_end = ypad // 2 + ypad % 2
+
+#     # Crop the image equally.
+#     return image[xpad_start:-xpad_end, ypad_start:-ypad_end, ...]
+
+def crop_to_dim_equally(image: np.ndarray, xdim: int, ydim: int) -> np.ndarray:
     """
-    Crop an image equally to the correct dimensions by removing pixels from both sides.
-
+    Crop an image equally to the specified dimensions by removing pixels from both sides.
+    Uses array slicing for efficient cropping without creating intermediate arrays.
+    
     Parameters:
-            image (np.ndarray): The input image as a NumPy array.
-            xdim (int): The desired X dimension of the cropped image.
-            ydim (int): The desired Y dimension of the cropped image.
-
+        image (np.ndarray): Input image array of shape (... , H, W).
+        xdim (int): Desired height of the cropped image.
+        ydim (int): Desired width of the cropped image.
+    
     Returns:
-            np.ndarray: The equally cropped image as a NumPy array.
+        np.ndarray: Cropped image of shape (... , xdim, ydim).
     """
-    xpad = image.shape[0] - xdim
-    ypad = image.shape[1] - ydim
-
-    # Calculate the cropping for each dimension equally.
-    xpad_start = xpad // 2
-    xpad_end = xpad // 2 + xpad % 2
-    ypad_start = ypad // 2
-    ypad_end = ypad // 2 + ypad % 2
-
-    # Crop the image equally.
-    return image[xpad_start:-xpad_end, ypad_start:-ypad_end, ...]
+    if xdim > image.shape[-2] or ydim > image.shape[-1]:
+        raise ValueError("Target dimensions cannot be larger than image dimensions")
+        
+    # Calculate crop amounts using bit shifting for integer division
+    x_total = image.shape[-2] - xdim
+    y_total = image.shape[-1] - ydim
+    
+    # Use bit operations for faster division by 2
+    x_start = x_total >> 1
+    y_start = y_total >> 1
+    
+    # Calculate end indices directly instead of using negative indexing
+    x_end = x_start + xdim
+    y_end = y_start + ydim
+    
+    # Single slice operation instead of multiple steps
+    return image[..., x_start:x_end, y_start:y_end]
 
 def crop_images_to_same_dim(
     image1: np.ndarray,
