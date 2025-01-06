@@ -120,6 +120,29 @@ def get_prediction_augmentation(normalization_type, **kwargs):
 
     return albu.Compose(prediction_transform)
 
+def get_prediction_augmentation_from_model(model):
+    normalization_type = model.normalization["type"]
+    normalization_params = model.normalization
+    if normalization_type == "percentile":
+        preprocessing_fn = get_prediction_augmentation(
+            normalization_type=normalization_type,
+            lo=normalization_params["lo"],
+            hi=normalization_params["hi"],
+        )
+    elif normalization_type == "mean_std":
+        preprocessing_fn = get_prediction_augmentation(
+            normalization_type=normalization_type,
+            mean=normalization_params["mean"],
+            std=normalization_params["std"],
+        )
+    elif normalization_type == "data_range":
+        preprocessing_fn = get_prediction_augmentation(
+            normalization_type=normalization_type
+        )
+    else:
+        preprocessing_fn = None
+    return preprocessing_fn
+
 
 def get_mean_and_std(image_path):
     image = image_handling.read_tiff_file(image_path, [2])

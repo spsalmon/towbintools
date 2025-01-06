@@ -191,6 +191,8 @@ class SegmentationPredictionDataset(Dataset):
         if pad_or_crop not in ["pad", "crop"]:
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
 
+        self.pad_or_crop = pad_or_crop
+
         if pad_or_crop == "pad":
             self.resize_function = image_handling.pad_to_dim_equally
             self.multiplier_function = get_closest_upper_multiple
@@ -248,6 +250,7 @@ class SegmentationPredictionDataset(Dataset):
         resized_images = []
         for img in imgs:
             resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
+        resized_images = np.array(resized_images, dtype=np.float32)
 
         return img_paths, resized_images, original_shapes
 
