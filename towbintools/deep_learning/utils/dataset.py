@@ -19,7 +19,7 @@ from typing import List
 
 
 # Dataset where each image is split into tiles in the first place
-class OldTiledSegmentationDataloader(Dataset):
+class OldTiledSegmentationDataset(Dataset):
     def __init__(
         self,
         dataset,
@@ -67,7 +67,7 @@ class OldTiledSegmentationDataloader(Dataset):
 # Dataset where the images are split into tiles on the fly
 
 
-class TiledSegmentationDataloader(Dataset):
+class TiledSegmentationDataset(Dataset):
     def __init__(
         self,
         dataset,
@@ -225,7 +225,7 @@ class SegmentationPredictionDataloader(Dataset):
 
         return img_path, img.astype(np.float32)
 
-class ClassificationDataloader(Dataset):
+class ClassificationDataset(Dataset):
     def __init__(
         self,
         dataset,
@@ -428,7 +428,7 @@ def create_segmentation_dataloaders(
         validation_transform = get_prediction_augmentation("percentile", lo=1, hi=99)
 
     train_loader = DataLoader(
-        TiledSegmentationDataloader(
+        TiledSegmentationDataset(
             training_dataframe,
             image_slicers,
             channels=channels,
@@ -443,7 +443,7 @@ def create_segmentation_dataloaders(
         pin_memory=pin_memory,
     )
     val_loader = DataLoader(
-        TiledSegmentationDataloader(
+        TiledSegmentationDataset(
             validation_dataframe,
             image_slicers,
             channels=channels,
@@ -623,7 +623,7 @@ def create_classification_dataloaders(
 ):
         
     train_loader = DataLoader(
-        ClassificationDataloader(
+        ClassificationDataset(
             training_dataframe,
             channels=channels,
             n_classes=n_classes,
@@ -638,7 +638,7 @@ def create_classification_dataloaders(
         pin_memory=pin_memory,
     )
     val_loader = DataLoader(
-        ClassificationDataloader(
+        ClassificationDataset(
             validation_dataframe,
             channels=channels,
             n_classes=n_classes,

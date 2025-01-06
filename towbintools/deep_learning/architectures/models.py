@@ -183,7 +183,7 @@ class PretrainedClassificationModel(pl.LightningModule):
 
 class PretrainedSegmentationModel(pl.LightningModule):
     """Pytorch Lightning Module for training a segmentation model with a pretrained encoder. The encoder is loaded from the pretrained_microscopy_models package.
-    Because of the way they were pretrained, input images are required to have 3 channels.
+    This model automatically contains an activation layer at the end addapted to the number of classes.
 
     Parameters:
             input_channels (int): The number of input channels.
@@ -312,6 +312,20 @@ class PretrainedSegmentationModel(pl.LightningModule):
             sync_dist=True,
         )
 
+    def predict_step(self, batch):
+        x = batch
+        
+        pred = self.model(x) # prediction already has softmax / sigmoid applied
+
+        # binarize predictions
+        if self.n_classes == 1:
+            pred = pred > 0.5
+        else:
+            pred = torch.argmax(pred, dim=1)
+
+        return pred
+
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
@@ -379,6 +393,11 @@ class SegmentationModel(pl.LightningModule):
             else:
                 self.f1_score = MulticlassF1Score(num_classes=n_classes)
 
+        if n_classes == 1:
+            self.activation = nn.Sigmoid()
+        else:
+            self.activation = nn.Softmax(dim=1)
+
         self.normalization = normalization
         self.save_hyperparameters()
 
@@ -399,6 +418,7 @@ class SegmentationModel(pl.LightningModule):
     def training_step(self, batch):
         x, y = batch
         y_hat = self.model(x)
+        y_hat = self.activation(y_hat)
         loss = self.criterion(y_hat, y)
         self.log(
             "train_loss",
@@ -424,6 +444,7 @@ class SegmentationModel(pl.LightningModule):
     def validation_step(self, batch):
         x, y = batch
         y_hat = self.model(x)
+        y_hat = self.activation(y_hat)
         loss = self.criterion(y_hat, y)
         self.log(
             "val_loss",
@@ -445,6 +466,19 @@ class SegmentationModel(pl.LightningModule):
             sync_dist=True,
         )
 
+    def predict_step(self, batch):
+        x = batch
+        pred = self.model(x)
+        pred = self.activation(pred)
+
+        # binarize predictions
+        if self.n_classes == 1:
+            pred = pred > 0.5
+        else:
+            pred = torch.argmax(pred, dim=1)
+
+        return pred
+        
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

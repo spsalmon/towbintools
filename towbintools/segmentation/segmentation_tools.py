@@ -39,7 +39,6 @@ def edge_based_segmentation(
     if image.ndim > 2:
         raise ValueError("Image must be 2D.")
 
-    # image_dtype_max_value = np.iinfo(image.dtype).max
     thresh_otsu = threshold_otsu(image)
     edges = skimage.feature.canny(
         image.copy(),
@@ -47,7 +46,6 @@ def edge_based_segmentation(
         low_threshold=thresh_otsu / 5,
         high_threshold=thresh_otsu / 2.5,
     ).astype(np.uint8)
-    # edges = skimage.feature.canny(image.copy(), sigma=sigma_canny, low_threshold=image_dtype_max_value * 0.05, high_threshold=image_dtype_max_value*0.1).astype(np.uint8)
 
     edges = skimage.morphology.remove_small_objects(
         edges.astype(bool), 3, connectivity=2
