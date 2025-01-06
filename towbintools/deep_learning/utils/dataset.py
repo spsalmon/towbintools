@@ -225,15 +225,15 @@ class SegmentationPredictionDataset(Dataset):
 
         return img_path, img.astype(np.float32), img.shape
 
-    @staticmethod
-    def collate_fn(batch, multiplier_function, enforce_divisibility_by, resize_function, pad_or_crop):
+    def collate_fn(self, batch):
+
         img_paths, imgs, original_shapes = zip(*batch)
 
-        if enforce_divisibility_by is None:
+        if self.enforce_divisibility_by is None:
             return img_paths, imgs, original_shapes
 
         # find the maximum dimensions in the batch
-        if pad_or_crop == "pad":
+        if self.pad_or_crop == "pad":
             dim_x = max([shape[-2] for shape in original_shapes])
             dim_y = max([shape[-1] for shape in original_shapes])
         else:
@@ -241,13 +241,13 @@ class SegmentationPredictionDataset(Dataset):
             dim_y = min([shape[-1] for shape in original_shapes])
 
         # find the new dimensions
-        new_dim_x = multiplier_function(dim_x, enforce_divisibility_by)
-        new_dim_y = multiplier_function(dim_y, enforce_divisibility_by)
+        new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
+        new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
 
         # resize the images
         resized_images = []
         for img in imgs:
-            resized_images.append(resize_function(img, new_dim_x, new_dim_y))
+            resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
 
         return img_paths, resized_images, original_shapes
 
