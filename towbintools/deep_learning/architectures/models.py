@@ -402,7 +402,8 @@ class SegmentationModel(pl.LightningModule):
         self.save_hyperparameters()
 
     def forward(self, x):
-        return self.model(x)
+        y = self.model(x)
+        return self.activation(y)
 
     def log_tb_images(self) -> None:
         # Get tensorboard logger
@@ -478,7 +479,7 @@ class SegmentationModel(pl.LightningModule):
             pred = torch.argmax(pred, dim=1)
 
         return pred
-        
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
