@@ -184,7 +184,7 @@ def compute_max_width(width_profile, window_size=10):
         float: The maximum width of the worm.
     """
 
-    try
+    try:
         max_width_index = np.argmax(width_profile)
     except ValueError:
         return np.nan
