@@ -26,21 +26,21 @@ def compute_worm_volume(
 
 
 def compute_worm_area(
-    straightened_worm_mask: np.ndarray,
+    worm_mask: np.ndarray,
     pixelsize: float,
 ) -> float:
     """
     Compute the area of a worm mask.
 
     Parameters:
-        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        worm_mask (np.ndarray): The worm mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for area calculation.
 
     Returns:
         float: The computed are of the worm.
     """
 
-    return np.sum(straightened_worm_mask) * (pixelsize**2)
+    return np.sum(worm_mask) * (pixelsize**2)
 
 
 def compute_worm_length(
@@ -58,6 +58,115 @@ def compute_worm_length(
         float: The computed length of the worm.
     """
     return np.sum(np.sum(straightened_worm_mask, axis=0) > 0) * pixelsize
+
+def compute_worm_average_width(
+    straightened_worm_mask: np.ndarray,
+    pixelsize: float,
+    aggregation: str = "mean",
+) -> float:
+    """
+    Compute the average width of a straightened worm mask.
+
+    Parameters:
+        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        pixelsize (float): The size of a pixel, used for width calculation.
+        aggregation (str): The aggregation method to use to compute the width.
+                           Can be either 'mean', 'median'
+    
+    Returns:
+        float: The computed average width of the worm.
+    """
+
+    worm_widths = np.sum(straightened_worm_mask, axis=0) * pixelsize
+    worm_widths = worm_widths[worm_widths > 0]
+
+    if aggregation == "mean":
+        return np.mean(worm_widths)
+    elif aggregation == "median":
+        return np.median(worm_widths)
+    else:
+        raise ValueError(
+            'Aggregation must be one of "mean" or "median".'
+        )
+
+def compute_worm_width_profile(
+    straightened_worm_mask: np.ndarray,
+    pixelsize: float,
+) -> np.ndarray:
+    """
+    Compute the width profile of a straightened worm mask.
+
+    Parameters:
+        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        pixelsize (float): The size of a pixel, used for width calculation.
+
+    Returns:
+        np.ndarray: The computed width profile of the worm.
+    """
+
+    profile = np.sum(straightened_worm_mask, axis=0) * pixelsize
+    return profile[profile > 0]
+
+def compute_worm_size_features(
+    straightened_worm_mask: np.ndarray,
+    pixelsize: float,
+    features: list,
+) -> dict:
+    """
+    Compute a set of features for the size of a straightened worm mask.
+
+    Parameters:
+        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        pixelsize (float): The size of a pixel, used for size calculation.
+        features (list): The list of features to compute.
+
+    Returns:
+        dict: A dictionary containing the computed features.
+    """
+
+    feature_dict = {}
+    for feature in features:
+        if feature == "length":
+            feature_dict["worm_length"] = compute_worm_length(straightened_worm_mask, pixelsize=pixelsize)
+        elif feature == "volume":
+            feature_dict["worm_volume"] = compute_worm_volume(straightened_worm_mask, pixelsize=pixelsize)
+        elif feature == "area":
+            feature_dict["worm_area"] = compute_worm_area(straightened_worm_mask, pixelsize=pixelsize)
+
+def compute_worm_width_features(
+    straightened_worm_mask: np.ndarray,
+    pixelsize: float,
+    features: list,
+) -> dict:
+    """
+    Compute a set of features for the width profile of a straightened worm mask.
+
+    Parameters:
+        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        pixelsize (float): The size of a pixel, used for width calculation.
+        features (list): The list of features to compute.
+
+    Returns:
+        dict: A dictionary containing the computed features.
+    """
+
+    width_profile = compute_worm_width_profile(straightened_worm_mask, pixelsize=pixelsize)
+
+    feature_dict = {}
+    for feature in features:
+        if feature == "mean":
+            feature_dict["width_mean"] = np.mean(width_profile)
+        if feature == "median":
+            feature_dict["width_median"] = np.median(width_profile)
+        elif feature == "std":
+            feature_dict["width_std"] = np.std(width_profile)
+        elif feature == "cv":
+            feature_dict["width_cv"] = np.std(width_profile) / np.mean(width_profile)
+        elif feature == "skew":
+            feature_dict["width_skew"] = skew(width_profile)
+        elif feature == "kurtosis":
+            feature_dict["width_kurtosis"] = kurtosis(width_profile)
+
 
 
 def compute_worm_type_features(

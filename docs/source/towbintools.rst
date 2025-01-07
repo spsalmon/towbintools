@@ -11,4 +11,5 @@ towbintools API documentation
    towbintools_classification
    towbintools_quantification
    towbintools_data_analysis
+   towbintools_deep_learning
    
