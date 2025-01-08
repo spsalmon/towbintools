@@ -1,6 +1,7 @@
 import torch.nn as nn
 from math import ceil, floor
 from efficientnet_pytorch.utils import Conv2dStaticSamePadding
+import torch
 
 def divide_batch(l, n):
     for i in range(0, l.shape[0], n):
@@ -95,3 +96,14 @@ def change_last_fc_layer_output(model, new_out_features):
             # Recursively call the function for nested modules (e.g., nn.Sequential)
             change_last_fc_layer_output(module, new_out_features)
             break  # Break after modifying the last linear layer in any nested module
+
+def get_input_channels_from_checkpoint(checkpoint_path):
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    state_dict = checkpoint['state_dict']
+
+    input_channels = 0
+    for key in state_dict.keys():
+        if "conv" in key and "weight" in key:
+            input_channels = state_dict[key].shape
+            break
+    return input_channels
