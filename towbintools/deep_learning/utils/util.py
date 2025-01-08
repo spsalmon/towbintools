@@ -104,6 +104,6 @@ def get_input_channels_from_checkpoint(checkpoint_path):
     input_channels = 0
     for key in state_dict.keys():
         if "conv" in key and "weight" in key:
-            input_channels = state_dict[key].shape
+            input_channels = state_dict[key].shape[1]
             break
     return input_channels
