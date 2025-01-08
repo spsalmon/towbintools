@@ -96,6 +96,54 @@ def create_segmentation_model(
 
     return model
 
+def load_pretrained_model_from_checkpoint(checkpoint_path, default_input_channels=3):
+    """Loads a pretrained segmentation model from a checkpoint. If the model cannot be loaded
+    tries to load it with the default number of input channels.
+
+    Parameters:
+        checkpoint_path (str): Path to a checkpoint file.
+
+    Returns:
+        PretrainedSegmentationModel: The pretrained segmentation model.
+
+    Raises:
+        ValueError: If the model cannot be loaded from the checkpoint.
+    """
+    try:
+        return PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
+    except Exception as e:
+        try:
+            return PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path, input_channels=default_input_channels)
+        except Exception as e2:
+            raise ValueError(
+                f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
+            )
+
+def load_scratch_segmentation_model_from_checkpoint(checkpoint_path, default_input_channels=1, default_deep_supervision=False):
+    """Loads a segmentation model from a checkpoint. If the model cannot be loaded
+    tries to load it with the default number of input channels and deep supervision turned off.
+
+    This function first tries to load the model as a PretrainedSegmentationModel. If that fails,
+    it tries to load it as a SegmentationModel. If both attempts fail, it raises an error.
+
+    Parameters:
+        checkpoint_path (str): Path to a checkpoint file.
+
+    Returns:
+        SegmentationModel or PretrainedSegmentationModel: The segmentation model.
+
+    Raises:
+        ValueError: If the model cannot be loaded from the checkpoint.
+    """
+    try:
+        return SegmentationModel.load_from_checkpoint(checkpoint_path)
+    except Exception as e:
+        try:
+            return SegmentationModel.load_from_checkpoint(checkpoint_path, input_channels=default_input_channels, deep_supervision=default_deep_supervision)
+        except Exception as e2:
+            raise ValueError(
+                f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
+            )
 
 def load_segmentation_model_from_checkpoint(checkpoint_path):
     """Loads a segmentation model from a checkpoint.
@@ -112,11 +160,12 @@ def load_segmentation_model_from_checkpoint(checkpoint_path):
     Raises:
         ValueError: If the model cannot be loaded from the checkpoint.
     """
+
     try:
-        return PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
+        return load_pretrained_model_from_checkpoint(checkpoint_path)
     except Exception as e:
         try:
-            return SegmentationModel.load_from_checkpoint(checkpoint_path)
+            return load_scratch_segmentation_model_from_checkpoint(checkpoint_path)
         except Exception as e2:
             raise ValueError(
                 f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
