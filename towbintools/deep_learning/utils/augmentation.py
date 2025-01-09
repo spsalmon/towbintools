@@ -105,7 +105,7 @@ def get_training_augmentation(normalization_type, **kwargs):
             train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
 
     if kwargs["enforce_n_channels"]:
-        train_transform.append(EnforceNChannels(n_channels=kwargs["enforce_n_channels"]))
+        train_transform.append(EnforceNChannels(kwargs["enforce_n_channels"]))
 
     return albu.Compose(train_transform)
 
@@ -124,7 +124,7 @@ def get_prediction_augmentation(normalization_type, **kwargs):
             prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
     
     if kwargs["enforce_n_channels"]:
-        prediction_transform.append(EnforceNChannels(n_channels=kwargs["enforce_n_channels"]))
+        prediction_transform.append(EnforceNChannels(kwargs["enforce_n_channels"]))
 
     return albu.Compose(prediction_transform)
 
