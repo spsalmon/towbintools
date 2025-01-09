@@ -53,7 +53,7 @@ class EnforceNChannels(ImageOnlyTransform):
         return enforce_n_channels(img, self.n_channels)
 
     def get_transform_init_args_names(self):
-        return ()
+        return ("n_channels",)
 
 class CustomFlip(DualTransform):
     """Flip the input image horizontally or vertically with a given probability. Works well with images ordered in the OME-TIFF way."""
