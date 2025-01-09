@@ -44,12 +44,13 @@ class NormalizePercentile(ImageOnlyTransform):
         return ("lo", "hi")
 
 
-class GrayscaleToRGB(ImageOnlyTransform):
-    def __init__(self, always_apply=True, p=1.0):
+class EnforceNChannels(ImageOnlyTransform):
+    def __init__(self, always_apply=True, p=1.0, n_channels=3):
         super().__init__(always_apply, p)
+        self.n_channels = n_channels
 
     def apply(self, img, **params):
-        return grayscale_to_rgb(img)
+        return enforce_n_channels(img, self.n_channels)
 
     def get_transform_init_args_names(self):
         return ()
@@ -102,6 +103,10 @@ def get_training_augmentation(normalization_type, **kwargs):
             train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"]))
         except KeyError:
             train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
+
+    if kwargs["enforce_n_channels"]:
+        train_transform.append(EnforceNChannels(n_channels=kwargs["n_channels"]))
+
     return albu.Compose(train_transform)
 
 
@@ -117,30 +122,50 @@ def get_prediction_augmentation(normalization_type, **kwargs):
             prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"]))
         except KeyError:
             prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
+    
+    if kwargs["enforce_n_channels"]:
+        prediction_transform.append(EnforceNChannels(n_channels=kwargs["n_channels"]))
 
     return albu.Compose(prediction_transform)
 
-def get_prediction_augmentation_from_model(model):
+def get_prediction_augmentation_from_model(model, enforce_n_channels=None):
     normalization_type = model.normalization["type"]
     normalization_params = model.normalization
+
     if normalization_type == "percentile":
-        preprocessing_fn = get_prediction_augmentation(
-            normalization_type=normalization_type,
-            lo=normalization_params["lo"],
-            hi=normalization_params["hi"],
-        )
+        try :
+            preprocessing_fn = get_prediction_augmentation(
+                normalization_type=normalization_type,
+                lo=normalization_params["lo"],
+                hi=normalization_params["hi"],
+                axis=normalization_params["axis"],
+                enforce_n_channels=enforce_n_channels,
+            )
+        except KeyError:
+            preprocessing_fn = get_prediction_augmentation(
+                normalization_type=normalization_type,
+                lo=normalization_params["lo"],
+                hi=normalization_params["hi"],
+                enforce_n_channels=enforce_n_channels,
+            )
     elif normalization_type == "mean_std":
         preprocessing_fn = get_prediction_augmentation(
             normalization_type=normalization_type,
             mean=normalization_params["mean"],
             std=normalization_params["std"],
+            enforce_n_channels=enforce_n_channels,
         )
     elif normalization_type == "data_range":
         preprocessing_fn = get_prediction_augmentation(
-            normalization_type=normalization_type
+            normalization_type=normalization_type,
+            enforce_n_channels=enforce_n_channels,
         )
     else:
-        preprocessing_fn = None
+        preprocessing_fn = get_prediction_augmentation(
+            normalization_type=normalization_type,
+            enforce_n_channels=enforce_n_channels,
+        )
+        
     return preprocessing_fn
 
 
@@ -148,31 +173,41 @@ def get_mean_and_std(image_path):
     image = image_handling.read_tiff_file(image_path, [2])
     return np.mean(image), np.std(image)
 
-
-def grayscale_to_rgb(grayscale_img):
-    # Check if the image is a pytorch tensor, if not, convert it to one
-    if not isinstance(grayscale_img, torch.Tensor):
-        grayscale_img = torch.tensor(grayscale_img, dtype=torch.float32)
+def enforce_n_channels(image, n_channels):
+    if not isinstance(image, torch.Tensor):
+        image = torch.tensor(image, dtype=torch.float32)
 
     assert (
-        len(grayscale_img.shape) == 2 or len(grayscale_img.shape) == 3
-    ), "Currently, zstacks are not supported"
-    # Assuming grayscale_img has a shape of (H, W)
-    # we will unsqueeze it to have a shape of (1, H, W)
-    if len(grayscale_img.shape) == 2:
-        grayscale_img = grayscale_img.unsqueeze(0)
+        len(image.shape) <= 3
+    ), "Currently, multichannel zstacks are not supported"
+
+    if len(image.shape) == 2:
+        image = image.unsqueeze(0)
+
+    current_channels = image.shape[0]
 
     # Assuming grayscale_img has a shape of (C, H, W)
-    if grayscale_img.shape[0] == 3:
-        return grayscale_img
+    if current_channels == n_channels:
+        return image
 
-    if grayscale_img.shape[0] == 2:
-        grayscale_img = torch.cat((grayscale_img, grayscale_img[0].unsqueeze(0)), 0)
-
-    if grayscale_img.shape[0] > 3:
+    if current_channels > n_channels:
         raise ValueError(
-            "The image has more than 3 channels, and thus cannot be converted to RGB"
+            f"The image has more channels than the specified number of channels ({n_channels})"
         )
 
-    # Repeat the single channel image three times along the channel dimension (dimension 0)
-    return grayscale_img.repeat((3, 1, 1))
+    if n_channels % current_channels == 0:
+        return image.repeat((n_channels // current_channels, 1, 1))
+
+    else:
+        # First repeat the maximum number of times that divides evenly
+        base_repeats = n_channels // current_channels
+        remaining_channels = n_channels % current_channels
+        
+        # Create the base repeated tensor
+        repeated = image.repeat((base_repeats, 1, 1))
+        
+        # Add the remaining channels by selecting from the beginning
+        remaining = image[:remaining_channels]
+        
+        # Concatenate along the channel dimension
+        return torch.cat([repeated, remaining], dim=0)

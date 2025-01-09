@@ -3,7 +3,6 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 from towbintools.foundation import image_handling
 import numpy as np
-from .augmentation import grayscale_to_rgb
 import os
 import pandas as pd
 
@@ -17,56 +16,6 @@ from towbintools.deep_learning.utils.util import get_closest_lower_multiple, get
 from joblib import Parallel, delayed
 from typing import List
 
-
-# Dataset where each image is split into tiles in the first place
-class OldTiledSegmentationDataset(Dataset):
-    def __init__(
-        self,
-        dataset,
-        image_slicer,
-        channels,
-        mask_column,
-        image_column="raw",
-        transform=None,
-        RGB=False,
-    ):
-        images = dataset[image_column].values.tolist()
-        ground_truth = dataset[mask_column].values.tolist()
-
-        self.image_tiles = []
-        self.mask_tiles = []
-
-        for image, ground_truth in zip(images, ground_truth):
-            img = image_handling.read_tiff_file(image, [channels])
-            mask = image_handling.read_tiff_file(ground_truth)
-
-            if transform is not None:
-                transformed = transform(image=img, mask=mask)
-                img = transformed["image"]
-                mask = transformed["mask"]
-
-            tiles = image_slicer.split(img)
-            if RGB:
-                tiles = [grayscale_to_rgb(tile) for tile in tiles]
-            tiles_mask = image_slicer.split(mask)
-
-            self.image_tiles.extend(tiles)
-            self.mask_tiles.extend(tiles_mask)
-
-    def __len__(self):
-        return len(self.image_tiles)
-
-    def __getitem__(self, i):
-        img = self.image_tiles[i]
-        mask = self.mask_tiles[i]
-        mask = mask[np.newaxis, ...]
-
-        return img.astype(np.float32), mask
-
-
-# Dataset where the images are split into tiles on the fly
-
-
 class TiledSegmentationDataset(Dataset):
     def __init__(
         self,
@@ -76,14 +25,12 @@ class TiledSegmentationDataset(Dataset):
         mask_column="mask",
         image_column="image",
         transform=None,
-        RGB=False,
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
         self.channels = channels
         self.image_slicers = image_slicers
         self.transform = transform
-        self.RGB = RGB
 
     def __len__(self):
         return len(self.images)
@@ -99,10 +46,10 @@ class TiledSegmentationDataset(Dataset):
 
         slicer = self.image_slicers[img.shape]
         tiles = slicer.split(img)
-        if self.RGB:
-            tiles = [grayscale_to_rgb(tile) for tile in tiles]
-        else:
+
+        if len(tiles[0].shape) == 2:
             tiles = [tile[np.newaxis, ...] for tile in tiles]
+
         tiles_ground_truth = slicer.split(mask)
 
         selected_tile = np.random.randint(0, len(tiles))
@@ -120,7 +67,6 @@ class SegmentationDataset(Dataset):
         mask_column="mask",
         image_column="image",
         transform=None,
-        RGB=False,
         enforce_divisibility_by = 32,
         pad_or_crop = "pad",
         mask_pad_value = -1,
@@ -129,7 +75,6 @@ class SegmentationDataset(Dataset):
         self.ground_truth = dataset[mask_column].values.tolist()
         self.channels = channels
         self.transform = transform
-        self.RGB = RGB
         self.enforce_divisibility_by = enforce_divisibility_by
         if pad_or_crop not in ["pad", "crop"]:
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
@@ -165,9 +110,7 @@ class SegmentationDataset(Dataset):
                 img = self.resize_function(img, new_dim_x, new_dim_y)
                 mask = self.mask_resize_function(mask, new_dim_x, new_dim_y)
                 
-        if self.RGB:
-            img = grayscale_to_rgb(img)
-        else:
+        if len(img.shape) == 2:
             img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]
 
@@ -179,14 +122,12 @@ class SegmentationPredictionDataset(Dataset):
         image_paths,
         channels,
         transform=None,
-        RGB=False,
         enforce_divisibility_by = 32,
         pad_or_crop = "pad",
     ):
         self.images = image_paths
         self.channels = channels
         self.transform = transform
-        self.RGB = RGB
         self.enforce_divisibility_by = enforce_divisibility_by
         if pad_or_crop not in ["pad", "crop"]:
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
@@ -211,18 +152,7 @@ class SegmentationPredictionDataset(Dataset):
             transformed = self.transform(image=img)
             img = transformed["image"]
 
-        # if self.enforce_divisibility_by is not None:
-        #     dim_x, dim_y = img.shape[-2:]
-
-        #     if dim_x % self.enforce_divisibility_by != 0 or dim_y % self.enforce_divisibility_by != 0:
-        #         new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
-        #         new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
-
-        #         img = self.resize_function(img, new_dim_x, new_dim_y)
-                
-        if self.RGB:
-            img = grayscale_to_rgb(img)
-        else:
+        if len(img.shape) == 2:
             img = img[np.newaxis, ...]
 
         return img_path, img.astype(np.float32), img.shape
@@ -263,13 +193,11 @@ class ClassificationDataset(Dataset):
         class_column="class",
         image_column="image",
         transform=None,
-        RGB=False,
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[class_column].values.astype(float).tolist()
         self.channels = channels
         self.transform = transform
-        self.RGB = RGB
 
         # convert ground truth to one-hot encoding
         if n_classes > 2:
@@ -286,9 +214,7 @@ class ClassificationDataset(Dataset):
             transformed = self.transform(image=img)
             img = transformed["image"]
 
-        if self.RGB:
-            img = grayscale_to_rgb(img)
-        elif len(self.channels) == 1:
+        if len(img.shape) == 2:
             img = img[np.newaxis, ...]
 
         return img.astype(np.float32), class_value
