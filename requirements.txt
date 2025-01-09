@@ -17,3 +17,4 @@ pretrained-microscopy-models @ git+https://github.com/nasa/pretrained-microscopy
 pytorch-lightning
 numba
 csbdeep
+pytorch_toolbelt
