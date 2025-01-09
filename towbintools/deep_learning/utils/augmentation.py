@@ -173,41 +173,79 @@ def get_mean_and_std(image_path):
     image = image_handling.read_tiff_file(image_path, [2])
     return np.mean(image), np.std(image)
 
+# def enforce_n_channels(image, n_channels):
+#     if not isinstance(image, torch.Tensor):
+#         image = torch.tensor(image, dtype=torch.float32)
+
+#     assert (
+#         len(image.shape) <= 3
+#     ), "Currently, multichannel zstacks are not supported"
+
+#     if len(image.shape) == 2:
+#         image = image.unsqueeze(0)
+
+#     current_channels = image.shape[0]
+
+#     # Assuming grayscale_img has a shape of (C, H, W)
+#     if current_channels == n_channels:
+#         return image
+
+#     if current_channels > n_channels:
+#         raise ValueError(
+#             f"The image has more channels than the specified number of channels ({n_channels})"
+#         )
+
+#     if n_channels % current_channels == 0:
+#         return image.repeat((n_channels // current_channels, 1, 1))
+
+#     else:
+#         # First repeat the maximum number of times that divides evenly
+#         base_repeats = n_channels // current_channels
+#         remaining_channels = n_channels % current_channels
+        
+#         # Create the base repeated tensor
+#         repeated = image.repeat((base_repeats, 1, 1))
+        
+#         # Add the remaining channels by selecting from the beginning
+#         remaining = image[:remaining_channels]
+        
+#         # Concatenate along the channel dimension
+#         return torch.cat([repeated, remaining], dim=0)
+
 def enforce_n_channels(image, n_channels):
-    if not isinstance(image, torch.Tensor):
-        image = torch.tensor(image, dtype=torch.float32)
-
-    assert (
-        len(image.shape) <= 3
-    ), "Currently, multichannel zstacks are not supported"
-
+    if not isinstance(image, np.ndarray):
+        image = np.array(image, dtype=np.float32)
+    
+    assert len(image.shape) <= 3, "Currently, multichannel zstacks are not supported"
+    
+    # Add channel dimension if necessary
     if len(image.shape) == 2:
-        image = image.unsqueeze(0)
-
+        image = np.expand_dims(image, axis=0)
+        
     current_channels = image.shape[0]
-
-    # Assuming grayscale_img has a shape of (C, H, W)
+    
+    # Return if already correct number of channels
     if current_channels == n_channels:
         return image
-
+        
     if current_channels > n_channels:
         raise ValueError(
             f"The image has more channels than the specified number of channels ({n_channels})"
         )
-
+    
     if n_channels % current_channels == 0:
-        return image.repeat((n_channels // current_channels, 1, 1))
-
+        # Use np.tile instead of torch.repeat
+        return np.tile(image, (n_channels // current_channels, 1, 1))
     else:
         # First repeat the maximum number of times that divides evenly
         base_repeats = n_channels // current_channels
         remaining_channels = n_channels % current_channels
         
-        # Create the base repeated tensor
-        repeated = image.repeat((base_repeats, 1, 1))
+        # Create the base repeated array
+        repeated = np.tile(image, (base_repeats, 1, 1))
         
         # Add the remaining channels by selecting from the beginning
         remaining = image[:remaining_channels]
         
         # Concatenate along the channel dimension
-        return torch.cat([repeated, remaining], dim=0)
+        return np.concatenate([repeated, remaining], axis=0)
