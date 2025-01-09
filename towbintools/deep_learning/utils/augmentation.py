@@ -45,7 +45,7 @@ class NormalizePercentile(ImageOnlyTransform):
 
 
 class EnforceNChannels(ImageOnlyTransform):
-    def __init__(self, always_apply=True, p=1.0, n_channels=3):
+    def __init__(self, n_channels, always_apply=True, p=1.0):
         super().__init__(always_apply, p)
         self.n_channels = n_channels
 
