@@ -123,6 +123,8 @@ def compute_instantaneous_growth_rate(series, time, smoothing_method = "savgol",
     elif smoothing_method == "moving_average":
         # Smooth the series time series a bit more with a moving average filter
         series = uniform_filter1d(series, size=moving_average_window)
+    elif smoothing_method == "none":
+        pass
 
     # Compute the instantaneous growth rate
     growth_rate = np.gradient(series, time)
