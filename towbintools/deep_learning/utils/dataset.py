@@ -335,7 +335,6 @@ def create_segmentation_dataloaders(
     tiler_params=None,
     training_transform=None,
     validation_transform=None,
-    RGB=False,
 ):
     if not train_on_tiles:
         train_loader = DataLoader(
@@ -345,7 +344,6 @@ def create_segmentation_dataloaders(
                 mask_column="mask",
                 image_column="image",
                 transform=training_transform,
-                RGB=RGB,
             ),
             batch_size=batch_size,
             shuffle=True,
@@ -359,7 +357,6 @@ def create_segmentation_dataloaders(
                 mask_column="mask",
                 image_column="image",
                 transform=validation_transform,
-                RGB=RGB,
             ),
             batch_size=batch_size,
             shuffle=False,
@@ -390,7 +387,6 @@ def create_segmentation_dataloaders(
             mask_column="mask",
             image_column="image",
             transform=training_transform,
-            RGB=RGB,
         ),
         batch_size=batch_size,
         shuffle=True,
@@ -405,7 +401,6 @@ def create_segmentation_dataloaders(
             mask_column="mask",
             image_column="image",
             transform=validation_transform,
-            RGB=RGB,
         ),
         batch_size=batch_size,
         shuffle=False,
@@ -429,7 +424,6 @@ def create_segmentation_training_dataframes_and_dataloaders(
     tiler_params=None,
     training_transform=None,
     validation_transform=None,
-    RGB=False,
 ):
     training_dataframe, validation_dataframe = create_segmentation_training_dataframes(
         image_directories,
@@ -449,7 +443,6 @@ def create_segmentation_training_dataframes_and_dataloaders(
         tiler_params=tiler_params,
         training_transform=training_transform,
         validation_transform=validation_transform,
-        RGB=RGB,
     )
     return training_dataframe, validation_dataframe, train_loader, val_loader
 
@@ -469,7 +462,6 @@ def create_segmentation_dataloaders_from_filemap(
     tiler_params=None,
     training_transform=None,
     validation_transform=None,
-    RGB=False,
 ):
     dataframe = pd.read_csv(filemap_path)
     # rename image column to "image" and mask column to "mask"
@@ -508,7 +500,6 @@ def create_segmentation_dataloaders_from_filemap(
         tiler_params=tiler_params,
         training_transform=training_transform,
         validation_transform=validation_transform,
-        RGB=RGB,
     )
     return training_dataframe, validation_dataframe, train_loader, val_loader
     
@@ -574,7 +565,6 @@ def create_classification_dataloaders(
     pin_memory=True,
     training_transform=None,
     validation_transform=None,
-    RGB=False,
 ):
         
     train_loader = DataLoader(
@@ -585,7 +575,6 @@ def create_classification_dataloaders(
             class_column="class",
             image_column="image",
             transform=training_transform,
-            RGB=RGB,
             ),
         batch_size=batch_size,
         shuffle=True,
@@ -600,7 +589,6 @@ def create_classification_dataloaders(
             class_column="class",
             image_column="image",
             transform=validation_transform,
-            RGB=RGB,
         ),
         batch_size=batch_size,
         shuffle=False,
