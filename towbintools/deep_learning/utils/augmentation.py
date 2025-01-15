@@ -104,8 +104,10 @@ def get_training_augmentation(normalization_type, **kwargs):
         except KeyError:
             train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
 
-    if kwargs["enforce_n_channels"]:
-        train_transform.append(EnforceNChannels(kwargs["enforce_n_channels"]))
+    enforce_n_channels = kwargs.get("enforce_n_channels", None)
+
+    if enforce_n_channels is not None:
+        train_transform.append(EnforceNChannels(enforce_n_channels))
 
     return albu.Compose(train_transform)
 
@@ -123,8 +125,10 @@ def get_prediction_augmentation(normalization_type, **kwargs):
         except KeyError:
             prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
     
-    if kwargs["enforce_n_channels"]:
-        prediction_transform.append(EnforceNChannels(kwargs["enforce_n_channels"]))
+    enforce_n_channels = kwargs.get("enforce_n_channels", None)
+
+    if enforce_n_channels is not None:
+        prediction_transform.append(EnforceNChannels(enforce_n_channels))
 
     return albu.Compose(prediction_transform)
 
