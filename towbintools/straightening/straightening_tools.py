@@ -91,7 +91,9 @@ class Warper:
 
         # dt.max() is a radius, want diameter
         # TODO: is mean sufficient? ideally it's max, but occasionally poor masks REALLY inflate max of dts
-        worm_width = np.mean([dt.max() for dt in dts if dt is not None]) * 2
+        # I sometimes see clipping of elements wider than the mean (especially pharynx bulbs), so I multiply it by 1.2
+
+        worm_width = (np.mean([dt.max() for dt in dts if dt is not None])*1.2) * 2
         worm_length = max(l for l in spline_lengths if l is not None)
 
         # if provided image is 2D, no alignment is necessary
