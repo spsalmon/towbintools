@@ -10,8 +10,8 @@ from scipy.integrate import simpson
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 import cv2
-from skimage.morphology import binary_fill_holes
-from towbintools.segmentation.segmentation_tools import Warper
+from scipy.ndimage import binary_fill_holes
+from towbintools.straightening import Warper
 from towintools.foundation import binary_image
 
 
@@ -234,6 +234,8 @@ def compute_worm_morphological_features(
             feature_dict["width_max"] = compute_max_width(width_profile)
         elif feature == "width_middle":
             feature_dict["width_middle"] = compute_mid_width(width_profile)
+        elif feature == "bending_energy":
+            feature_dict["bending_energy"] = compute_bending_energy_mask(straightened_worm_mask, pixelsize)
         else:
             raise ValueError(f"Feature {feature} not recognized.")
 
