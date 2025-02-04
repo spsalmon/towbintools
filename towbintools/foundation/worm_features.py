@@ -4,6 +4,16 @@ from scipy.stats import skew, kurtosis
 from skimage.feature import graycomatrix, graycoprops
 from skimage.util import img_as_ubyte
 from skimage.measure import regionprops_table
+import numpy as np
+from scipy.interpolate import splprep, splev
+from scipy.integrate import simpson
+from scipy.interpolate import interp1d
+from scipy.signal import savgol_filter
+import cv2
+from skimage.morphology import binary_fill_holes
+from towbintools.segmentation.segmentation_tools import Warper
+from towintools.foundation import binary_image
+
 
 AVAILABLE_WORM_FEATURES = [
     "length",
@@ -17,6 +27,7 @@ AVAILABLE_WORM_FEATURES = [
     "width_kurtosis",
     "width_max",
     "width_middle",
+    "bending_energy",
 ]
 
 FEATURES_TO_COMPUTE_AT_MOLT = [
@@ -25,6 +36,7 @@ FEATURES_TO_COMPUTE_AT_MOLT = [
     "area",
     "fluo",
     "width",
+    "energy",
 ]
 
 def get_available_worm_features():
@@ -472,3 +484,94 @@ def get_context_features(mask_of_labels, intensity_image, features, extra_proper
         context_feature_vector.append(np.mean(properties[feature]))
         context_feature_vector.append(np.std(properties[feature]))
     return context_feature_vector
+
+def compute_bending_energy(midline_points, widths, E=1.0, smooth=None, savgol_window=21, savgol_order=3):
+    """
+    Compute bending energy considering variable width.
+    
+    Parameters:
+    midline_points: np.array of shape (n, 2) containing centerline x,y coordinates
+    widths: np.array of shape (n,) containing width at each point
+    E: Young's modulus (set to 1.0 for relative comparisons)
+    smooth: smoothing factor for spline fitting. If None, the default scipy smoothing is applied.
+    savgol_window: window size for Savitzky-Golay filter
+    savgol_order: order of Savitzky-Golay filter
+    
+    Returns:
+    float: bending energy
+    """
+
+    # Fit splines to both centerline and width
+    tck, u = splprep([midline_points[:, 0], midline_points[:, 1]], s=smooth)
+    widths = savgol_filter(widths, savgol_window, savgol_order)
+
+    # Create width interpolation function
+    width_interp = interp1d(np.linspace(0, 1, len(widths)), widths, kind='cubic')
+    
+    # Generate points along the spline for analysis
+    u_new = np.linspace(0, 1, 1000)
+    x_new, y_new = splev(u_new, tck)
+    widths_new = width_interp(u_new)
+    
+    # Compute derivatives for curvature
+    dx_du, dy_du = splev(u_new, tck, der=1)
+    dx2_du2, dy2_du2 = splev(u_new, tck, der=2)
+    
+    # Compute curvature
+    numerator = dx_du * dy2_du2 - dy_du * dx2_du2
+    denominator = (dx_du * dx_du + dy_du * dy_du)**1.5
+    curvature = numerator / denominator
+    
+    # Compute differential arc length
+    ds = np.sqrt(dx_du * dx_du + dy_du * dy_du) * (u_new[1] - u_new[0])
+    
+    # Compute second moment of area (I) assuming circular cross-section
+    # I = (π/64) * d⁴ for a circular cross-section
+    I = np.pi * (widths_new**4) / 64.0
+    
+    # Compute local flexural rigidity
+    EI = E * I
+    
+    # Compute bending energy = ∫ (EI/2) κ²ds
+    local_energy = (EI/2) * curvature**2 * ds
+
+    total_energy = simpson(local_energy, x=u_new)
+    
+    return total_energy
+
+def compute_bending_energy_mask(mask, pixelsize, E=1.0, smooth=None, savgol_window=21, savgol_order=3):
+    """
+    Compute bending energy considering variable width.
+    
+    Parameters:
+    mask: np.array of shape (n, m) containing binary mask
+    E: Young's modulus (set to 1.0 for relative comparisons)
+    smooth: smoothing factor for spline fitting. If None, the default scipy smoothing is applied.
+    savgol_window: window size for Savitzky-Golay filter
+    savgol_order: order of Savitzky-Golay filter
+    
+    Returns:
+    float: bending energy
+    """
+    
+    # Extract midline and width profile
+    mask = binary_image.get_biggest_object(mask)
+    mask = binary_fill_holes(mask)
+    mask_for_midline = cv2.medianBlur(mask.astype(np.uint8), 5)
+    warper = Warper.from_img(mask, mask_for_midline)
+    midline = warper.splines[0]
+    length = warper.length
+    midline = midline(np.linspace(0, length, 1000))
+
+    straightened_mask = warper.warp_2D_img(
+                mask, 
+                0,
+                interpolation_order=0,
+                preserve_range=True,
+                preserve_dtype=True,
+            )
+
+    widths = compute_worm_width_profile(straightened_mask, pixelsize)
+
+    bending_energy = compute_bending_energy(midline, widths)
+    return bending_energy
