@@ -12,7 +12,7 @@ from scipy.signal import savgol_filter
 import cv2
 from scipy.ndimage import binary_fill_holes
 from towbintools.straightening import Warper
-from towintools.foundation import binary_image
+from towbintools.foundation import binary_image
 
 
 AVAILABLE_WORM_FEATURES = [
