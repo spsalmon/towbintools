@@ -556,24 +556,28 @@ def compute_bending_energy_mask(mask, pixelsize, E=1.0, smooth=None, savgol_wind
     float: bending energy
     """
     
-    # Extract midline and width profile
-    mask = binary_image.get_biggest_object(mask)
-    mask = binary_fill_holes(mask)
-    mask_for_midline = cv2.medianBlur(mask.astype(np.uint8), 5)
-    warper = Warper.from_img(mask, mask_for_midline)
-    midline = warper.splines[0]
-    length = warper.length
-    midline = midline(np.linspace(0, length, 1000))
+    try:
+        # Extract midline and width profile
+        mask = binary_fill_holes(mask)
+        mask_for_midline = cv2.medianBlur(mask.astype(np.uint8), 5)
+        mask = binary_image.get_biggest_object(mask)
+        warper = Warper.from_img(mask, mask_for_midline)
+        midline = warper.splines[0]
+        length = warper.length
+        midline = midline(np.linspace(0, length, 1000))
 
-    straightened_mask = warper.warp_2D_img(
-                mask, 
-                0,
-                interpolation_order=0,
-                preserve_range=True,
-                preserve_dtype=True,
-            )
+        straightened_mask = warper.warp_2D_img(
+                    mask, 
+                    0,
+                    interpolation_order=0,
+                    preserve_range=True,
+                    preserve_dtype=True,
+                )
 
-    widths = compute_worm_width_profile(straightened_mask, pixelsize)
+        widths = compute_worm_width_profile(straightened_mask, pixelsize)
 
-    bending_energy = compute_bending_energy(midline, widths)
+        bending_energy = compute_bending_energy(midline, widths)
+    except Exception as e:
+        print(e)
+        bending_energy = np.nan
     return bending_energy
