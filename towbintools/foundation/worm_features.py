@@ -560,7 +560,8 @@ def compute_bending_energy_mask(mask, pixelsize, E=1.0, smooth=None, savgol_wind
         # Extract midline and width profile
         mask = binary_fill_holes(mask)
         mask_for_midline = cv2.medianBlur(mask.astype(np.uint8), 5)
-        mask = binary_image.get_biggest_object(mask)
+        mask = binary_image.get_biggest_object(mask.astype(np.uint8))
+        mask_for_midline = binary_image.get_biggest_object(mask_for_midline.astype(np.uint8))
         warper = Warper.from_img(mask, mask_for_midline)
         midline = warper.splines[0]
         length = warper.length
