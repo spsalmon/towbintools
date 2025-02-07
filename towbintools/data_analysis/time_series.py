@@ -191,7 +191,11 @@ def compute_series_at_time_classified(series: np.ndarray, worm_types: np.ndarray
     """
 
     if np.all(np.isnan(series)):
-        return np.full(time.shape, np.nan)
+        # handle time being a single value
+        if np.isscalar(time):
+            return np.full(1, np.nan)
+        else:
+            return np.full(time.shape, np.nan)
         
     # Smooth the series
     series = smooth_series_classified(series, worm_types, medfilt_window, savgol_window, savgol_order)
