@@ -2,6 +2,7 @@ import numpy as np
 from scipy.signal import savgol_filter, medfilt
 from towbintools.data_analysis.time_series import correct_series_with_classification
 from scipy.ndimage import uniform_filter1d
+from towbintools.foundation.utils import interpolate_nans_infs
 
 def compute_growth_rate_linear(series, time, ignore_start_fraction=0., ignore_end_fraction=0., savgol_filter_window=5, savgol_filter_order=3):
     """
@@ -40,6 +41,9 @@ def compute_growth_rate_linear(series, time, ignore_start_fraction=0., ignore_en
     
     # Remove extreme outliers with a small median filter
     series = medfilt(series, 3)
+
+    # Interpolate NaN and inf values
+    series = interpolate_nans_infs(series)
 
     # Smooth the series time series a bit more with a Savitzky-Golay filter
     series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
@@ -87,6 +91,9 @@ def compute_growth_rate_exponential(series, time, ignore_start_fraction=0., igno
     # Remove extreme outliers with a small median filter
     series = medfilt(series, 3)
 
+    # Interpolate NaN and inf values
+    series = interpolate_nans_infs(series)
+
     # Smooth the series time series a bit more with a Savitzky-Golay filter
     series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
 
@@ -116,6 +123,9 @@ def compute_instantaneous_growth_rate(series, time, smoothing_method = "savgol",
     
     # Remove extreme outliers with a small median filter
     series = medfilt(series, 3)
+
+    # Interpolate NaN and inf values
+    series = interpolate_nans_infs(series)
 
     if smoothing_method == "savgol":
         # Smooth the series time series a bit more with a Savitzky-Golay filter
