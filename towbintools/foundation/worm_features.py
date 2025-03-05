@@ -13,9 +13,10 @@ import cv2
 from scipy.ndimage import binary_fill_holes
 from towbintools.straightening import Warper
 from towbintools.foundation import binary_image
+from towbintools.foundation.image_quality import TENG, LAPV, LAPM, TENG_VARIANCE, normalized_variance_measure
 
 
-AVAILABLE_WORM_FEATURES = [
+AVAILABLE_MASK_FEATURES = [
     "length",
     "volume",
     "area",
@@ -30,6 +31,13 @@ AVAILABLE_WORM_FEATURES = [
     "bending_energy",
 ]
 
+AVAILABLE_IMAGE_FEATURES = [
+    "tenegrad",
+    "tenegrad_variance",
+    "laplacian_variance",
+    "modified_laplacian",
+]
+
 FEATURES_TO_COMPUTE_AT_MOLT = [
     "volume",
     "length",
@@ -39,14 +47,24 @@ FEATURES_TO_COMPUTE_AT_MOLT = [
     "energy",
 ]
 
-def get_available_worm_features():
+def get_available_regionprops():
+    from skimage.measure._regionprops import PROP_VALS, _require_intensity_image
+
+    mask_props = [prop for prop in PROP_VALS if prop not in _require_intensity_image]
+    image_props = [prop for prop in PROP_VALS if prop in _require_intensity_image]
+
+    return mask_props, image_props
+
+SKIMAGE_MASK_FEATURES, SKIMAGE_IMAGE_FEATURES = get_available_regionprops()
+
+def get_available_mask_features():
     """
     Get a list of available worm features.
 
     Returns:
         list: The list of available worm features.
     """
-    return AVAILABLE_WORM_FEATURES
+    return AVAILABLE_MASK_FEATURES
 
 def get_features_to_compute_at_molt():
     """
@@ -57,26 +75,26 @@ def get_features_to_compute_at_molt():
     """
     return FEATURES_TO_COMPUTE_AT_MOLT
 
-def compute_worm_volume(
-    straightened_worm_mask: np.ndarray,
+def compute_mask_volume(
+    straightened_mask: np.ndarray,
     pixelsize: float,
 ) -> float:
     """
-    Compute the volume of a straightened worm mask using its radius and pixel size.
+    Compute the volume of a straightened mask using its radius and pixel size.
 
     Parameters:
-        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for volume calculation.
 
     Returns:
         float: The computed volume of the worm.
     """
 
-    worm_radius = np.sum(straightened_worm_mask, axis=0) / 2
+    worm_radius = np.sum(straightened_mask, axis=0) / 2
     return np.sum(np.pi * (worm_radius**2)) * (pixelsize**3)
 
 
-def compute_worm_area(
+def compute_mask_area(
     worm_mask: np.ndarray,
     pixelsize: float,
 ) -> float:
@@ -94,32 +112,32 @@ def compute_worm_area(
     return np.sum(worm_mask) * (pixelsize**2)
 
 
-def compute_worm_length(
-    straightened_worm_mask: np.ndarray,
+def compute_mask_length(
+    straightened_mask: np.ndarray,
     pixelsize: float,
 ) -> float:
     """
-    Compute the length of a straightened worm mask using the sum of its pixels along the 0-axis.
+    Compute the length of a straightened mask using the sum of its pixels along the 0-axis.
 
     Parameters:
-        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for length calculation.
 
     Returns:
         float: The computed length of the worm.
     """
-    return np.sum(np.sum(straightened_worm_mask, axis=0) > 0) * pixelsize
+    return np.sum(np.sum(straightened_mask, axis=0) > 0) * pixelsize
 
-def compute_worm_average_width(
-    straightened_worm_mask: np.ndarray,
+def compute_mask_average_width(
+    straightened_mask: np.ndarray,
     pixelsize: float,
     aggregation: str = "mean",
 ) -> float:
     """
-    Compute the average width of a straightened worm mask.
+    Compute the average width of a straightened mask.
 
     Parameters:
-        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for width calculation.
         aggregation (str): The aggregation method to use to compute the width.
                            Can be either 'mean', 'median'
@@ -128,7 +146,7 @@ def compute_worm_average_width(
         float: The computed average width of the worm.
     """
 
-    worm_widths = np.sum(straightened_worm_mask, axis=0) * pixelsize
+    worm_widths = np.sum(straightened_mask, axis=0) * pixelsize
     worm_widths = worm_widths[worm_widths > 0]
 
     if aggregation == "mean":
@@ -140,23 +158,39 @@ def compute_worm_average_width(
             'Aggregation must be one of "mean" or "median".'
         )
 
-def compute_worm_width_profile(
-    straightened_worm_mask: np.ndarray,
+def compute_width_profile(
+    straightened_mask: np.ndarray,
     pixelsize: float,
+    smooth: bool = True,
+    savgol_window: int = 21,
+    savgol_order: int = 3,
 ) -> np.ndarray:
     """
-    Compute the width profile of a straightened worm mask.
+    Compute the width profile of a straightened mask.
 
     Parameters:
-        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for width calculation.
+        smooth (bool): Whether to apply a Savitzky-Golay filter to the width profile
+        savgol_window (int): The window size of the Savitzky-Golay filter.
+        savgol_order (int): The order of the Savitzky-Golay filter.
 
     Returns:
-        np.ndarray: The computed width profile of the worm.
+        np.ndarray: The computed and smoothed width profile. If smoothing fails, the unsmoothed profile is returned.
     """
 
-    profile = np.sum(straightened_worm_mask, axis=0) * pixelsize
-    return profile[profile > 0]
+
+    profile = np.sum(straightened_mask, axis=0) * pixelsize
+
+    profile = profile[profile > 0]
+
+    if not smooth:
+        return profile
+
+    try:
+        return savgol_filter(profile, savgol_window, savgol_order)
+    except ValueError:
+        return profile
 
 def compute_max_width(width_profile, window_size=10):
     """
@@ -191,16 +225,16 @@ def compute_mid_width(width_profile, window_size=10):
     mid_width_index = len(width_profile) // 2
     return np.mean(width_profile[mid_width_index - window_size : mid_width_index + window_size + 1])
 
-def compute_worm_morphological_features(
-    straightened_worm_mask: np.ndarray,
+def compute_mask_morphological_features(
+    straightened_mask: np.ndarray,
     pixelsize: float,
     features: list,
 ) -> dict:
     """
-    Compute a set of morphological features for a straightened worm mask.
+    Compute a set of morphological features for a straightened mask.
 
     Parameters:
-        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for various calculations.
         features (list): The list of features to compute.
 
@@ -208,16 +242,18 @@ def compute_worm_morphological_features(
         dict: A dictionary containing the computed features.
     """
 
-    width_profile = compute_worm_width_profile(straightened_worm_mask, pixelsize=pixelsize)
+    # if any of the feature contains "width", compute the width profile
+    if any("width" in feature for feature in features):
+        width_profile = compute_width_profile(straightened_mask, pixelsize=pixelsize)
 
     feature_dict = {}
     for feature in features:
         if feature == "length":
-            feature_dict["length"] = compute_worm_length(straightened_worm_mask, pixelsize=pixelsize)
+            feature_dict["length"] = compute_mask_length(straightened_mask, pixelsize=pixelsize)
         elif feature == "volume":
-            feature_dict["volume"] = compute_worm_volume(straightened_worm_mask, pixelsize=pixelsize)
+            feature_dict["volume"] = compute_mask_volume(straightened_mask, pixelsize=pixelsize)
         elif feature == "area":
-            feature_dict["area"] = compute_worm_area(straightened_worm_mask, pixelsize=pixelsize)
+            feature_dict["area"] = compute_mask_area(straightened_mask, pixelsize=pixelsize)
         elif feature == "width_mean":
             feature_dict["width_mean"] = np.mean(width_profile)
         elif feature == "width_median":
@@ -235,7 +271,7 @@ def compute_worm_morphological_features(
         elif feature == "width_middle":
             feature_dict["width_middle"] = compute_mid_width(width_profile)
         elif feature == "bending_energy":
-            feature_dict["bending_energy"] = compute_bending_energy_mask(straightened_worm_mask, pixelsize)
+            feature_dict["bending_energy"] = compute_bending_energy_mask(straightened_mask, pixelsize)
         else:
             raise ValueError(f"Feature {feature} not recognized.")
 
@@ -246,17 +282,49 @@ def compute_worm_morphological_features(
 
     return feature_dict
 
+def compute_image_features(
+    image: np.ndarray,
+    features: list,
+) -> dict:
+    """
+    Compute a set of image features for an image.
 
-def compute_worm_type_features(
-    straightened_worm_mask: np.ndarray,
+    Parameters:
+        image (np.ndarray): The input image as a NumPy array.
+        features (list): The list of features to compute.
+
+    Returns:
+        dict: A dictionary containing the computed features.
+    """
+
+    feature_dict = {}
+    for feature in features:
+        if feature == "tenegrad":
+            feature_dict["tenegrad"] = TENG(image)
+        elif feature == "tenegrad_variance":
+            feature_dict["tenegrad_variance"] = TENG_VARIANCE(image)
+        elif feature == "laplacian_variance":
+            feature_dict["laplacian_variance"] = LAPV(image)
+        elif feature == "modified_laplacian":
+            feature_dict["modified_laplacian"] = LAPM(image)
+        elif feature == "normalized_variance":
+            feature_dict["normalized_variance"] = normalized_variance_measure(image)
+        else:
+            raise ValueError(f"Feature {feature} not recognized.")
+
+    return feature_dict
+
+
+def compute_mask_type_features(
+    straightened_mask: np.ndarray,
     pixelsize: float,
 ) -> list:
     """
-    Compute a series of morphological features for a straightened worm mask including
+    Compute a series of morphological features for a straightened mask including
     length, volume, volume per length, width measures, entropy, and region properties.
 
     Parameters:
-        straightened_worm_mask (np.ndarray): The straightened worm mask as a NumPy array.
+        straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for various calculations.
 
     Returns:
@@ -265,13 +333,13 @@ def compute_worm_type_features(
               width_cv, entropy_mask, eccentricity, solidity, permimeter]
     """
     # compute worm length
-    worm_length = compute_worm_length(straightened_worm_mask, pixelsize=pixelsize)
+    worm_length = compute_mask_length(straightened_mask, pixelsize=pixelsize)
 
     # compute worm volume
-    worm_volume = compute_worm_volume(straightened_worm_mask, pixelsize=pixelsize)
+    worm_volume = compute_mask_volume(straightened_mask, pixelsize=pixelsize)
 
     # compute worm width
-    worm_widths = np.sum(straightened_worm_mask, axis=0) * pixelsize
+    worm_widths = np.sum(straightened_mask, axis=0) * pixelsize
     worm_widths = worm_widths[worm_widths > 0]
 
     width_std = np.std(worm_widths)
@@ -281,10 +349,10 @@ def compute_worm_type_features(
     volume_per_length = worm_volume / worm_length
 
     # compute entropy
-    entropy_mask = shannon_entropy(straightened_worm_mask)
+    entropy_mask = shannon_entropy(straightened_mask)
 
     try:
-        other_properties = regionprops(straightened_worm_mask.astype(np.uint8))[0]
+        other_properties = regionprops(straightened_mask.astype(np.uint8))[0]
         eccentricity = other_properties.eccentricity
         solidity = other_properties.solidity
         permimeter = other_properties.perimeter
@@ -487,7 +555,7 @@ def get_context_features(mask_of_labels, intensity_image, features, extra_proper
         context_feature_vector.append(np.std(properties[feature]))
     return context_feature_vector
 
-def compute_bending_energy(midline_points, widths, E=1.0, smooth=None, savgol_window=21, savgol_order=3):
+def compute_bending_energy(midline_points, widths, E=1.0, smooth=None):
     """
     Compute bending energy considering variable width.
     
@@ -505,7 +573,6 @@ def compute_bending_energy(midline_points, widths, E=1.0, smooth=None, savgol_wi
 
     # Fit splines to both centerline and width
     tck, u = splprep([midline_points[:, 0], midline_points[:, 1]], s=smooth)
-    widths = savgol_filter(widths, savgol_window, savgol_order)
 
     # Create width interpolation function
     width_interp = interp1d(np.linspace(0, 1, len(widths)), widths, kind='cubic')
@@ -575,7 +642,7 @@ def compute_bending_energy_mask(mask, pixelsize, E=1.0, smooth=None, savgol_wind
                     preserve_dtype=True,
                 )
 
-        widths = compute_worm_width_profile(straightened_mask, pixelsize)
+        widths = compute_width_profile(straightened_mask, pixelsize, savgol_window, savgol_order)
 
         bending_energy = compute_bending_energy(midline, widths)
     except Exception as e:
