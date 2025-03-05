@@ -36,6 +36,7 @@ AVAILABLE_IMAGE_FEATURES = [
     "tenegrad_variance",
     "laplacian_variance",
     "modified_laplacian",
+    "normalized_variance",
 ]
 
 FEATURES_TO_COMPUTE_AT_MOLT = [
