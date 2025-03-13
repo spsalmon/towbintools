@@ -14,8 +14,6 @@ from scipy.spatial import distance
 from skimage.util import img_as_ubyte
 from skimage.feature import hessian_matrix, hessian_matrix_eigvals
 
-import os
-
 if TYPE_CHECKING:
     from os import PathLike
 
