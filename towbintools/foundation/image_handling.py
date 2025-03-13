@@ -141,34 +141,6 @@ def crop_to_dim(
 
     return image[..., :xdim, :ydim]
 
-# def crop_to_dim_equally(
-#     image: np.ndarray,
-#     xdim: int,
-#     ydim: int,
-# ) -> np.ndarray:
-#     """
-#     Crop an image equally to the correct dimensions by removing pixels from both sides.
-
-#     Parameters:
-#             image (np.ndarray): The input image as a NumPy array.
-#             xdim (int): The desired X dimension of the cropped image.
-#             ydim (int): The desired Y dimension of the cropped image.
-
-#     Returns:
-#             np.ndarray: The equally cropped image as a NumPy array.
-#     """
-#     xpad = image.shape[0] - xdim
-#     ypad = image.shape[1] - ydim
-
-#     # Calculate the cropping for each dimension equally.
-#     xpad_start = xpad // 2
-#     xpad_end = xpad // 2 + xpad % 2
-#     ypad_start = ypad // 2
-#     ypad_end = ypad // 2 + ypad % 2
-
-#     # Crop the image equally.
-#     return image[xpad_start:-xpad_end, ypad_start:-ypad_end, ...]
-
 def crop_to_dim_equally(image: np.ndarray, xdim: int, ydim: int) -> np.ndarray:
     """
     Crop an image equally to the specified dimensions by removing pixels from both sides.
