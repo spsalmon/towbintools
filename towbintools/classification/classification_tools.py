@@ -32,7 +32,7 @@ def classify_worm_type(
         str: The predicted class of the worm ('worm', 'egg', or 'error').
     """
     worm_type_features = np.array(
-        [worm_features.compute_worm_type_features(straightened_mask, pixelsize)]
+        [worm_features.compute_mask_type_features(straightened_mask, pixelsize)]
     )
     type_prediction = classifier.predict_proba(worm_type_features).squeeze()
     # convert proba to one hot encoding
