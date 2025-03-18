@@ -321,7 +321,7 @@ def extract_midline(mask2D, ridge_responce_thresh: float = 90, return_dt: bool =
 def _detect_ridges(gray, sigma=1):
     """Finds ridge points in a grayscale image. Copied from here : https://stackoverflow.com/questions/48727914/how-to-use-ridge-detection-filter-in-opencv"""
     H_elems = hessian_matrix(
-        gray, sigma=sigma, order="rc",
+        gray, sigma=sigma, order="rc", use_gaussian_derivatives = False,
     )
     maxima_ridges, minima_ridges = hessian_matrix_eigvals(H_elems)
     return maxima_ridges, minima_ridges
