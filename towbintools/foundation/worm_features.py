@@ -1,3 +1,4 @@
+from typing import List, Optional
 import numpy as np
 from skimage.measure import regionprops, shannon_entropy
 from scipy.stats import skew, kurtosis
@@ -141,7 +142,7 @@ def compute_mask_average_width(
         straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for width calculation.
         aggregation (str): The aggregation method to use to compute the width.
-                           Can be either 'mean', 'median'
+                           Can be either 'mean' or 'median'. (default: 'mean')
     
     Returns:
         float: The computed average width of the worm.
@@ -172,9 +173,9 @@ def compute_width_profile(
     Parameters:
         straightened_mask (np.ndarray): The straightened mask as a NumPy array.
         pixelsize (float): The size of a pixel, used for width calculation.
-        smooth (bool): Whether to apply a Savitzky-Golay filter to the width profile
-        savgol_window (int): The window size of the Savitzky-Golay filter.
-        savgol_order (int): The order of the Savitzky-Golay filter.
+        smooth (bool): Whether to apply a Savitzky-Golay filter to the width profile. (default: True)
+        savgol_window (int): The window size of the Savitzky-Golay filter. (default: 21)
+        savgol_order (int): The order of the Savitzky-Golay filter. (default: 3)
 
     Returns:
         np.ndarray: The computed and smoothed width profile. If smoothing fails, the unsmoothed profile is returned.
@@ -193,13 +194,16 @@ def compute_width_profile(
     except ValueError:
         return profile
 
-def compute_max_width(width_profile, window_size=10):
+def compute_max_width(
+    width_profile: np.ndarray, 
+    window_size: int =10,
+) -> float:
     """
     Compute the maximum width of a worm from its width profile by taking the maximum value and averaging the values around it.
 
     Parameters:
         width_profile (np.ndarray): The width profile of the worm.
-        window_size (int): The size of the window to average around the maximum.
+        window_size (int): The size of the window to average around the maximum. (default: 10)
 
     Returns:
         float: The maximum width of the worm.
@@ -211,13 +215,16 @@ def compute_max_width(width_profile, window_size=10):
         return np.nan
     return np.mean(width_profile[max_width_index - window_size : max_width_index + window_size + 1])
 
-def compute_mid_width(width_profile, window_size=10):
+def compute_mid_width(
+    width_profile: np.ndarray, 
+    window_size: int =10,
+):
     """
     Compute the width of a worm at its midpoint from its width profile by averaging the values around the midpoint.
 
     Parameters:
         width_profile (np.ndarray): The width profile of the worm.
-        window_size (int): The size of the window to average around the midpoint.
+        window_size (int): The size of the window to average around the midpoint. (default: 10)
 
     Returns:
         float: The width of the worm at its midpoint.
@@ -229,7 +236,7 @@ def compute_mid_width(width_profile, window_size=10):
 def compute_mask_morphological_features(
     straightened_mask: np.ndarray,
     pixelsize: float,
-    features: list,
+    features: List[str],
 ) -> dict:
     """
     Compute a set of morphological features for a straightened mask.
@@ -377,7 +384,10 @@ def compute_mask_type_features(
 
 # Features for nuclei classification
 
-def intensity_std(regionmask, intensity_image):
+def intensity_std(
+    regionmask: np.ndarray, 
+    intensity_image: np.ndarray,
+) -> float: 
     """
     Compute the standard deviation of the intensity values within a region.
     
@@ -389,7 +399,10 @@ def intensity_std(regionmask, intensity_image):
         float: The standard deviation of the intensity values within the region."""
     return np.std(intensity_image[regionmask])
 
-def intensity_skew(regionmask, intensity_image):
+def intensity_skew(
+    regionmask: np.ndarray, 
+    intensity_image: np.ndarray,
+) -> float:
     """
     Compute the skewness of the intensity values within a region.
 
@@ -402,7 +415,10 @@ def intensity_skew(regionmask, intensity_image):
     
     return skew(intensity_image[regionmask])
 
-def intensity_kurtosis(regionmask, intensity_image):
+def intensity_kurtosis(
+    regionmask: np.ndarray, 
+    intensity_image: np.ndarray,
+) -> float:
     """
     Compute the kurtosis of the intensity values within a region.
 
@@ -415,7 +431,9 @@ def intensity_kurtosis(regionmask, intensity_image):
     
     return kurtosis(intensity_image[regionmask])
 
-def compute_haralick_features(image):
+def compute_haralick_features(
+    image: np.ndarray,
+) -> list:
     """
     Compute Haralick texture features for an image.
 
@@ -438,14 +456,18 @@ def compute_haralick_features(image):
     return [contrast, dissimilarity, homogeneity, energy, correlation]
 
 
-def compute_patch_features(regionmask, intensity_image, patch_size=64):
+def compute_patch_features(
+    regionmask: np.ndarray, 
+    intensity_image: np.ndarray, 
+    patch_size: int =64,
+) -> list:
     """
     Compute a set of features for a patch around a region.
 
     Parameters:
         regionmask (np.ndarray): The mask of the region.
         intensity_image (np.ndarray): The intensity image.
-        patch_size (int): The size of the patch.
+        patch_size (int): The size of the patch. (default: 64)
 
     Returns:
         list: A list of features for the patch.
@@ -482,7 +504,12 @@ def compute_patch_features(regionmask, intensity_image, patch_size=64):
 
     return patch_features
 
-def compute_base_label_features(mask_of_label, intensity_image, features, extra_properties):
+def compute_base_label_features(
+    mask_of_label: np.ndarray, 
+    intensity_image: np.ndarray, 
+    features: List[str],
+    extra_properties: List[str], 
+) -> list:
     """
     Compute a set of features for a single label.
     
@@ -502,7 +529,12 @@ def compute_base_label_features(mask_of_label, intensity_image, features, extra_
         feature_vector.append(properties[feature][0])
     return feature_vector
 
-def get_context(current_label, mask_of_current_label, mask_of_labels, num_closest=5):
+def get_context(
+    current_label: int, 
+    mask_of_current_label: np.ndarray, 
+    mask_of_labels: np.ndarray, 
+    num_closest: int = 5,
+) -> np.ndarray:
     """
     Returns the mask of the closest labels to the current label in a label image.
 
@@ -510,7 +542,7 @@ def get_context(current_label, mask_of_current_label, mask_of_labels, num_closes
         current_label (int): The label of the current region.
         mask_of_current_label (np.ndarray): The mask of the current region.
         mask_of_labels (np.ndarray): The mask of all regions.
-        num_closest (int): The number of closest regions to return.
+        num_closest (int): The number of closest regions to return. (default: 5)
 
     Returns:
         np.ndarray: The mask of the closest regions.
@@ -535,7 +567,12 @@ def get_context(current_label, mask_of_current_label, mask_of_labels, num_closes
         return mask_of_closest_labels.astype("uint8")
 
 
-def get_context_features(mask_of_labels, intensity_image, features, extra_properties):
+def get_context_features(
+    mask_of_labels: np.ndarray, 
+    intensity_image: np.ndarray, 
+    features: List[str], 
+    extra_properties: List[str],
+) -> list:
     """
     Compute a set of features for the context of a label.
 
@@ -556,20 +593,23 @@ def get_context_features(mask_of_labels, intensity_image, features, extra_proper
         context_feature_vector.append(np.std(properties[feature]))
     return context_feature_vector
 
-def compute_bending_energy(midline_points, widths, E=1.0, smooth=None):
+def compute_bending_energy(
+    midline_points: np.array, 
+    widths: np.array, 
+    E: float = 1.0, 
+    smooth: Optional[float] = None,
+) -> float:
     """
-    Compute bending energy considering variable width.
+    Compute bending energy of a midline considering variable width.
     
     Parameters:
-    midline_points: np.array of shape (n, 2) containing centerline x,y coordinates
-    widths: np.array of shape (n,) containing width at each point
-    E: Young's modulus (set to 1.0 for relative comparisons)
-    smooth: smoothing factor for spline fitting. If None, the default scipy smoothing is applied.
-    savgol_window: window size for Savitzky-Golay filter
-    savgol_order: order of Savitzky-Golay filter
+        midline_points (np.array): array of shape (n, 2) containing centerline x,y coordinates
+        widths (np.array): array of shape (n,) containing width at each point
+        E (float): Young's modulus (set to 1.0 for relative comparisons)
+        smooth (float): smoothing factor for spline fitting. If None, the default scipy smoothing is applied. (default: None)
     
     Returns:
-    float: bending energy
+        float: bending energy
     """
 
     # Fit splines to both centerline and width
@@ -609,19 +649,27 @@ def compute_bending_energy(midline_points, widths, E=1.0, smooth=None):
     
     return total_energy
 
-def compute_bending_energy_mask(mask, pixelsize, E=1.0, smooth=None, savgol_window=21, savgol_order=3):
+def compute_bending_energy_mask(
+    mask: np.ndarray, 
+    pixelsize: float, 
+    E: float = 1.0,
+    smooth: Optional[float] = None, 
+    savgol_window: int = 21, 
+    savgol_order: int = 3,
+) -> float:
     """
-    Compute bending energy considering variable width.
+    Compute bending energy of a binary mask by extracting its midline and width profile.
     
     Parameters:
-    mask: np.array of shape (n, m) containing binary mask
-    E: Young's modulus (set to 1.0 for relative comparisons)
-    smooth: smoothing factor for spline fitting. If None, the default scipy smoothing is applied.
-    savgol_window: window size for Savitzky-Golay filter
-    savgol_order: order of Savitzky-Golay filter
+        mask (np.ndarray): Binary mask.
+        pixelsize (float): Physical size of a pixel, used for width calculation.
+        E (float): Young's modulus (set to 1.0 for relative comparisons)
+        smooth (float): smoothing factor for spline fitting. If None, the default scipy smoothing is applied. (default: None)
+        savgol_window (int): window size for Savitzky-Golay filter. (default: 21)
+        savgol_order (int): order of Savitzky-Golay filter. (default: 3)
     
     Returns:
-    float: bending energy
+        float: bending energy
     """
     
     try:

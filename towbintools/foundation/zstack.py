@@ -18,11 +18,12 @@ def normalize_zstack(
 
     Parameters:
         zstack (np.ndarray): The input z-stack as a 3D NumPy array, with the third dimension representing the z-plane.
-        each_plane (bool, optional): Flag to determine if normalization should occur for each z-plane independently.
-                                     If set to False, normalization is applied to the whole z-stack. Default is True.
+        each_plane (bool, optional): Flag to determine if each z-plane should be normalized independently. (default: True)
         dest_dtype (np.dtype, optional): The desired data type for the output normalized z-stack.
-                                         Can be one of the following: np.uint16, np.uint8, np.float32, np.float64.
-                                         Default is np.uint16.
+                                         Can be one of the following: np.uint16, np.uint8, np.float32, np.float64. (default: np.uint16)
+
+    Raises:
+        ValueError: If dest_dtype is not one of the specified types.
 
     Returns:
         np.ndarray: The normalized z-stack as a 3D NumPy array.
@@ -82,13 +83,11 @@ def augment_contrast_zstack(
 
     Parameters:
         zstack (np.ndarray): The input z-stack as a 3D NumPy array, with the third dimension representing the z-plane.
-        clip_limit (int, optional): The clipping limit used in the CLAHE algorithm. Higher values increase contrast.
-                                    Default is 5.
+        clip_limit (int, optional): The clipping limit used in the CLAHE algorithm. Higher values increase contrast. (default: 5)
         tile_size (int, optional): The side length (in pixels) of the square tiles the image is divided into
-                                   for the CLAHE algorithm. Default is 8.
-        normalize_each_plane (bool, optional): Flag to determine if normalization should occur for each z-plane
-                                               independently before contrast augmentation. If set to False,
-                                               normalization is applied to the whole z-stack. Default is True.
+                                   for the CLAHE algorithm. (default: 8)
+        normalize_each_plane (bool, optional): Flag to determine if each z-plane should be normalized
+                                               independently before contrast augmentation. (default: True)
 
     Returns:
         np.ndarray: The contrast-augmented z-stack as a 3D NumPy array.
@@ -116,15 +115,12 @@ def find_best_plane(
         zstack (np.ndarray): The input z-stack, potentially multi-channel.
         measure (str): The measure used to identify the "best" plane. Can be 'shannon_entropy', 'mean', 'normalized_variance', 'lapv', 'lapm', 'teng' or 'mlog'.
         channel (int, optional): If the z-stack has more than 3 dimensions,
-                                 specifies which channel to use. Default is None.
-        dest_dtype (np.dtype, optional): Desired data type after normalization.
-                                         Default is np.uint16.
-        each_plane (bool, optional): Flag to determine if normalization should be
-                                     applied on each z-plane independently. Default is True.
-        contrast_augmentation (bool, optional): Whether to augment contrast of the z-stack.
-                                                Default is False.
+                                 specifies which channel to use. (default: None)
+        dest_dtype (np.dtype, optional): Desired data type after normalization. (default: np.uint16)
+        each_plane (bool, optional): Flag to determine if each z-plane should be normalized independently. (default: True)
+        contrast_augmentation (bool, optional): Whether to augment contrast of the z-stack or not. (default: False)
         clip_limit (int, optional): The clipping limit used for contrast augmentation
-                                    if activated. Default is 2.
+                                    if activated. (default: 2)
 
     Returns:
         tuple: A tuple containing:
