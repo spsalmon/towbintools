@@ -17,7 +17,7 @@ def find_endpoints(
 
     Returns:
             np.ndarray: A binary image with the same dimensions as the input, where 1s represent
-            the locations of the endpoints and 0s represent other regions.
+            the locations of the endpoints.
     """
 
     # Define kernels for the Hit-Or-Miss morphology operation.
@@ -69,7 +69,7 @@ def connect_endpoints(
             binary_image (np.ndarray): A binary image where the foreground is represented by 1s
                                                                and the background is represented by 0s.
             max_distance (int, optional): The maximum distance between two endpoints to consider
-                                                                      connecting them. Default is 200.
+                                                                      connecting them. (default: 200)
 
     Returns:
             np.ndarray: A binary image with the same dimensions as the input, where endpoints within the maximum distance are connected by straight lines.
@@ -114,10 +114,10 @@ def fill_bright_holes(
     original image. Bright holes with a median brightness significantly greater than the background mean are filled.
 
     Parameters:
-            image (np.ndarray): The grayscale input image where holes need to be detected and potentially filled.
-            mask (np.ndarray): Binary mask representing regions of interest in the image. Holes in this mask will be evaluated.
+            image (np.ndarray): Grayscale input image.
+            mask (np.ndarray): Binary mask with foreground equal to 1.
             scale (float): A scaling factor that defines how many standard deviations above the background mean a hole needs
-                                       to be in order for it to be considered as 'bright' and filled.
+                                       to be in order for it to be considered 'bright' and filled.
 
     Returns:
             np.ndarray: A binary mask with the same dimensions as the input, where bright holes have been filled.
@@ -172,6 +172,7 @@ def get_biggest_object(
 
     Parameters:
             mask (np.ndarray): Binary image mask where the objects are set to 1.
+            connectivity (int, optional): Connectivity for connected components. (default: 4)
 
     Returns:
             np.ndarray: Binary mask of the biggest object.

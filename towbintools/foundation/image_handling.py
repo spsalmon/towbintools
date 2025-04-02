@@ -1,5 +1,5 @@
 from typing import List, Tuple, Optional
-
+from itertools import product
 import cv2
 import numpy as np
 import skimage.metrics
@@ -14,15 +14,16 @@ def pad_to_dim(
     pad_value = 0,
 ) -> np.ndarray:
     """
-    Pad an image to the correct dimensions by adding zeros on its right and bottom.
+    Pad an image to target dimensions by padding on its right and bottom.
 
     Parameters:
-            image (np.ndarray): The input image as a NumPy array.
-            xdim (int): The desired X dimension of the padded image.
-            ydim (int): The desired Y dimension of the padded image.
+        image (np.ndarray): Input image array of shape (..., H, W).
+        xdim (int): Desired height of the padded image.
+        ydim (int): Desired width of the padded image.
+        pad_value (float): Value to use for padding (default: 0).
 
     Returns:
-            np.ndarray: The padded image as a NumPy array.
+            np.ndarray: Padded image of shape (..., xdim, ydim).
     """
     xpad = xdim - image.shape[-2]
     ypad = ydim - image.shape[-1]
@@ -38,40 +39,6 @@ def pad_to_dim(
         mode='constant',
         constant_values=pad_value
     )
-
-# def pad_to_dim_equally(
-#     image: np.ndarray,
-#     xdim: int,
-#     ydim: int,
-#     pad_value = 0,
-# ) -> np.ndarray:
-#     """
-#     Pad an image equally to the correct dimensions by adding zeros on both sides.
-
-#     Parameters:
-#             image (np.ndarray): The input image as a NumPy array.
-#             xdim (int): The desired X dimension of the padded image.
-#             ydim (int): The desired Y dimension of the padded image.
-
-#     Returns:
-#             np.ndarray: The equally padded image as a NumPy array.
-#     """
-#     xpad = xdim - image.shape[0]
-#     ypad = ydim - image.shape[1]
-
-#     # Calculate the padding for each dimension equally.
-#     xpad_start = xpad // 2
-#     xpad_end = xpad // 2 + xpad % 2
-#     ypad_start = ypad // 2
-#     ypad_end = ypad // 2 + ypad % 2
-
-#     # Pad the image with zeros equally.
-#     return np.pad(
-#         image,
-#         ((xpad_start, xpad_end), (ypad_start, ypad_end)),  # type: ignore
-#         "constant",  # type: ignore
-#         constant_values=(pad_value, pad_value),  # type: ignore
-#     )  # type: ignore
 
 def pad_to_dim_equally(
     image: np.ndarray,
@@ -97,13 +64,12 @@ def pad_to_dim_equally(
     if xdim < image.shape[0] or ydim < image.shape[1]:
         raise ValueError("Target dimensions cannot be smaller than image dimensions")
     
-    # Calculate total padding needed
     x_total = xdim - image.shape[-2]
     y_total = ydim - image.shape[-1]
     
-    # Use bit shifting for faster division by 2
     x_start = x_total >> 1
     y_start = y_total >> 1
+
     x_end = x_total - x_start
     y_end = y_total - y_start
     
@@ -111,10 +77,8 @@ def pad_to_dim_equally(
 
     # Add padding configuration for additional dimensions if they exist
     if image.ndim > 2:
-        # pad_width.extend((0, 0) for _ in range(image.ndim - 2))
         pad_width = [(0, 0)] * (image.ndim - 2) + pad_width
     
-    # Single np.pad call with optimized parameters
     return np.pad(
         image,
         pad_width,
@@ -128,15 +92,15 @@ def crop_to_dim(
     ydim: int,
 ) -> np.ndarray:
     """
-    Crop an image to the correct dimensions by removing pixels from its right and bottom.
-
+    Crop an image to target dimensions by removing pixels from the bottom and right
+    
     Parameters:
-            image (np.ndarray): The input image as a NumPy array.
-            xdim (int): The desired X dimension of the cropped image.
-            ydim (int): The desired Y dimension of the cropped image.
-
+        image (np.ndarray): Input image array of shape (... , H, W).
+        xdim (int): Desired height of the cropped image.
+        ydim (int): Desired width of the cropped image.
+    
     Returns:
-            np.ndarray: The cropped image as a NumPy array.
+        np.ndarray: Cropped image of shape (... , xdim, ydim).
     """
 
     return image[..., :xdim, :ydim]
@@ -144,7 +108,6 @@ def crop_to_dim(
 def crop_to_dim_equally(image: np.ndarray, xdim: int, ydim: int) -> np.ndarray:
     """
     Crop an image equally to the specified dimensions by removing pixels from both sides.
-    Uses array slicing for efficient cropping without creating intermediate arrays.
     
     Parameters:
         image (np.ndarray): Input image array of shape (... , H, W).
@@ -157,19 +120,15 @@ def crop_to_dim_equally(image: np.ndarray, xdim: int, ydim: int) -> np.ndarray:
     if xdim > image.shape[-2] or ydim > image.shape[-1]:
         raise ValueError("Target dimensions cannot be larger than image dimensions")
         
-    # Calculate crop amounts using bit shifting for integer division
     x_total = image.shape[-2] - xdim
     y_total = image.shape[-1] - ydim
     
-    # Use bit operations for faster division by 2
     x_start = x_total >> 1
     y_start = y_total >> 1
     
-    # Calculate end indices directly instead of using negative indexing
     x_end = x_start + xdim
     y_end = y_start + ydim
     
-    # Single slice operation instead of multiple steps
     return image[..., x_start:x_end, y_start:y_end]
 
 def crop_images_to_same_dim(
@@ -184,7 +143,7 @@ def crop_images_to_same_dim(
             image2 (np.ndarray): The second input image as a NumPy array.
 
     Returns:
-            Tuple[np.ndarray, np.ndarray]: A tuple containing the cropped images as NumPy arrays.
+            Tuple[np.ndarray, np.ndarray]: A tuple containing the cropped images.
     """
     # Determine the minimum dimensions for cropping.
     min_height = min(image1.shape[0], image2.shape[0])
@@ -200,6 +159,7 @@ def crop_images_to_same_dim(
 def pad_images_to_same_dim(
     image1: np.ndarray,
     image2: np.ndarray,
+    pad_value: float = 0,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Pad two images to the same dimensions by taking the maximum height and width.
@@ -207,33 +167,35 @@ def pad_images_to_same_dim(
     Parameters:
             image1 (np.ndarray): The first input image as a NumPy array.
             image2 (np.ndarray): The second input image as a NumPy array.
+            pad_value (float): The value to use for padding (default: 0).
 
     Returns:
-            Tuple[np.ndarray, np.ndarray]: A tuple containing the padded images as NumPy arrays.
+            Tuple[np.ndarray, np.ndarray]: A tuple containing the padded images.
     """
     # Determine the maximum dimensions for padding.
     max_height = max(image1.shape[0], image2.shape[0])
     max_width = max(image1.shape[1], image2.shape[1])
 
     # Pad the images to the same dimensions.
-    image1 = pad_to_dim_equally(image1, max_height, max_width)
-    image2 = pad_to_dim_equally(image2, max_height, max_width)
+    image1 = pad_to_dim_equally(image1, max_height, max_width, pad_value=pad_value)
+    image2 = pad_to_dim_equally(image2, max_height, max_width, pad_value=pad_value)
 
     return image1, image2
 
 
-def align_worm_orientation_ssim(
+def align_images_orientation_ssim(
     image: np.ndarray,
     reference_image: np.ndarray,
+    axes_to_flip: List[int] = [-1, -2],
 ) -> np.ndarray:
     """
-    Align the orientation of a worm image based on structural similarity index (SSIM) comparison with a reference image.
-    If the flipped image has a higher SSIM than the original image, it is returned as the aligned image; otherwise, the
-    original image is returned.
+    Align the orientation of an image based on structural similarity index (SSIM) comparison with a reference image.
+    All combination of flipped images along the chosen axis will be generated. The one with the highest SSIM to the reference image will be returned.
 
     Parameters:
             image (np.ndarray): The input worm image as a NumPy array.
             reference_image (np.ndarray): The reference image for comparison as a NumPy array.
+            axes_to_flip (list): List of axes to flip.
 
     Returns:
             np.ndarray: The aligned worm image as a NumPy array.
@@ -243,21 +205,28 @@ def align_worm_orientation_ssim(
         image.copy(), reference_image.copy()
     )
 
-    # Calculate the SSIM between the padded image and reference image.
-    ssim = skimage.metrics.structural_similarity(
-        image_pad, reference_pad, data_range=image_pad.max() - image_pad.min()
-    )
-    # Calculate the SSIM between the flipped image and reference image.
-    ssim_flipped = skimage.metrics.structural_similarity(
-        np.flip(image_pad, axis=1),
-        reference_pad,
-        data_range=image_pad.max() - image_pad.min(),
-    )
-    # Compare the SSIM values and determine the aligned image.
-    if ssim_flipped > ssim:
-        return np.flip(image, axis=1)
-    else:
-        return image
+    permutations = []
+    for i in range(len(axes_to_flip) + 1):
+        permutations.extend(product(axes_to_flip, repeat=i))
+
+    flipped_images = []
+    for permutation in permutations:
+        if len(permutation) == 0:
+            flipped_image = image_pad
+        else:
+            flipped_image = np.flip(image_pad, axis=permutation)
+            flipped_images.append(flipped_image)
+
+    # Calculate the SSIM for each flipped image.
+    ssim_values = []
+    for flipped_image in flipped_images:
+        ssim = skimage.metrics.structural_similarity(
+            flipped_image, reference_pad, data_range=image_pad.max() - image_pad.min()
+        )
+        ssim_values.append(ssim)
+
+    best_index = np.argmax(ssim_values)
+    return flipped_images[best_index]
 
 
 def normalize_image(
@@ -404,7 +373,7 @@ def get_image_size_metadata(file_path: str) -> Optional[dict]:
             "c_dim": cdim,
         }
     except Exception as e:
-        print(f"Caught exception when trying to read OME-TIFF metadata: {e}")
+        print(f"Caught exception when trying to extract dimensions from OME-TIFF metadata in {file_path}: {e}")
         return None
 
 
@@ -428,7 +397,7 @@ def check_if_zstack(file_path: str) -> bool:
         zdim = ome_metadata.size_z
         return zdim > 1
     except Exception as e:
-        print(f"Caught exception when trying to read OME-TIFF metadata: {e}")
+        print(f"Caught exception when trying to check if given file is a z-stack using OME-TIFF metadata in {file_path}: {e}")
         return False
     
 def get_acquisition_date(file_path: str) -> Optional[datetime]:
@@ -448,5 +417,5 @@ def get_acquisition_date(file_path: str) -> Optional[datetime]:
         ome_metadata = ome_types.from_tiff(file_path)
         return ome_metadata.images[0].acquisition_date
     except Exception as e:
-        print(f"Error extracting date from {file_path}: {e}")
+        print(f"Error extracting date using OME-TIFF metadata from {file_path}: {e}")
         return None

@@ -106,6 +106,8 @@ def get_dir_filemap(
 
 def get_experiment_dir_filemap(
     dir_path: str,
+    raw_dir: str = "raw",
+    analysis_dir: str = "analysis",
 ) -> pd.DataFrame:
     """
     Get the filemap dataframe for an experiment directory.
@@ -115,18 +117,20 @@ def get_experiment_dir_filemap(
 
     Parameters:
         dir_path (str): Base directory path for the experiment.
+        raw_dir (str): Subdirectory name for raw images. (default: "raw")
+        analysis_dir (str): Subdirectory name for analysis output. (default: "analysis")
 
     Returns:
         pd.DataFrame: Extended filemap dataframe including both raw and analysis image paths.
     """
-    raw_timepoint_list = get_all_timepoints_from_dir(os.path.join(dir_path, "raw"))
+    raw_timepoint_list = get_all_timepoints_from_dir(os.path.join(dir_path, raw_dir))
     raw_filemap = pd.DataFrame(
         raw_timepoint_list, columns=["Time", "Point", "ImagePath"]
     )
     experiment_filemap = fill_empty_timepoints(raw_filemap)
     experiment_filemap.rename(columns={"ImagePath": "raw"}, inplace=True)
 
-    analysis_dir = os.path.join(dir_path, "analysis")
+    analysis_dir = os.path.join(dir_path, analysis_dir)
     if os.path.exists(analysis_dir):
         subdir_list = [x[0] for x in os.walk(analysis_dir)]
         for subdir in subdir_list:
@@ -137,7 +141,7 @@ def get_experiment_dir_filemap(
                 )
                 filemap.rename(
                     columns={
-                        "ImagePath": os.path.join("analysis", os.path.basename(subdir))
+                        "ImagePath": os.path.join(analysis_dir, os.path.basename(subdir))
                     },
                     inplace=True,
                 )
@@ -147,7 +151,22 @@ def get_experiment_dir_filemap(
     experiment_filemap = experiment_filemap.fillna("")
     return experiment_filemap
 
-def add_dir_to_experiment_filemap(experiment_filemap, dir_path, subdir_name):
+def add_dir_to_experiment_filemap(
+    experiment_filemap: pd.DataFrame,
+    dir_path: str,
+    subdir_name: str,
+) -> pd.DataFrame:
+    """
+    Add a the images contained in a directory to an existing filemap as a new column.
+
+    Parameters:
+        experiment_filemap (pd.DataFrame): Filemap dataframe.
+        dir_path (str): The path to the directory containing the images.
+        subdir_name (str): The name of the new column to be added.
+
+    Returns:
+        pd.DataFrame: Updated filemap dataframe with the new column added.
+    """
     subdir_filemap = get_dir_filemap(dir_path)
     subdir_filemap.rename(columns={"ImagePath": subdir_name}, inplace=True)
     # check if column already exists
