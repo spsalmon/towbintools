@@ -1,4 +1,5 @@
 import os
+from typing import List, Dict
 import re
 import numpy as np
 import pandas as pd
@@ -6,7 +7,7 @@ import pandas as pd
 
 def get_all_timepoints_from_dir(
     dir_path: str,
-) -> list:
+) -> List[Dict]:
     """
     Retrieve all time points and corresponding image paths from a directory.
 
@@ -16,29 +17,32 @@ def get_all_timepoints_from_dir(
     Returns:
         list: A list of dictionaries, each containing the time, point, and image path.
     """
-    # Precompile the regular expression pattern
-    pattern = re.compile(r"Time(\d+)_Point(\d+)")
 
+    time_pattern = re.compile(r"Time(\d+)")
+    point_pattern = re.compile(r"Point(\d+)")
+    
     timepoint_list = []
-
-    # Get a sorted list of image paths in the directory.
-    images_path = [
-        os.path.join(dir_path, x) for x in os.listdir(dir_path) if ~(os.path.isdir(x))
+    
+    # Get a list of file paths in the directory (excluding subdirectories)
+    image_paths = [
+        os.path.join(dir_path, x) for x in os.listdir(dir_path) if not os.path.isdir(os.path.join(dir_path, x))
     ]
-
-    # Iterate through each image path.
-    for image_path in images_path:
-        # Search for the time and point in the image path using the pattern.
-        match = pattern.search(image_path)
-        if match:
-            # Extract the time and point as integers from the matched groups.
-            time = int(match.group(1))
-            point = int(match.group(2))
-            # Add the time, point, and image path to the list as a dictionary.
+    
+    # Iterate through each image path
+    for image_path in image_paths:
+        # Search for time and point independently
+        time_match = time_pattern.search(image_path)
+        point_match = point_pattern.search(image_path)
+        
+        # Only add to list if both time and point are found
+        if time_match and point_match:
+            time = int(time_match.group(1))
+            point = int(point_match.group(1))
+            
             timepoint_list.append(
                 {"Time": time, "Point": point, "ImagePath": image_path}
             )
-
+    
     return timepoint_list
 
 
