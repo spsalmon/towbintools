@@ -1,10 +1,12 @@
-from typing import Tuple
-
 import cv2
 import numpy as np
 import skimage.measure
 
-from .image_quality import normalized_variance_measure, LAPV, LAPM, TENG, MLOG
+from .image_quality import LAPM
+from .image_quality import LAPV
+from .image_quality import MLOG
+from .image_quality import normalized_variance_measure
+from .image_quality import TENG
 from .utils import NotImplementedError
 
 
@@ -107,7 +109,7 @@ def find_best_plane(
     each_plane: bool = True,
     contrast_augmentation: bool = False,
     clip_limit: int = 2,
-) -> Tuple[int, np.ndarray]:
+) -> tuple[int, np.ndarray]:
     """
     Find the best plane (z-slice) of a z-stack based on a specified measure.
 
@@ -142,7 +144,9 @@ def find_best_plane(
     zstack_for_measure = zstack.copy()[:, channel, ...].squeeze()
     if contrast_augmentation:
         zstack_for_measure = augment_contrast_zstack(
-            zstack_for_measure, normalize_each_plane=each_plane, clip_limit=clip_limit
+            zstack_for_measure,
+            normalize_each_plane=each_plane,
+            clip_limit=clip_limit,
         )
 
     else:

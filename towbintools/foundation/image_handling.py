@@ -1,17 +1,20 @@
-from typing import List, Tuple, Optional
+from datetime import datetime
 from itertools import product
+from typing import Optional
+
 import cv2
 import numpy as np
-import skimage.metrics
-from tifffile import imread, TiffFile
 import ome_types
-from datetime import datetime
+import skimage.metrics
+from tifffile import imread
+from tifffile import TiffFile
+
 
 def pad_to_dim(
     image: np.ndarray,
     xdim: int,
     ydim: int,
-    pad_value = 0,
+    pad_value=0,
 ) -> np.ndarray:
     """
     Pad an image to target dimensions by padding on its right and bottom.
@@ -33,12 +36,8 @@ def pad_to_dim(
     if image.ndim > 2:
         pad_width = [(0, 0)] * (image.ndim - 2) + pad_width
 
-    return np.pad(
-        image,
-        pad_width,
-        mode='constant',
-        constant_values=pad_value
-    )
+    return np.pad(image, pad_width, mode="constant", constant_values=pad_value)
+
 
 def pad_to_dim_equally(
     image: np.ndarray,
@@ -48,43 +47,39 @@ def pad_to_dim_equally(
 ) -> np.ndarray:
     """
     Efficiently pad an image equally on all sides to reach target dimensions.
-    
+
     Parameters:
         image (np.ndarray): Input image array of shape (..., H, W).
         xdim (int): Desired height of the padded image.
         ydim (int): Desired width of the padded image.
         pad_value (float): Value to use for padding (default: 0).
-    
+
     Returns:
         np.ndarray: Padded image of shape (..., xdim, ydim).
-        
+
     Raises:
         ValueError: If target dimensions are smaller than input dimensions.
     """
     if xdim < image.shape[0] or ydim < image.shape[1]:
         raise ValueError("Target dimensions cannot be smaller than image dimensions")
-    
+
     x_total = xdim - image.shape[-2]
     y_total = ydim - image.shape[-1]
-    
+
     x_start = x_total >> 1
     y_start = y_total >> 1
 
     x_end = x_total - x_start
     y_end = y_total - y_start
-    
+
     pad_width = [(x_start, x_end), (y_start, y_end)]
 
     # Add padding configuration for additional dimensions if they exist
     if image.ndim > 2:
         pad_width = [(0, 0)] * (image.ndim - 2) + pad_width
-    
-    return np.pad(
-        image,
-        pad_width,
-        mode='constant',
-        constant_values=pad_value
-    )
+
+    return np.pad(image, pad_width, mode="constant", constant_values=pad_value)
+
 
 def crop_to_dim(
     image: np.ndarray,
@@ -93,48 +88,50 @@ def crop_to_dim(
 ) -> np.ndarray:
     """
     Crop an image to target dimensions by removing pixels from the bottom and right
-    
+
     Parameters:
         image (np.ndarray): Input image array of shape (... , H, W).
         xdim (int): Desired height of the cropped image.
         ydim (int): Desired width of the cropped image.
-    
+
     Returns:
         np.ndarray: Cropped image of shape (... , xdim, ydim).
     """
 
     return image[..., :xdim, :ydim]
 
+
 def crop_to_dim_equally(image: np.ndarray, xdim: int, ydim: int) -> np.ndarray:
     """
     Crop an image equally to the specified dimensions by removing pixels from both sides.
-    
+
     Parameters:
         image (np.ndarray): Input image array of shape (... , H, W).
         xdim (int): Desired height of the cropped image.
         ydim (int): Desired width of the cropped image.
-    
+
     Returns:
         np.ndarray: Cropped image of shape (... , xdim, ydim).
     """
     if xdim > image.shape[-2] or ydim > image.shape[-1]:
         raise ValueError("Target dimensions cannot be larger than image dimensions")
-        
+
     x_total = image.shape[-2] - xdim
     y_total = image.shape[-1] - ydim
-    
+
     x_start = x_total >> 1
     y_start = y_total >> 1
-    
+
     x_end = x_start + xdim
     y_end = y_start + ydim
-    
+
     return image[..., x_start:x_end, y_start:y_end]
+
 
 def crop_images_to_same_dim(
     image1: np.ndarray,
     image2: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Crop two images to the same dimensions by taking the minimum height and width.
 
@@ -160,7 +157,7 @@ def pad_images_to_same_dim(
     image1: np.ndarray,
     image2: np.ndarray,
     pad_value: float = 0,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Pad two images to the same dimensions by taking the maximum height and width.
 
@@ -186,7 +183,7 @@ def pad_images_to_same_dim(
 def align_images_orientation_ssim(
     image: np.ndarray,
     reference_image: np.ndarray,
-    axes_to_flip: List[int] = [-1, -2],
+    axes_to_flip: list[int] = [-1, -2],
 ) -> np.ndarray:
     """
     Align the orientation of an image based on structural similarity index (SSIM) comparison with a reference image.
@@ -221,7 +218,9 @@ def align_images_orientation_ssim(
     ssim_values = []
     for flipped_image in flipped_images:
         ssim = skimage.metrics.structural_similarity(
-            flipped_image, reference_pad, data_range=image_pad.max() - image_pad.min()
+            flipped_image,
+            reference_pad,
+            data_range=image_pad.max() - image_pad.min(),
         )
         ssim_values.append(ssim)
 
@@ -289,7 +288,7 @@ def augment_contrast(
 
 def read_tiff_file(
     file_path: str,
-    channels_to_keep: Optional[List[int]] = None,
+    channels_to_keep: Optional[list[int]] = None,
 ) -> np.ndarray:
     """
     Read a TIFF file and optionally select specific channels from the image.
@@ -300,7 +299,7 @@ def read_tiff_file(
 
     Returns:
             np.ndarray: The image data as a NumPy array. The number of dimensions may vary depending on the input and selected channels.
-            
+
     Raises:
             ValueError: If the image file cannot be read.
     """
@@ -318,7 +317,8 @@ def read_tiff_file(
     else:
         return image[:, channels_to_keep, ...].squeeze()  # type: ignore
 
-def get_shape_from_tiff(file_path: str) -> Optional[Tuple]:
+
+def get_shape_from_tiff(file_path: str) -> Optional[tuple]:
     """
     Get the shape of the image stored in the TIFF file.
 
@@ -336,13 +336,16 @@ def get_shape_from_tiff(file_path: str) -> Optional[Tuple]:
                 print(f"Warning: {file_path} has multiple series ({n_series})")
             shapes = [series.shape for series in tif.series]
             if len(set(shapes)) > 1:
-                print(f"Warning: {file_path} has different shapes across series: {shapes}")
-                
+                print(
+                    f"Warning: {file_path} has different shapes across series: {shapes}"
+                )
+
             return shapes[0]
     except Exception as e:
         print(f"Error while reading file {file_path} : {e}")
         return None
-        
+
+
 def get_image_size_metadata(file_path: str) -> Optional[dict]:
     """
     Extract and return the size metadata of an image from its OME-TIFF file.
@@ -373,7 +376,9 @@ def get_image_size_metadata(file_path: str) -> Optional[dict]:
             "c_dim": cdim,
         }
     except Exception as e:
-        print(f"Caught exception when trying to extract dimensions from OME-TIFF metadata in {file_path}: {e}")
+        print(
+            f"Caught exception when trying to extract dimensions from OME-TIFF metadata in {file_path}: {e}"
+        )
         return None
 
 
@@ -397,9 +402,12 @@ def check_if_zstack(file_path: str) -> bool:
         zdim = ome_metadata.size_z
         return zdim > 1
     except Exception as e:
-        print(f"Caught exception when trying to check if given file is a z-stack using OME-TIFF metadata in {file_path}: {e}")
+        print(
+            f"Caught exception when trying to check if given file is a z-stack using OME-TIFF metadata in {file_path}: {e}"
+        )
         return False
-    
+
+
 def get_acquisition_date(file_path: str) -> Optional[datetime]:
     """
     Extract the acquisition date from the OME-TIFF metadata of the given file.

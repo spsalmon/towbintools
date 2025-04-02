@@ -1,12 +1,13 @@
-from typing import Tuple
-
 import numpy as np
 from scipy.ndimage import uniform_filter1d
-from scipy.signal import find_peaks, medfilt, savgol_filter
+from scipy.signal import find_peaks
+from scipy.signal import medfilt
+from scipy.signal import savgol_filter
 from scipy.stats import linregress
 
 from .utils import interpolate_nans
 from towbintools.data_analysis import compute_series_at_time_classified
+
 
 def interpolate_peaks(
     signal: np.ndarray,
@@ -167,7 +168,9 @@ def find_end_molts(
                 # split search window into two parts
                 fit_range1 = np.arange(max(0, h - fit_width), h + 1, dtype=int)
                 fit_range2 = np.arange(
-                    h, min(h + 1 + fit_width, len(medfilt_log_volume)), dtype=int
+                    h,
+                    min(h + 1 + fit_width, len(medfilt_log_volume)),
+                    dtype=int,
                 )
                 # fit linear regression to each part
                 p1 = linregress(
@@ -198,6 +201,7 @@ def find_end_molts(
             endmolts[i] = search_window[b]
 
     return endmolts
+
 
 def find_hatch_time(
     worm_types: np.ndarray,
@@ -240,7 +244,7 @@ def find_molts(
     molt_size_range: list = [6.6e4, 15e4, 36e4, 102e4],
     search_width: int = 20,
     fit_width: int = 5,
-) -> Tuple[dict, dict]:
+) -> tuple[dict, dict]:
     """
     Identify molt events and compute the worm volume at each molt event.
 
@@ -262,7 +266,7 @@ def find_molts(
         dict: Dictionary containing the computed volumes at hatch and each molt event.
     """
     volume = volume.astype(float)
-    
+
     errors = np.where(worm_types == "error")
     volume_for_finding_molts = volume.copy()
     volume_for_finding_molts[errors] = np.nan
@@ -274,7 +278,9 @@ def find_molts(
     )
 
     ecdysis_array = np.array([hatch_time, *endmolts])
-    volume_at_ecdysis = compute_series_at_time_classified(volume, worm_types, ecdysis_array)
+    volume_at_ecdysis = compute_series_at_time_classified(
+        volume, worm_types, ecdysis_array
+    )
 
     ecdysis = {
         "hatch_time": hatch_time,

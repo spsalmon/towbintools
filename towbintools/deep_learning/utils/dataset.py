@@ -1,20 +1,25 @@
 import datetime
-from sklearn.model_selection import train_test_split
-from torch.utils.data import Dataset
-from towbintools.foundation import image_handling
-import numpy as np
 import os
+
+import numpy as np
 import pandas as pd
+from joblib import delayed
+from joblib import Parallel
+from pytorch_toolbelt import inference
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
 
 from towbintools.deep_learning.utils.augmentation import (
-    get_training_augmentation,
     get_prediction_augmentation,
 )
-from pytorch_toolbelt import inference
-from torch.utils.data import DataLoader
-from towbintools.deep_learning.utils.util import get_closest_lower_multiple, get_closest_upper_multiple
-from joblib import Parallel, delayed
-from typing import List
+from towbintools.deep_learning.utils.augmentation import (
+    get_training_augmentation,
+)
+from towbintools.deep_learning.utils.util import get_closest_lower_multiple
+from towbintools.deep_learning.utils.util import get_closest_upper_multiple
+from towbintools.foundation import image_handling
+
 
 class TiledSegmentationDataset(Dataset):
     def __init__(
@@ -59,6 +64,7 @@ class TiledSegmentationDataset(Dataset):
 
         return img.astype(np.float32), mask
 
+
 class SegmentationDataset(Dataset):
     def __init__(
         self,
@@ -67,9 +73,9 @@ class SegmentationDataset(Dataset):
         mask_column="mask",
         image_column="image",
         transform=None,
-        enforce_divisibility_by = 32,
-        pad_or_crop = "pad",
-        mask_pad_value = -1,
+        enforce_divisibility_by=32,
+        pad_or_crop="pad",
+        mask_pad_value=-1,
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
@@ -81,7 +87,11 @@ class SegmentationDataset(Dataset):
 
         if pad_or_crop == "pad":
             self.resize_function = image_handling.pad_to_dim_equally
-            self.mask_resize_function = lambda dim, new_dim_x, new_dim_y: image_handling.pad_to_dim_equally(dim, new_dim_x, new_dim_y, pad_value = mask_pad_value)
+            self.mask_resize_function = (
+                lambda dim, new_dim_x, new_dim_y: image_handling.pad_to_dim_equally(
+                    dim, new_dim_x, new_dim_y, pad_value=mask_pad_value
+                )
+            )
             self.multiplier_function = get_closest_upper_multiple
         else:
             self.resize_function = image_handling.crop_to_dim_equally
@@ -103,18 +113,26 @@ class SegmentationDataset(Dataset):
         if self.enforce_divisibility_by is not None:
             dim_x, dim_y = img.shape[-2:]
 
-            if dim_x % self.enforce_divisibility_by != 0 or dim_y % self.enforce_divisibility_by != 0:
-                new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
-                new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
+            if (
+                dim_x % self.enforce_divisibility_by != 0
+                or dim_y % self.enforce_divisibility_by != 0
+            ):
+                new_dim_x = self.multiplier_function(
+                    dim_x, self.enforce_divisibility_by
+                )
+                new_dim_y = self.multiplier_function(
+                    dim_y, self.enforce_divisibility_by
+                )
 
                 img = self.resize_function(img, new_dim_x, new_dim_y)
                 mask = self.mask_resize_function(mask, new_dim_x, new_dim_y)
-                
+
         if len(img.shape) == 2:
             img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]
 
         return img.astype(np.float32), mask
+
 
 class SegmentationPredictionDataset(Dataset):
     def __init__(
@@ -122,8 +140,8 @@ class SegmentationPredictionDataset(Dataset):
         image_paths,
         channels,
         transform=None,
-        enforce_divisibility_by = 32,
-        pad_or_crop = "pad",
+        enforce_divisibility_by=32,
+        pad_or_crop="pad",
     ):
         self.images = image_paths
         self.channels = channels
@@ -158,7 +176,6 @@ class SegmentationPredictionDataset(Dataset):
         return img_path, img.astype(np.float32), img.shape
 
     def collate_fn(self, batch):
-
         img_paths, imgs, original_shapes = zip(*batch)
 
         if self.enforce_divisibility_by is None:
@@ -184,6 +201,7 @@ class SegmentationPredictionDataset(Dataset):
 
         return img_paths, resized_images, original_shapes
 
+
 class ClassificationDataset(Dataset):
     def __init__(
         self,
@@ -205,7 +223,7 @@ class ClassificationDataset(Dataset):
 
     def __len__(self):
         return len(self.images)
-    
+
     def __getitem__(self, i):
         img = image_handling.read_tiff_file(self.images[i], [self.channels])
         class_value = self.ground_truth[i]
@@ -218,6 +236,7 @@ class ClassificationDataset(Dataset):
             img = img[np.newaxis, ...]
 
         return img.astype(np.float32), class_value
+
 
 def split_dataset(dataframe, validation_size, test_size):
     # Load the dataset
@@ -260,21 +279,30 @@ def create_segmentation_training_dataframes(
         image_directories = [image_directories]
     if not isinstance(mask_directories, list):
         mask_directories = [mask_directories]
-        
+
     images = []
     masks = []
     for image_directory, mask_directory in zip(image_directories, mask_directories):
         images.extend(
-            sorted([
-                os.path.join(image_directory, file)
-                for file in os.listdir(image_directory)
-            ])
+            sorted(
+                [
+                    os.path.join(image_directory, file)
+                    for file in os.listdir(image_directory)
+                ]
+            )
         )
         masks.extend(
-            sorted([os.path.join(mask_directory, file) for file in os.listdir(mask_directory)])
+            sorted(
+                [
+                    os.path.join(mask_directory, file)
+                    for file in os.listdir(mask_directory)
+                ]
+            )
         )
 
-    assert len(images) == len(masks), "The number of images and masks in the directories must be equal"
+    assert len(images) == len(
+        masks
+    ), "The number of images and masks in the directories must be equal"
     dataframe = pd.DataFrame({"image": images, "mask": masks})
 
     training_dataframe, validation_dataframe, test_dataframe = split_dataset(
@@ -301,29 +329,31 @@ def create_segmentation_training_dataframes(
 
     return training_dataframe, validation_dataframe
 
-def get_unique_shapes_from_tiffs(image_paths = List[str]) -> np.ndarray:
+
+def get_unique_shapes_from_tiffs(image_paths=list[str]) -> np.ndarray:
     """
     Get unique shapes from a list of TIFF images in parallel.
-    
+
     Parameters:
         image_paths (List[str]): List of image paths to extract shapes from
-        
+
     Returns:
         np.ndarray: Unique image shapes found in the dataframe
     """
-    
+
     shapes = Parallel(n_jobs=-1)(
-        delayed(image_handling.get_shape_from_tiff)(image_path) 
+        delayed(image_handling.get_shape_from_tiff)(image_path)
         for image_path in image_paths
     )
-    
+
     valid_shapes = [shape for shape in shapes if shape is not None]
-    
+
     if len(valid_shapes) == 0:
         raise ValueError("No valid shapes found in the dataframe")
-    
+
     return np.unique(valid_shapes, axis=0)
-    
+
+
 def create_segmentation_dataloaders(
     training_dataframe,
     validation_dataframe,
@@ -372,7 +402,12 @@ def create_segmentation_dataloaders(
     image_paths = training_dataframe["image"].values.tolist()
 
     unique_shapes = get_unique_shapes_from_tiffs(image_paths)
-    image_slicers = {tuple(shape): inference.ImageSlicer(shape, tiler_params["tile_size"], tiler_params["tile_step"]) for shape in unique_shapes}
+    image_slicers = {
+        tuple(shape): inference.ImageSlicer(
+            shape, tiler_params["tile_size"], tiler_params["tile_step"]
+        )
+        for shape in unique_shapes
+    }
 
     if training_transform is None:
         training_transform = get_training_augmentation("percentile", lo=1, hi=99)
@@ -425,7 +460,10 @@ def create_segmentation_training_dataframes_and_dataloaders(
     training_transform=None,
     validation_transform=None,
 ):
-    training_dataframe, validation_dataframe = create_segmentation_training_dataframes(
+    (
+        training_dataframe,
+        validation_dataframe,
+    ) = create_segmentation_training_dataframes(
         image_directories,
         mask_directories,
         save_dir,
@@ -502,7 +540,8 @@ def create_segmentation_dataloaders_from_filemap(
         validation_transform=validation_transform,
     )
     return training_dataframe, validation_dataframe, train_loader, val_loader
-    
+
+
 def create_classification_training_dataframes(
     ground_truth_csv_paths,
     image_columns,
@@ -555,6 +594,7 @@ def create_classification_training_dataframes(
 
     return training_dataframe, validation_dataframe
 
+
 def create_classification_dataloaders(
     training_dataframe,
     validation_dataframe,
@@ -566,7 +606,6 @@ def create_classification_dataloaders(
     training_transform=None,
     validation_transform=None,
 ):
-        
     train_loader = DataLoader(
         ClassificationDataset(
             training_dataframe,
@@ -575,7 +614,7 @@ def create_classification_dataloaders(
             class_column="class",
             image_column="image",
             transform=training_transform,
-            ),
+        ),
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,

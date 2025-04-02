@@ -1,13 +1,13 @@
 import os
-from typing import List, Dict
 import re
+
 import numpy as np
 import pandas as pd
 
 
 def get_all_timepoints_from_dir(
     dir_path: str,
-) -> List[Dict]:
+) -> list[dict]:
     """
     Retrieve all time points and corresponding image paths from a directory.
 
@@ -20,29 +20,31 @@ def get_all_timepoints_from_dir(
 
     time_pattern = re.compile(r"Time(\d+)")
     point_pattern = re.compile(r"Point(\d+)")
-    
+
     timepoint_list = []
-    
+
     # Get a list of file paths in the directory (excluding subdirectories)
     image_paths = [
-        os.path.join(dir_path, x) for x in os.listdir(dir_path) if not os.path.isdir(os.path.join(dir_path, x))
+        os.path.join(dir_path, x)
+        for x in os.listdir(dir_path)
+        if not os.path.isdir(os.path.join(dir_path, x))
     ]
-    
+
     # Iterate through each image path
     for image_path in image_paths:
         # Search for time and point independently
         time_match = time_pattern.search(image_path)
         point_match = point_pattern.search(image_path)
-        
+
         # Only add to list if both time and point are found
         if time_match and point_match:
             time = int(time_match.group(1))
             point = int(point_match.group(1))
-            
+
             timepoint_list.append(
                 {"Time": time, "Point": point, "ImagePath": image_path}
             )
-    
+
     return timepoint_list
 
 
@@ -145,7 +147,9 @@ def get_experiment_dir_filemap(
                 )
                 filemap.rename(
                     columns={
-                        "ImagePath": os.path.join(analysis_dir, os.path.basename(subdir))
+                        "ImagePath": os.path.join(
+                            analysis_dir, os.path.basename(subdir)
+                        )
                     },
                     inplace=True,
                 )
@@ -154,6 +158,7 @@ def get_experiment_dir_filemap(
                 )
     experiment_filemap = experiment_filemap.fillna("")
     return experiment_filemap
+
 
 def add_dir_to_experiment_filemap(
     experiment_filemap: pd.DataFrame,

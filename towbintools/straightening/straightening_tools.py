@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import logging
 import pickle
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 import skimage
 from numpy.typing import NDArray
-from scipy.interpolate import BSpline, splprep
+from scipy.interpolate import BSpline
+from scipy.interpolate import splprep
 from scipy.sparse import csgraph
 from scipy.spatial import distance
+from skimage.feature import hessian_matrix
+from skimage.feature import hessian_matrix_eigvals
 from skimage.util import img_as_ubyte
-from skimage.feature import hessian_matrix, hessian_matrix_eigvals
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -40,7 +43,7 @@ class Warper:
         self.splines = splines
 
     @classmethod
-    def from_img(cls, img: NDArray, mask: NDArray[np.bool_]) -> "Warper":
+    def from_img(cls, img: NDArray, mask: NDArray[np.bool_]) -> Warper:
         """generates midlines for each mask plane and fits splines to them. image is used to align splines relative to each other
         returns a Warper object"""
         if img.shape != mask.shape:
@@ -93,8 +96,8 @@ class Warper:
         # TODO: is mean sufficient? ideally it's max, but occasionally poor masks REALLY inflate max of dts
         # I sometimes see clipping of elements wider than the mean (especially pharynx bulbs), so I multiply it by 1.2
 
-        worm_width = (np.mean([dt.max() for dt in dts if dt is not None])*1.2) * 2
-        worm_length = max(l for l in spline_lengths if l is not None)
+        worm_width = (np.mean([dt.max() for dt in dts if dt is not None]) * 1.2) * 2
+        worm_length = max(length for length in spline_lengths if length is not None)
 
         # if provided image is 2D, no alignment is necessary
         if len(splines) == 1:
@@ -126,15 +129,16 @@ class Warper:
             )
         return cls(worm_length, worm_width, splines)
 
-    def to_pickle(self, file: "PathLike"):
+    def to_pickle(self, file: PathLike):
         """save object instace to a pickle file"""
         with open(file, "wb") as f:
             pickle.dump(self, f)
 
     @classmethod
-    def from_pickle(cls, file: "PathLike") -> "Warper":
+    def from_pickle(cls, file: PathLike) -> Warper:
         """load a Warper object from a pickle file
-        WARNING do not load untrusted pickle files as they can execute arbitrary code"""
+        WARNING do not load untrusted pickle files as they can execute arbitrary code
+        """
         with open(file, "rb") as f:
             wt = pickle.load(f)
         return wt
@@ -256,7 +260,10 @@ class Warper:
         else:
             scale = final_spacing
         rescaled = skimage.transform.rescale(
-            warped_img, scale, interpolation_order, preserve_range=preserve_range
+            warped_img,
+            scale,
+            interpolation_order,
+            preserve_range=preserve_range,
         )
         if preserve_dtype:
             rescaled = rescaled.astype(img3D.dtype)
@@ -307,9 +314,12 @@ def extract_midline(mask2D, ridge_responce_thresh: float = 90, return_dt: bool =
 
     mask2D: 2D mask of a single object
     dt_percent_thresh: % threshold on ridge response. Lower values retain weaker ridge-pixels
-    return_dt: whether to return the calculated distance transform of the mask"""
+    return_dt: whether to return the calculated distance transform of the mask
+    """
     mat, dt = _medial_axis_transform(
-        mask2D, percentile=ridge_responce_thresh, return_distance_transform=True
+        mask2D,
+        percentile=ridge_responce_thresh,
+        return_distance_transform=True,
     )
     midline = _extract_midline(mat, dt, combined_coord_array=True)
     if return_dt:
@@ -321,7 +331,10 @@ def extract_midline(mask2D, ridge_responce_thresh: float = 90, return_dt: bool =
 def _detect_ridges(gray, sigma=1):
     """Finds ridge points in a grayscale image. Copied from here : https://stackoverflow.com/questions/48727914/how-to-use-ridge-detection-filter-in-opencv"""
     H_elems = hessian_matrix(
-        gray, sigma=sigma, order="rc", use_gaussian_derivatives = False,
+        gray,
+        sigma=sigma,
+        order="rc",
+        use_gaussian_derivatives=False,
     )
     maxima_ridges, minima_ridges = hessian_matrix_eigvals(H_elems)
     return maxima_ridges, minima_ridges
@@ -427,7 +440,8 @@ def _main_midline_path(
     """topologically sorted main path points, trimmed on each end by pixel_trim
 
     connectivity 1: + shaped neighbour connectivity; i.e. diagonals excluded
-    connectivity 2: square shaped neighbour connectivity; i.e. diagonals included"""
+    connectivity 2: square shaped neighbour connectivity; i.e. diagonals included
+    """
     graph, nodes = skimage.graph.pixel_graph(
         skeleton_img.astype(bool), connectivity=connectivity
     )
@@ -442,7 +456,7 @@ def _main_midline_path(
     return shaped_indices
 
 
-def _longest_path(graph: "sparse.csr_matrix") -> NDArray[np.int_]:
+def _longest_path(graph: sparse.csr_matrix) -> NDArray[np.int_]:
     """returns node order of the longest bfs path in graph"""
     if graph.getnnz() == 0:
         return np.array([])
@@ -495,10 +509,11 @@ def _extend_midline_to_boundary(
     # extract the largest component because border may have 'lonely' bits
     border = _largest_mask_component(border, connectivity=4)
     graph, nodes = skimage.graph.pixel_graph(border.astype(bool), connectivity=1)
+
     # function with preapplied arguments
-    tip_handler = lambda tip, samples: _handle_tip(
-        border, border_radius, graph, nodes, tip, samples
-    )
+    def tip_handler(tip, samples):
+        return _handle_tip(border, border_radius, graph, nodes, tip, samples)
+
     midline = np.c_[midline]
     # if calculate finite derivative from just two points at each tip, would get either vertical, horizontal, or 45deg derivative
     # so calculate finite derivative from the last n points at each midline tip
@@ -518,7 +533,7 @@ def _extend_midline_to_boundary(
 def _handle_tip(
     border: NDArray[np.bool_],
     border_radius: float,
-    border_graph: "sparse.csr_matrix",
+    border_graph: sparse.csr_matrix,
     graph_nodes: list[int],
     origin: tuple[int, int],
     point_samples: NDArray[np.int_],
@@ -558,7 +573,8 @@ def _handle_tip(
     # repeat above for second point
     point_index = np.argmax(border[right_radius_points], axis=0)
     end_point = np.r_[
-        right_radius_points[0][point_index], right_radius_points[1][point_index]
+        right_radius_points[0][point_index],
+        right_radius_points[1][point_index],
     ]
     end_point_flat_index = np.sum(end_point * border.strides // border.itemsize)
     try:
@@ -650,7 +666,7 @@ def _from_spline_coords_to_raw(
         # left orthogonal
         orthog = np.array([1, -1])
     # tuple e.g. if np.nonzero() is used on straightened 2D image
-    if type(spline_coords) == tuple:
+    if isinstance(spline_coords, tuple):
         widths, lengths = spline_coords
     # otherwise will be numpy (N, 2) numpy array, e.g. if np.argwhere() is used on straightened 2D image
     else:
@@ -683,7 +699,9 @@ def _from_grid_coords_to_spline(
 
 
 def _fit_spline(
-    points: NDArray[np.float_], parametrisation: list[float], smoothing_factor: float
+    points: NDArray[np.float_],
+    parametrisation: list[float],
+    smoothing_factor: float,
 ) -> BSpline:
     """fit a spline to the points and return a scipy BSpline object"""
     # number of points needs to be greater than the degree of spline, which is 3
@@ -742,7 +760,9 @@ def _warped_coords(
     return warped_coords
 
 
-def _refine_spline(smooth_spline: BSpline) -> tuple[BSpline, float, list[float]]:
+def _refine_spline(
+    smooth_spline: BSpline,
+) -> tuple[BSpline, float, list[float]]:
     """given a smooth spline, refine it such that 1unit in spline domain equals 1unit in spline range
 
     does not apply further smoothing"""
@@ -856,7 +876,10 @@ def _warp_2D_img(
         return np.zeros(shape)
     warped_coords = _warped_coords(width, length, spline, scale_factor, mirror)
     warped_img = skimage.transform.warp(
-        img2D, warped_coords, order=interpolation_order, preserve_range=preserve_range
+        img2D,
+        warped_coords,
+        order=interpolation_order,
+        preserve_range=preserve_range,
     )
     if preserve_dtype:
         warped_img = warped_img.astype(img2D.dtype)

@@ -1,18 +1,22 @@
 import sys
-from typing import List, Optional, Union
+from typing import Optional
+from typing import Union
 
 import cv2
 import numpy as np
-import skimage
 import skimage.exposure
 import skimage.feature
 import skimage.morphology
 import torch
-from skimage.filters import threshold_otsu, threshold_triangle, sobel
+from skimage.filters import sobel
+from skimage.filters import threshold_otsu
+from skimage.filters import threshold_triangle
 from skimage.util import img_as_ubyte
 
-from towbintools.deep_learning import augmentation, util
-from towbintools.foundation import binary_image, image_handling
+from towbintools.deep_learning import augmentation
+from towbintools.deep_learning import util
+from towbintools.foundation import binary_image
+from towbintools.foundation import image_handling
 from towbintools.foundation.binary_image import fill_bright_holes
 
 
@@ -45,7 +49,7 @@ def old_edge_based_segmentation(
         raise ValueError("Image must be 2D.")
 
     thresh_otsu = threshold_otsu(image)
-    
+
     edges = skimage.feature.canny(
         image,
         sigma=sigma_canny,
@@ -84,15 +88,18 @@ def old_edge_based_segmentation(
 
     threshold = np.percentile(image[out > 0], final_threshold_percentile)  # type: ignore
 
-    final_mask = (image > threshold)
+    final_mask = image > threshold
     final_mask = skimage.morphology.remove_small_objects(
         final_mask, 422.5 / (pixelsize**2), connectivity=2
     ).astype(np.uint8)
 
-    final_mask = (cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel) > 0).astype(np.uint8)
+    final_mask = (cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel) > 0).astype(
+        np.uint8
+    )
 
     final_mask = fill_bright_holes(image, final_mask, 10).astype(np.uint8)
     return final_mask
+
 
 def edge_based_segmentation(
     image: np.ndarray,
@@ -135,7 +142,11 @@ def edge_based_segmentation(
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
 
-    out = cv2.morphologyEx(out, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size)))
+    out = cv2.morphologyEx(
+        out,
+        cv2.MORPH_CLOSE,
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size)),
+    )
 
     new_contours, _ = cv2.findContours(out, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     new_out = np.zeros_like(out)
@@ -143,16 +154,19 @@ def edge_based_segmentation(
 
     threshold = np.percentile(image[new_out > 0], final_threshold_percentile)  # type: ignore
 
-    final_mask = (image > threshold)
+    final_mask = image > threshold
     final_mask = skimage.morphology.remove_small_objects(
         final_mask, 422.5 / (pixelsize**2), connectivity=2
     ).astype(np.uint8)
 
-    final_mask = (cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel) > 0).astype(np.uint8)
+    final_mask = (cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel) > 0).astype(
+        np.uint8
+    )
 
     final_mask = fill_bright_holes(image, final_mask, 10).astype(np.uint8)
 
     return final_mask
+
 
 # TODO: Modify this function to allow for non tiled predictions / remove it entirely
 def deep_learning_segmentation(
@@ -228,7 +242,7 @@ def double_threshold_segmentation(image):
 def segment_image(
     image: Union[str, np.ndarray],
     method: str,
-    channels: Optional[List[int]] = None,
+    channels: Optional[list[int]] = None,
     pixelsize: float = None,
     is_zstack=True,
     **kwargs,
@@ -261,6 +275,7 @@ def segment_image(
     if method == "edge_based":
         if pixelsize is None:
             raise ValueError("Pixelsize must be specified for edge-based segmentation.")
+
         def segment_fn(x):
             return edge_based_segmentation(x, pixelsize, **kwargs)
 

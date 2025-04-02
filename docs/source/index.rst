@@ -9,9 +9,9 @@ Welcome to towbintools' documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-   
+
    link_readme
-   
+
    towbintools
 
 

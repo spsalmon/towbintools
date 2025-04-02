@@ -1,20 +1,29 @@
-from typing import List, Optional
+from typing import Optional
+
+import cv2
 import numpy as np
-from skimage.measure import regionprops, shannon_entropy
-from scipy.stats import skew, kurtosis
-from skimage.feature import graycomatrix, graycoprops
-from skimage.util import img_as_ubyte
-from skimage.measure import regionprops_table
-import numpy as np
-from scipy.interpolate import splprep, splev
 from scipy.integrate import simpson
 from scipy.interpolate import interp1d
-from scipy.signal import savgol_filter
-import cv2
+from scipy.interpolate import splev
+from scipy.interpolate import splprep
 from scipy.ndimage import binary_fill_holes
-from towbintools.straightening import Warper
+from scipy.signal import savgol_filter
+from scipy.stats import kurtosis
+from scipy.stats import skew
+from skimage.feature import graycomatrix
+from skimage.feature import graycoprops
+from skimage.measure import regionprops
+from skimage.measure import regionprops_table
+from skimage.measure import shannon_entropy
+from skimage.util import img_as_ubyte
+
 from towbintools.foundation import binary_image
-from towbintools.foundation.image_quality import TENG, LAPV, LAPM, TENG_VARIANCE, normalized_variance_measure
+from towbintools.foundation.image_quality import LAPM
+from towbintools.foundation.image_quality import LAPV
+from towbintools.foundation.image_quality import normalized_variance_measure
+from towbintools.foundation.image_quality import TENG
+from towbintools.foundation.image_quality import TENG_VARIANCE
+from towbintools.straightening import Warper
 
 
 AVAILABLE_MASK_FEATURES = [
@@ -49,15 +58,21 @@ FEATURES_TO_COMPUTE_AT_MOLT = [
     "energy",
 ]
 
+
 def get_available_regionprops():
-    from skimage.measure._regionprops import PROP_VALS, _require_intensity_image
+    from skimage.measure._regionprops import (
+        PROP_VALS,
+        _require_intensity_image,
+    )
 
     mask_props = [prop for prop in PROP_VALS if prop not in _require_intensity_image]
     image_props = [prop for prop in PROP_VALS if prop in _require_intensity_image]
 
     return mask_props, image_props
 
+
 SKIMAGE_MASK_FEATURES, SKIMAGE_IMAGE_FEATURES = get_available_regionprops()
+
 
 def get_available_mask_features():
     """
@@ -68,6 +83,7 @@ def get_available_mask_features():
     """
     return AVAILABLE_MASK_FEATURES
 
+
 def get_features_to_compute_at_molt():
     """
     Get a list of features to compute at molt.
@@ -76,6 +92,7 @@ def get_features_to_compute_at_molt():
         list: The list of features to compute at molt.
     """
     return FEATURES_TO_COMPUTE_AT_MOLT
+
 
 def compute_mask_volume(
     straightened_mask: np.ndarray,
@@ -130,6 +147,7 @@ def compute_mask_length(
     """
     return np.sum(np.sum(straightened_mask, axis=0) > 0) * pixelsize
 
+
 def compute_mask_average_width(
     straightened_mask: np.ndarray,
     pixelsize: float,
@@ -143,7 +161,7 @@ def compute_mask_average_width(
         pixelsize (float): The size of a pixel, used for width calculation.
         aggregation (str): The aggregation method to use to compute the width.
                            Can be either 'mean' or 'median'. (default: 'mean')
-    
+
     Returns:
         float: The computed average width of the worm.
     """
@@ -156,9 +174,8 @@ def compute_mask_average_width(
     elif aggregation == "median":
         return np.median(worm_widths)
     else:
-        raise ValueError(
-            'Aggregation must be one of "mean" or "median".'
-        )
+        raise ValueError('Aggregation must be one of "mean" or "median".')
+
 
 def compute_width_profile(
     straightened_mask: np.ndarray,
@@ -181,7 +198,6 @@ def compute_width_profile(
         np.ndarray: The computed and smoothed width profile. If smoothing fails, the unsmoothed profile is returned.
     """
 
-
     profile = np.sum(straightened_mask, axis=0) * pixelsize
 
     profile = profile[profile > 0]
@@ -194,9 +210,10 @@ def compute_width_profile(
     except ValueError:
         return profile
 
+
 def compute_max_width(
-    width_profile: np.ndarray, 
-    window_size: int =10,
+    width_profile: np.ndarray,
+    window_size: int = 10,
 ) -> float:
     """
     Compute the maximum width of a worm from its width profile by taking the maximum value and averaging the values around it.
@@ -213,11 +230,16 @@ def compute_max_width(
         max_width_index = np.argmax(width_profile)
     except ValueError:
         return np.nan
-    return np.mean(width_profile[max_width_index - window_size : max_width_index + window_size + 1])
+    return np.mean(
+        width_profile[
+            max_width_index - window_size : max_width_index + window_size + 1
+        ]  # noqa : E203
+    )
+
 
 def compute_mid_width(
-    width_profile: np.ndarray, 
-    window_size: int =10,
+    width_profile: np.ndarray,
+    window_size: int = 10,
 ):
     """
     Compute the width of a worm at its midpoint from its width profile by averaging the values around the midpoint.
@@ -231,12 +253,17 @@ def compute_mid_width(
     """
 
     mid_width_index = len(width_profile) // 2
-    return np.mean(width_profile[mid_width_index - window_size : mid_width_index + window_size + 1])
+    return np.mean(
+        width_profile[
+            mid_width_index - window_size : mid_width_index + window_size + 1
+        ]  # noqa : E203
+    )
+
 
 def compute_mask_morphological_features(
     straightened_mask: np.ndarray,
     pixelsize: float,
-    features: List[str],
+    features: list[str],
 ) -> dict:
     """
     Compute a set of morphological features for a straightened mask.
@@ -257,11 +284,17 @@ def compute_mask_morphological_features(
     feature_dict = {}
     for feature in features:
         if feature == "length":
-            feature_dict["length"] = compute_mask_length(straightened_mask, pixelsize=pixelsize)
+            feature_dict["length"] = compute_mask_length(
+                straightened_mask, pixelsize=pixelsize
+            )
         elif feature == "volume":
-            feature_dict["volume"] = compute_mask_volume(straightened_mask, pixelsize=pixelsize)
+            feature_dict["volume"] = compute_mask_volume(
+                straightened_mask, pixelsize=pixelsize
+            )
         elif feature == "area":
-            feature_dict["area"] = compute_mask_area(straightened_mask, pixelsize=pixelsize)
+            feature_dict["area"] = compute_mask_area(
+                straightened_mask, pixelsize=pixelsize
+            )
         elif feature == "width_mean":
             feature_dict["width_mean"] = np.mean(width_profile)
         elif feature == "width_median":
@@ -279,7 +312,9 @@ def compute_mask_morphological_features(
         elif feature == "width_middle":
             feature_dict["width_middle"] = compute_mid_width(width_profile)
         elif feature == "bending_energy":
-            feature_dict["bending_energy"] = compute_bending_energy_mask(straightened_mask, pixelsize)
+            feature_dict["bending_energy"] = compute_bending_energy_mask(
+                straightened_mask, pixelsize
+            )
         else:
             raise ValueError(f"Feature {feature} not recognized.")
 
@@ -289,6 +324,7 @@ def compute_mask_morphological_features(
             feature_dict[key] = np.nan
 
     return feature_dict
+
 
 def compute_image_features(
     image: np.ndarray,
@@ -382,25 +418,29 @@ def compute_mask_type_features(
         permimeter,
     ]
 
+
 # Features for nuclei classification
 
+
 def intensity_std(
-    regionmask: np.ndarray, 
+    regionmask: np.ndarray,
     intensity_image: np.ndarray,
-) -> float: 
+) -> float:
     """
     Compute the standard deviation of the intensity values within a region.
-    
+
     Parameters:
         regionmask (np.ndarray): The mask of the region.
         intensity_image (np.ndarray): The intensity image.
-        
+
     Returns:
-        float: The standard deviation of the intensity values within the region."""
+        float: The standard deviation of the intensity values within the region.
+    """
     return np.std(intensity_image[regionmask])
 
+
 def intensity_skew(
-    regionmask: np.ndarray, 
+    regionmask: np.ndarray,
     intensity_image: np.ndarray,
 ) -> float:
     """
@@ -409,14 +449,15 @@ def intensity_skew(
     Parameters:
         regionmask (np.ndarray): The mask of the region.
         intensity_image (np.ndarray): The intensity image.
-    
+
     Returns:
         float: The skewness of the intensity values within the region."""
-    
+
     return skew(intensity_image[regionmask])
 
+
 def intensity_kurtosis(
-    regionmask: np.ndarray, 
+    regionmask: np.ndarray,
     intensity_image: np.ndarray,
 ) -> float:
     """
@@ -425,11 +466,12 @@ def intensity_kurtosis(
     Parameters:
         regionmask (np.ndarray): The mask of the region.
         intensity_image (np.ndarray): The intensity image.
-    
+
     Returns:
         float: The kurtosis of the intensity values within the region."""
-    
+
     return kurtosis(intensity_image[regionmask])
+
 
 def compute_haralick_features(
     image: np.ndarray,
@@ -445,21 +487,28 @@ def compute_haralick_features(
     """
 
     # Calculate the Grey-Level Co-Occurrence Matrix
-    glcm = graycomatrix(img_as_ubyte(image), distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+    glcm = graycomatrix(
+        img_as_ubyte(image),
+        distances=[1],
+        angles=[0],
+        levels=256,
+        symmetric=True,
+        normed=True,
+    )
     # Calculate properties
-    contrast = graycoprops(glcm, 'contrast')[0, 0]
-    dissimilarity = graycoprops(glcm, 'dissimilarity')[0, 0]
-    homogeneity = graycoprops(glcm, 'homogeneity')[0, 0]
-    energy = graycoprops(glcm, 'energy')[0, 0]
-    correlation = graycoprops(glcm, 'correlation')[0, 0]
-    
+    contrast = graycoprops(glcm, "contrast")[0, 0]
+    dissimilarity = graycoprops(glcm, "dissimilarity")[0, 0]
+    homogeneity = graycoprops(glcm, "homogeneity")[0, 0]
+    energy = graycoprops(glcm, "energy")[0, 0]
+    correlation = graycoprops(glcm, "correlation")[0, 0]
+
     return [contrast, dissimilarity, homogeneity, energy, correlation]
 
 
 def compute_patch_features(
-    regionmask: np.ndarray, 
-    intensity_image: np.ndarray, 
-    patch_size: int =64,
+    regionmask: np.ndarray,
+    intensity_image: np.ndarray,
+    patch_size: int = 64,
 ) -> list:
     """
     Compute a set of features for a patch around a region.
@@ -476,10 +525,10 @@ def compute_patch_features(
     # Get the centroid of the region
     centroid = regionprops(regionmask.astype("uint8"))[0].centroid
     # Create a patch of the defined size around the centroid
-    minr = int(centroid[0] - patch_size/2)
-    maxr = int(centroid[0] + patch_size/2)
-    minc = int(centroid[1] - patch_size/2)
-    maxc = int(centroid[1] + patch_size/2)
+    minr = int(centroid[0] - patch_size / 2)
+    maxr = int(centroid[0] + patch_size / 2)
+    minc = int(centroid[1] - patch_size / 2)
+    maxc = int(centroid[1] + patch_size / 2)
 
     if minr < 0:
         minr = 0
@@ -496,43 +545,61 @@ def compute_patch_features(
 
     patch = intensity_image[minr:maxr, minc:maxc]
 
-    patch_basic_intensity_features = [np.max(patch), np.min(patch), np.mean(patch), np.std(patch), skew(patch.ravel()), kurtosis(patch.ravel())]
+    patch_basic_intensity_features = [
+        np.max(patch),
+        np.min(patch),
+        np.mean(patch),
+        np.std(patch),
+        skew(patch.ravel()),
+        kurtosis(patch.ravel()),
+    ]
     patch_texture_features = compute_haralick_features(patch)
     patch_advanced_intensity_features = [shannon_entropy(patch)]
 
-    patch_features = patch_basic_intensity_features + patch_texture_features + patch_advanced_intensity_features
+    patch_features = (
+        patch_basic_intensity_features
+        + patch_texture_features
+        + patch_advanced_intensity_features
+    )
 
     return patch_features
 
+
 def compute_base_label_features(
-    mask_of_label: np.ndarray, 
-    intensity_image: np.ndarray, 
-    features: List[str],
-    extra_properties: List[str], 
+    mask_of_label: np.ndarray,
+    intensity_image: np.ndarray,
+    features: list[str],
+    extra_properties: list[str],
 ) -> list:
     """
     Compute a set of features for a single label.
-    
+
     Parameters:
         mask_of_label (np.ndarray): The mask of the label.
         intensity_image (np.ndarray): The intensity image.
         features (list): The list of features to compute.
         extra_properties (list): The list of extra properties to compute.
-        
+
     Returns:
         list: A list of features for the label.
     """
 
-    properties = regionprops_table(mask_of_label, intensity_image=intensity_image, properties=features, extra_properties=extra_properties)  
+    properties = regionprops_table(
+        mask_of_label,
+        intensity_image=intensity_image,
+        properties=features,
+        extra_properties=extra_properties,
+    )
     feature_vector = []
     for feature in properties:
         feature_vector.append(properties[feature][0])
     return feature_vector
 
+
 def get_context(
-    current_label: int, 
-    mask_of_current_label: np.ndarray, 
-    mask_of_labels: np.ndarray, 
+    current_label: int,
+    mask_of_current_label: np.ndarray,
+    mask_of_labels: np.ndarray,
     num_closest: int = 5,
 ) -> np.ndarray:
     """
@@ -559,19 +626,21 @@ def get_context(
         centroid_other_labels = regionprops(mask_of_all_other_labels)
 
         # find the num_closest labels
-        closest_labels = sorted(centroid_other_labels, key=lambda x: np.linalg.norm(np.array(x.centroid) - np.array(centroid_current_label)))[:num_closest] # type: ignore
+        closest_labels = sorted(centroid_other_labels, key=lambda x: np.linalg.norm(np.array(x.centroid) - np.array(centroid_current_label)))[:num_closest]  # type: ignore
         closest_labels = [x.label for x in closest_labels]
-        binary_mask_of_closest_labels = np.isin(mask_of_labels, closest_labels).astype("uint8")
+        binary_mask_of_closest_labels = np.isin(mask_of_labels, closest_labels).astype(
+            "uint8"
+        )
         mask_of_closest_labels = mask_of_labels.copy()
         mask_of_closest_labels[binary_mask_of_closest_labels == 0] = 0
         return mask_of_closest_labels.astype("uint8")
 
 
 def get_context_features(
-    mask_of_labels: np.ndarray, 
-    intensity_image: np.ndarray, 
-    features: List[str], 
-    extra_properties: List[str],
+    mask_of_labels: np.ndarray,
+    intensity_image: np.ndarray,
+    features: list[str],
+    extra_properties: list[str],
 ) -> list:
     """
     Compute a set of features for the context of a label.
@@ -586,28 +655,34 @@ def get_context_features(
         list: A list of aggregated features for the context of the label (mean and std of each desired feature).
     """
 
-    properties = regionprops_table(mask_of_labels, intensity_image=intensity_image, properties=features, extra_properties=extra_properties)
+    properties = regionprops_table(
+        mask_of_labels,
+        intensity_image=intensity_image,
+        properties=features,
+        extra_properties=extra_properties,
+    )
     context_feature_vector = []
     for feature in properties:
         context_feature_vector.append(np.mean(properties[feature]))
         context_feature_vector.append(np.std(properties[feature]))
     return context_feature_vector
 
+
 def compute_bending_energy(
-    midline_points: np.array, 
-    widths: np.array, 
-    E: float = 1.0, 
+    midline_points: np.array,
+    widths: np.array,
+    E: float = 1.0,
     smooth: Optional[float] = None,
 ) -> float:
     """
     Compute bending energy of a midline considering variable width.
-    
+
     Parameters:
         midline_points (np.array): array of shape (n, 2) containing centerline x,y coordinates
         widths (np.array): array of shape (n,) containing width at each point
         E (float): Young's modulus (set to 1.0 for relative comparisons)
         smooth (float): smoothing factor for spline fitting. If None, the default scipy smoothing is applied. (default: None)
-    
+
     Returns:
         float: bending energy
     """
@@ -616,50 +691,51 @@ def compute_bending_energy(
     tck, u = splprep([midline_points[:, 0], midline_points[:, 1]], s=smooth)
 
     # Create width interpolation function
-    width_interp = interp1d(np.linspace(0, 1, len(widths)), widths, kind='cubic')
-    
+    width_interp = interp1d(np.linspace(0, 1, len(widths)), widths, kind="cubic")
+
     # Generate points along the spline for analysis
     u_new = np.linspace(0, 1, 1000)
     x_new, y_new = splev(u_new, tck)
     widths_new = width_interp(u_new)
-    
+
     # Compute derivatives for curvature
     dx_du, dy_du = splev(u_new, tck, der=1)
     dx2_du2, dy2_du2 = splev(u_new, tck, der=2)
-    
+
     # Compute curvature
     numerator = dx_du * dy2_du2 - dy_du * dx2_du2
-    denominator = (dx_du * dx_du + dy_du * dy_du)**1.5
+    denominator = (dx_du * dx_du + dy_du * dy_du) ** 1.5
     curvature = numerator / denominator
-    
+
     # Compute differential arc length
     ds = np.sqrt(dx_du * dx_du + dy_du * dy_du) * (u_new[1] - u_new[0])
-    
+
     # Compute second moment of area (I) assuming circular cross-section
     # I = (π/64) * d⁴ for a circular cross-section
-    I = np.pi * (widths_new**4) / 64.0
-    
+    I = np.pi * (widths_new**4) / 64.0  # noqa: E741
+
     # Compute local flexural rigidity
     EI = E * I
-    
+
     # Compute bending energy = ∫ (EI/2) κ²ds
-    local_energy = (EI/2) * curvature**2 * ds
+    local_energy = (EI / 2) * curvature**2 * ds
 
     total_energy = simpson(local_energy, x=u_new)
-    
+
     return total_energy
 
+
 def compute_bending_energy_mask(
-    mask: np.ndarray, 
-    pixelsize: float, 
+    mask: np.ndarray,
+    pixelsize: float,
     E: float = 1.0,
-    smooth: Optional[float] = None, 
-    savgol_window: int = 21, 
+    smooth: Optional[float] = None,
+    savgol_window: int = 21,
     savgol_order: int = 3,
 ) -> float:
     """
     Compute bending energy of a binary mask by extracting its midline and width profile.
-    
+
     Parameters:
         mask (np.ndarray): Binary mask.
         pixelsize (float): Physical size of a pixel, used for width calculation.
@@ -667,31 +743,35 @@ def compute_bending_energy_mask(
         smooth (float): smoothing factor for spline fitting. If None, the default scipy smoothing is applied. (default: None)
         savgol_window (int): window size for Savitzky-Golay filter. (default: 21)
         savgol_order (int): order of Savitzky-Golay filter. (default: 3)
-    
+
     Returns:
         float: bending energy
     """
-    
+
     try:
         # Extract midline and width profile
         mask = binary_fill_holes(mask)
         mask_for_midline = cv2.medianBlur(mask.astype(np.uint8), 5)
         mask = binary_image.get_biggest_object(mask.astype(np.uint8))
-        mask_for_midline = binary_image.get_biggest_object(mask_for_midline.astype(np.uint8))
+        mask_for_midline = binary_image.get_biggest_object(
+            mask_for_midline.astype(np.uint8)
+        )
         warper = Warper.from_img(mask, mask_for_midline)
         midline = warper.splines[0]
         length = warper.length
         midline = midline(np.linspace(0, length, 1000))
 
         straightened_mask = warper.warp_2D_img(
-                    mask, 
-                    0,
-                    interpolation_order=0,
-                    preserve_range=True,
-                    preserve_dtype=True,
-                )
+            mask,
+            0,
+            interpolation_order=0,
+            preserve_range=True,
+            preserve_dtype=True,
+        )
 
-        widths = compute_width_profile(straightened_mask, pixelsize, savgol_window, savgol_order)
+        widths = compute_width_profile(
+            straightened_mask, pixelsize, savgol_window, savgol_order
+        )
 
         bending_energy = compute_bending_energy(midline, widths)
     except Exception as e:

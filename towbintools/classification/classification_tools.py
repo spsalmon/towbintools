@@ -1,10 +1,12 @@
+from typing import Callable
+
 import numpy as np
+import pandas as pd
 import xgboost
+from joblib import delayed
+from joblib import Parallel
 
 from towbintools.foundation import worm_features
-from typing import Callable
-from joblib import Parallel, delayed
-import pandas as pd
 
 
 def classify_worm_type(
@@ -82,7 +84,18 @@ def classify_image(
     prediction = classes[pred_class]
     return prediction
 
-def compute_features_of_label(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None):
+
+def compute_features_of_label(
+    current_label,
+    mask_plane,
+    image_plane,
+    all_features,
+    extra_properties,
+    intensity_features,
+    extra_intensity_features,
+    num_closest=None,
+    patches=None,
+):
     """
     Compute a set of features for a single label, including context features and patch features.
 
@@ -100,43 +113,93 @@ def compute_features_of_label(current_label, mask_plane, image_plane, all_featur
     Returns:
         list: A list of features for the label.
     """
-    
+
     mask_of_current_label = (mask_plane == current_label).astype("uint8")
     # check if image_plane has multiple channels
     if len(image_plane.shape) == 3:
         # compute all the features on the first channel and then intensity features on the other ones
-        feature_vector = worm_features.compute_base_label_features(mask_of_current_label, image_plane[0], all_features, extra_properties)
+        feature_vector = worm_features.compute_base_label_features(
+            mask_of_current_label,
+            image_plane[0],
+            all_features,
+            extra_properties,
+        )
         for i in range(1, image_plane.shape[0]):
-            other_channel_intensity_features = worm_features.compute_base_label_features(mask_of_current_label, image_plane[i], intensity_features, extra_intensity_features)
+            other_channel_intensity_features = (
+                worm_features.compute_base_label_features(
+                    mask_of_current_label,
+                    image_plane[i],
+                    intensity_features,
+                    extra_intensity_features,
+                )
+            )
             feature_vector += other_channel_intensity_features
     else:
-        feature_vector = worm_features.compute_base_label_features(mask_of_current_label, image_plane, all_features, extra_properties)
+        feature_vector = worm_features.compute_base_label_features(
+            mask_of_current_label, image_plane, all_features, extra_properties
+        )
 
     if patches is not None:
         for patch_size in patches:
             if len(image_plane.shape) == 3:
-                patch_features = worm_features.compute_patch_features(mask_of_current_label, image_plane[0], patch_size=patch_size)
+                patch_features = worm_features.compute_patch_features(
+                    mask_of_current_label,
+                    image_plane[0],
+                    patch_size=patch_size,
+                )
                 for i in range(1, image_plane.shape[0]):
-                    patch_features += worm_features.compute_patch_features(mask_of_current_label, image_plane[i], patch_size=patch_size)
+                    patch_features += worm_features.compute_patch_features(
+                        mask_of_current_label,
+                        image_plane[i],
+                        patch_size=patch_size,
+                    )
                 feature_vector += patch_features
             else:
-                patch_features = worm_features.compute_patch_features(mask_of_current_label, image_plane, patch_size=patch_size)
+                patch_features = worm_features.compute_patch_features(
+                    mask_of_current_label, image_plane, patch_size=patch_size
+                )
                 feature_vector += patch_features
 
     if num_closest is not None:
-        context = worm_features.get_context(current_label, mask_of_current_label, mask_plane, num_closest=num_closest)
+        context = worm_features.get_context(
+            current_label,
+            mask_of_current_label,
+            mask_plane,
+            num_closest=num_closest,
+        )
         if len(image_plane.shape) == 3:
-            context_features = worm_features.get_context_features(context, image_plane[0], all_features, extra_properties)
+            context_features = worm_features.get_context_features(
+                context, image_plane[0], all_features, extra_properties
+            )
             for i in range(1, image_plane.shape[0]):
-                context_features += worm_features.get_context_features(context, image_plane[i], intensity_features, extra_intensity_features)
+                context_features += worm_features.get_context_features(
+                    context,
+                    image_plane[i],
+                    intensity_features,
+                    extra_intensity_features,
+                )
             feature_vector += context_features
         else:
-            context_features = worm_features.get_context_features(context, image_plane, all_features, extra_properties)
+            context_features = worm_features.get_context_features(
+                context, image_plane, all_features, extra_properties
+            )
             feature_vector += context_features
 
     return feature_vector
 
-def compute_features_of_plane(mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1):
+
+def compute_features_of_plane(
+    mask_plane,
+    image_plane,
+    all_features,
+    extra_properties,
+    intensity_features,
+    extra_intensity_features,
+    num_closest=None,
+    patches=None,
+    parallel=True,
+    n_jobs=-1,
+):
     """
     Compute a set of features for a single label, including context features and patch features for all labels in a plane.
 
@@ -157,12 +220,52 @@ def compute_features_of_plane(mask_plane, image_plane, all_features, extra_prope
     """
 
     if parallel:
-        features_of_all_labels = Parallel(n_jobs=n_jobs)(delayed(compute_features_of_label)(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches) for current_label in np.unique(mask_plane)[1:])
+        features_of_all_labels = Parallel(n_jobs=n_jobs)(
+            delayed(compute_features_of_label)(
+                current_label,
+                mask_plane,
+                image_plane,
+                all_features,
+                extra_properties,
+                intensity_features,
+                extra_intensity_features,
+                num_closest=num_closest,
+                patches=patches,
+            )
+            for current_label in np.unique(mask_plane)[1:]
+        )
     else:
-        features_of_all_labels = [compute_features_of_label(current_label, mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches) for current_label in np.unique(mask_plane)[1:]]
+        features_of_all_labels = [
+            compute_features_of_label(
+                current_label,
+                mask_plane,
+                image_plane,
+                all_features,
+                extra_properties,
+                intensity_features,
+                extra_intensity_features,
+                num_closest=num_closest,
+                patches=patches,
+            )
+            for current_label in np.unique(mask_plane)[1:]
+        ]
     return features_of_all_labels
-    
-def classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, confidence_threshold=None):
+
+
+def classify_plane(
+    mask_plane,
+    image_plane,
+    classifier,
+    all_features,
+    extra_properties,
+    intensity_features,
+    extra_intensity_features,
+    num_closest=None,
+    patches=None,
+    parallel=True,
+    n_jobs=-1,
+    confidence_threshold=None,
+):
     """
     Compute the features of all the labels in a plane and classify them using an XGBoost classifier.
 
@@ -183,8 +286,19 @@ def classify_plane(mask_plane, image_plane, classifier, all_features, extra_prop
     Returns:
         list: A list of predicted classes for all labels in the plane.
     """
-    
-    features = compute_features_of_plane(mask_plane, image_plane, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs)
+
+    features = compute_features_of_plane(
+        mask_plane,
+        image_plane,
+        all_features,
+        extra_properties,
+        intensity_features,
+        extra_intensity_features,
+        num_closest=num_closest,
+        patches=patches,
+        parallel=parallel,
+        n_jobs=n_jobs,
+    )
     if len(features) == 0:
         return None
     predictions = classifier.predict_proba(features)
@@ -195,7 +309,22 @@ def classify_plane(mask_plane, image_plane, classifier, all_features, extra_prop
                 predicted_classes[i] = -1
     return predicted_classes
 
-def classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+
+def classify_labels(
+    mask,
+    image,
+    classifier,
+    all_features,
+    extra_properties,
+    intensity_features,
+    extra_intensity_features,
+    num_closest=None,
+    patches=None,
+    parallel=True,
+    n_jobs=-1,
+    is_zstack=False,
+    confidence_threshold=None,
+):
     """
     Compute the features of all the labels in a mask and classify them using an XGBoost classifier.
 
@@ -219,13 +348,69 @@ def classify_labels(mask, image, classifier, all_features, extra_properties, int
     """
 
     if is_zstack or len(image.shape) > 3:
-        assert mask.shape[0] == image.shape[0], "The number of planes in the mask and the image should be the same."
-        return [classify_plane(mask_plane, image_plane, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold) for mask_plane, image_plane in zip(mask, image)]
+        assert (
+            mask.shape[0] == image.shape[0]
+        ), "The number of planes in the mask and the image should be the same."
+        return [
+            classify_plane(
+                mask_plane,
+                image_plane,
+                classifier,
+                all_features,
+                extra_properties,
+                intensity_features,
+                extra_intensity_features,
+                num_closest=num_closest,
+                patches=patches,
+                parallel=parallel,
+                n_jobs=n_jobs,
+                confidence_threshold=confidence_threshold,
+            )
+            for mask_plane, image_plane in zip(mask, image)
+        ]
     else:
-        return classify_plane(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, confidence_threshold=confidence_threshold)
+        return classify_plane(
+            mask,
+            image,
+            classifier,
+            all_features,
+            extra_properties,
+            intensity_features,
+            extra_intensity_features,
+            num_closest=num_closest,
+            patches=patches,
+            parallel=parallel,
+            n_jobs=n_jobs,
+            confidence_threshold=confidence_threshold,
+        )
 
-def classify_labels_features_dict(mask, image, clf, features_dict, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
-    return classify_labels(mask, image, clf, features_dict['all_features'], features_dict['extra_properties'], features_dict['intensity_features'], features_dict['extra_intensity_features'], num_closest=features_dict['num_closest'], patches=features_dict['patches'], parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+
+def classify_labels_features_dict(
+    mask,
+    image,
+    clf,
+    features_dict,
+    parallel=True,
+    n_jobs=-1,
+    is_zstack=False,
+    confidence_threshold=None,
+):
+    return classify_labels(
+        mask,
+        image,
+        clf,
+        features_dict["all_features"],
+        features_dict["extra_properties"],
+        features_dict["intensity_features"],
+        features_dict["extra_intensity_features"],
+        num_closest=features_dict["num_closest"],
+        patches=features_dict["patches"],
+        parallel=parallel,
+        n_jobs=n_jobs,
+        is_zstack=is_zstack,
+        confidence_threshold=confidence_threshold,
+    )
+
 
 def convert_classification_to_mask(mask, classification, is_zstack=False):
     """
@@ -242,7 +427,7 @@ def convert_classification_to_mask(mask, classification, is_zstack=False):
 
     new_mask = np.zeros_like(mask)
 
-    if is_zstack or len(mask.shape) > 2:    
+    if is_zstack or len(mask.shape) > 2:
         for i, plane_classification in enumerate(classification):
             if plane_classification is not None:
                 for j, label in enumerate(np.unique(mask[i])[1:]):
@@ -253,6 +438,7 @@ def convert_classification_to_mask(mask, classification, is_zstack=False):
                 new_mask[mask == label] = classification[i] + 1
 
     return new_mask
+
 
 def convert_classification_to_dataframe(mask, classification, is_zstack=False):
     """
@@ -272,17 +458,44 @@ def convert_classification_to_dataframe(mask, classification, is_zstack=False):
         for i, plane_classification in enumerate(classification):
             if plane_classification is not None:
                 for j, label in enumerate(np.unique(mask[i])[1:]):
-                    data.append({"Plane": i, "Label": int(label), "Class": plane_classification[j]})
+                    data.append(
+                        {
+                            "Plane": i,
+                            "Label": int(label),
+                            "Class": plane_classification[j],
+                        }
+                    )
     else:
         if classification is not None:
             for i, label in enumerate(np.unique(mask)[1:]):
-                data.append({"Plane": 0, "Label": int(label), "Class": classification[i]})
+                data.append(
+                    {
+                        "Plane": 0,
+                        "Label": int(label),
+                        "Class": classification[i],
+                    }
+                )
     return pd.DataFrame(data)
 
-def classify_labels_and_convert_to_mask(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+
+def classify_labels_and_convert_to_mask(
+    mask,
+    image,
+    classifier,
+    all_features,
+    extra_properties,
+    intensity_features,
+    extra_intensity_features,
+    num_closest=None,
+    patches=None,
+    parallel=True,
+    n_jobs=-1,
+    is_zstack=False,
+    confidence_threshold=None,
+):
     """
     Classify all the labels in a mask using an XGBoost classifier and convert the classification to a mask.
-    
+
     Parameters:
         mask (np.ndarray): The mask of all regions.
         image (np.ndarray): The intensity image.
@@ -301,11 +514,40 @@ def classify_labels_and_convert_to_mask(mask, image, classifier, all_features, e
     Returns:
         np.ndarray: The given mask with pixel values replaced with class number + 1.
     """
-    
-    classification = classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+
+    classification = classify_labels(
+        mask,
+        image,
+        classifier,
+        all_features,
+        extra_properties,
+        intensity_features,
+        extra_intensity_features,
+        num_closest=num_closest,
+        patches=patches,
+        parallel=parallel,
+        n_jobs=n_jobs,
+        is_zstack=is_zstack,
+        confidence_threshold=confidence_threshold,
+    )
     return convert_classification_to_mask(mask, classification)
 
-def classify_labels_and_convert_to_dataframe(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=None, patches=None, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
+
+def classify_labels_and_convert_to_dataframe(
+    mask,
+    image,
+    classifier,
+    all_features,
+    extra_properties,
+    intensity_features,
+    extra_intensity_features,
+    num_closest=None,
+    patches=None,
+    parallel=True,
+    n_jobs=-1,
+    is_zstack=False,
+    confidence_threshold=None,
+):
     """
     Classify all the labels in a mask using an XGBoost classifier and convert the classification to a pandas DataFrame.
 
@@ -327,14 +569,68 @@ def classify_labels_and_convert_to_dataframe(mask, image, classifier, all_featur
     Returns:
         pd.DataFrame: A DataFrame with columns "Plane", "Label", and "Class".
     """
-    
-    classification = classify_labels(mask, image, classifier, all_features, extra_properties, intensity_features, extra_intensity_features, num_closest=num_closest, patches=patches, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+
+    classification = classify_labels(
+        mask,
+        image,
+        classifier,
+        all_features,
+        extra_properties,
+        intensity_features,
+        extra_intensity_features,
+        num_closest=num_closest,
+        patches=patches,
+        parallel=parallel,
+        n_jobs=n_jobs,
+        is_zstack=is_zstack,
+        confidence_threshold=confidence_threshold,
+    )
     return convert_classification_to_dataframe(mask, classification)
 
-def classify_labels_and_convert_to_mask_features_dict(mask, image, clf, features_dict, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
-    classification = classify_labels_features_dict(mask, image, clf, features_dict, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
+
+def classify_labels_and_convert_to_mask_features_dict(
+    mask,
+    image,
+    clf,
+    features_dict,
+    parallel=True,
+    n_jobs=-1,
+    is_zstack=False,
+    confidence_threshold=None,
+):
+    classification = classify_labels_features_dict(
+        mask,
+        image,
+        clf,
+        features_dict,
+        parallel=parallel,
+        n_jobs=n_jobs,
+        is_zstack=is_zstack,
+        confidence_threshold=confidence_threshold,
+    )
     return convert_classification_to_mask(mask, classification, is_zstack=is_zstack)
 
-def classify_labels_and_convert_to_dataframe_features_dict(mask, image, clf, features_dict, parallel=True, n_jobs=-1, is_zstack=False, confidence_threshold=None):
-    classification = classify_labels_features_dict(mask, image, clf, features_dict, parallel=parallel, n_jobs=n_jobs, is_zstack=is_zstack, confidence_threshold=confidence_threshold)
-    return convert_classification_to_dataframe(mask, classification, is_zstack=is_zstack)
+
+def classify_labels_and_convert_to_dataframe_features_dict(
+    mask,
+    image,
+    clf,
+    features_dict,
+    parallel=True,
+    n_jobs=-1,
+    is_zstack=False,
+    confidence_threshold=None,
+):
+    classification = classify_labels_features_dict(
+        mask,
+        image,
+        clf,
+        features_dict,
+        parallel=parallel,
+        n_jobs=n_jobs,
+        is_zstack=is_zstack,
+        confidence_threshold=confidence_threshold,
+    )
+    return convert_classification_to_dataframe(
+        mask, classification, is_zstack=is_zstack
+    )

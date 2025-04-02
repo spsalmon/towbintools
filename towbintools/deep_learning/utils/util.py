@@ -1,17 +1,23 @@
-import torch.nn as nn
-from math import ceil, floor
-from efficientnet_pytorch.utils import Conv2dStaticSamePadding
-import torch
+from math import ceil
+from math import floor
 
-def divide_batch(l, n):
-    for i in range(0, l.shape[0], n):
-        yield l[i : i + n, ::]
+import torch
+import torch.nn as nn
+from efficientnet_pytorch.utils import Conv2dStaticSamePadding
+
+
+def divide_batch(batch, n):
+    for i in range(0, batch.shape[0], n):
+        yield batch[i : i + n, ::]  # noqa: E203
+
 
 def get_closest_upper_multiple(dim, multiple):
     return int(multiple * ceil(dim / multiple))
 
+
 def get_closest_lower_multiple(dim, multiple):
     return int(multiple * floor(dim / multiple))
+
 
 def adjust_tensor_dimensions(source_tensor, target_tensor_shape):
     # Squeeze out unnecessary dimensions from source tensor
@@ -22,9 +28,12 @@ def adjust_tensor_dimensions(source_tensor, target_tensor_shape):
             adjusted_tensor = adjusted_tensor.unsqueeze(dim)
     return adjusted_tensor
 
+
 def rename_keys_and_adjust_dimensions(model, pretrained_model):
     """Util function to easily load a pretrained model's weights into a model with the same architecture but different module names, etc."""
-    assert len(model.state_dict().keys()) == len(pretrained_model.keys()), f"The number of keys in the model ({len(model.state_dict().keys())}) and the pretrained model ({len(pretrained_model.keys())}) do not match."
+    assert len(model.state_dict().keys()) == len(
+        pretrained_model.keys()
+    ), f"The number of keys in the model ({len(model.state_dict().keys())}) and the pretrained model ({len(pretrained_model.keys())}) do not match."
     new_state_dict = {}
     for key, old_key in zip(model.state_dict().keys(), pretrained_model.keys()):
         target_tensor = model.state_dict()[key]
@@ -35,9 +44,9 @@ def rename_keys_and_adjust_dimensions(model, pretrained_model):
         new_state_dict[key] = source_tensor
     return new_state_dict
 
+
 def change_first_conv_layer_input(model, new_in_channels):
     for name, module in model.named_children():
-
         if isinstance(module, Conv2dStaticSamePadding):
             # Extract parameters from the original layer
             out_channels = module.out_channels
@@ -46,12 +55,19 @@ def change_first_conv_layer_input(model, new_in_channels):
             dilation = module.dilation
             groups = module.groups
             bias = module.bias is not None
-            
+
             # Create a new Conv2d layer with the desired number of input channels
-            new_conv = Conv2dStaticSamePadding(new_in_channels, out_channels, kernel_size=kernel_size, # type: ignore
-                                 stride=stride, dilation=dilation,  # type: ignore
-                                 groups=groups, bias=bias, image_size = 512) # I think the image_size parameter can be anything but is required anyway
-            
+            new_conv = Conv2dStaticSamePadding(
+                new_in_channels,
+                out_channels,
+                kernel_size=kernel_size,  # type: ignore
+                stride=stride,
+                dilation=dilation,  # type: ignore
+                groups=groups,
+                bias=bias,
+                image_size=512,
+            )  # I think the image_size parameter can be anything but is required anyway
+
             # Replace the original layer with the new one
             setattr(model, name, new_conv)
             break
@@ -64,12 +80,19 @@ def change_first_conv_layer_input(model, new_in_channels):
             dilation = module.dilation
             groups = module.groups
             bias = module.bias is not None
-            
+
             # Create a new Conv2d layer with the desired number of input channels
-            new_conv = nn.Conv2d(new_in_channels, out_channels, kernel_size=kernel_size, # type: ignore
-                                 stride=stride, padding=padding, dilation=dilation,  # type: ignore
-                                 groups=groups, bias=bias)
-            
+            new_conv = nn.Conv2d(
+                new_in_channels,
+                out_channels,
+                kernel_size=kernel_size,  # type: ignore
+                stride=stride,
+                padding=padding,
+                dilation=dilation,  # type: ignore
+                groups=groups,
+                bias=bias,
+            )
+
             # Replace the original layer with the new one
             setattr(model, name, new_conv)
             break
@@ -79,16 +102,17 @@ def change_first_conv_layer_input(model, new_in_channels):
             change_first_conv_layer_input(module, new_in_channels)
             break  # Break after modifying the first conv layer in any nested module
 
+
 def change_last_fc_layer_output(model, new_out_features):
     # Reverse iterate through the model's children
     for name, module in reversed(list(model.named_children())):
         if isinstance(module, nn.Linear):
             # Extract parameters from the original layer
             in_features = module.in_features
-            
+
             # Create a new Linear layer with the desired output features
             new_linear = nn.Linear(in_features, new_out_features)
-            
+
             # Replace the original layer with the new one
             setattr(model, name, new_linear)
             break
@@ -97,9 +121,10 @@ def change_last_fc_layer_output(model, new_out_features):
             change_last_fc_layer_output(module, new_out_features)
             break  # Break after modifying the last linear layer in any nested module
 
+
 def get_input_channels_from_checkpoint(checkpoint_path):
-    checkpoint = torch.load(checkpoint_path, map_location='cpu')
-    state_dict = checkpoint['state_dict']
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    state_dict = checkpoint["state_dict"]
 
     input_channels = 0
     for key in state_dict.keys():

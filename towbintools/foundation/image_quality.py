@@ -1,5 +1,5 @@
-import numpy as np
 import cv2
+import numpy as np
 from numba import njit
 
 
@@ -51,6 +51,7 @@ def normalized_variance_measure(
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+
 def LAPV(img):
     """Implements the Variance of Laplacian (LAP4) focus measure
     operator. Measures the amount of edges present in the image.
@@ -98,6 +99,7 @@ def MLOG(img):
     """
     return np.max(cv2.convertScaleAbs(cv2.Laplacian(img, cv2.CV_64F)))  # type: ignore
 
+
 def TENG_VARIANCE(img):
     """Implements the Tenengrad Variance focus measure operator.
 
@@ -105,9 +107,9 @@ def TENG_VARIANCE(img):
     :type img: np.ndarray
     :returns: np.float32 -- the degree of focus
     """
-    
+
     gaussianX = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
     gaussianY = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
-    
+
     G = np.sqrt(gaussianX**2 + gaussianY**2)
     return np.var(G)

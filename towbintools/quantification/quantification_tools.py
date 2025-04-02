@@ -31,6 +31,7 @@ def compute_fluorescence_in_mask(image, mask, aggregation="sum"):
             'Aggregation must be one of "sum", "mean", "median", "max", "min", or "std".'
         )
 
+
 def compute_background_fluorescence(image, foreground_mask, aggregation="mean"):
     """Estimate the background value of an image.
 
@@ -43,9 +44,9 @@ def compute_background_fluorescence(image, foreground_mask, aggregation="mean"):
     Returns:
         float: The estimated background value of the image.
     """
-    
+
     background_mask = np.logical_not(foreground_mask > 0)
-    
+
     if aggregation == "mean":
         return np.mean(image[background_mask])
     elif aggregation == "median":
@@ -53,6 +54,4 @@ def compute_background_fluorescence(image, foreground_mask, aggregation="mean"):
     elif aggregation == "min":
         return np.min(image[background_mask])
     else:
-        raise ValueError(
-            'Aggregation must be one of "mean", "median", or "min".'
-        )
+        raise ValueError('Aggregation must be one of "mean", "median", or "min".')

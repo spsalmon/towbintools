@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import scipy.ndimage
-import skimage.morphology
 from scipy.spatial import distance
 
 
@@ -92,7 +91,10 @@ def connect_endpoints(
             mindist_index = np.where(distance_for_point == np.min(nonzero_distances))[
                 0
             ][0]
-            start_point = (endpoints_coordinates[i][1], endpoints_coordinates[i][0])
+            start_point = (
+                endpoints_coordinates[i][1],
+                endpoints_coordinates[i][0],
+            )
             end_point = (
                 endpoints_coordinates[mindist_index][1],
                 endpoints_coordinates[mindist_index][0],
@@ -125,37 +127,39 @@ def fill_bright_holes(
 
     filled_mask = scipy.ndimage.binary_fill_holes(mask)
     holes = (filled_mask - mask).astype(np.uint8)
-    
+
     # Early exit if no holes
     if not np.any(holes):
         return mask
-        
+
     number_of_holes, holes_labels = cv2.connectedComponents(holes, connectivity=4)
 
     hole_medians = np.zeros(number_of_holes - 1)
     for label in range(1, number_of_holes):
         hole_pixels = image[holes_labels == label]
         hole_medians[label - 1] = np.median(hole_pixels)
-    
+
     image_without_object = image * (1 - filled_mask)
     background_pixels = image_without_object[image_without_object > 0]
-    
+
     if len(background_pixels) == 0:
         return mask
-    
+
     background_thresholds = np.percentile(background_pixels, [10, 90])
-    background_mask = (background_pixels >= background_thresholds[0]) & (background_pixels <= background_thresholds[1])
+    background_mask = (background_pixels >= background_thresholds[0]) & (
+        background_pixels <= background_thresholds[1]
+    )
     background = background_pixels[background_mask]
-    
+
     background_mean = np.mean(background)
     background_std = np.std(background)
     threshold = background_mean + scale * background_std
-    
+
     # Fill holes that meet the brightness criterion
     for label, median in enumerate(hole_medians, start=1):
         if median > threshold:
             mask[holes_labels == label] = 1
-            
+
     return mask
 
 

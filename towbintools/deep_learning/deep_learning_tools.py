@@ -1,14 +1,12 @@
-from towbintools.deep_learning.architectures import (
-    PretrainedSegmentationModel,
-    SegmentationModel,
+from towbintools.deep_learning.architectures import PretrainedSegmentationModel
+from towbintools.deep_learning.architectures import SegmentationModel
+from towbintools.deep_learning.utils.util import (
+    get_input_channels_from_checkpoint,
 )
 
-from towbintools.deep_learning.utils.util import (
-    get_input_channels_from_checkpoint
-)
 
 def create_pretrained_segmentation_model(
-    input_channels = 3,
+    input_channels=3,
     n_classes=1,
     architecture="UnetPlusPlus",
     encoder="efficientnet-b4",
@@ -99,6 +97,7 @@ def create_segmentation_model(
 
     return model
 
+
 def load_pretrained_model_from_checkpoint(checkpoint_path):
     """Loads a pretrained segmentation model from a checkpoint. If the model cannot be loaded
     tries to load it with the default number of input channels.
@@ -116,13 +115,19 @@ def load_pretrained_model_from_checkpoint(checkpoint_path):
         return PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
     except Exception as e:
         try:
-            return PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path, input_channels=get_input_channels_from_checkpoint(checkpoint_path))
+            return PretrainedSegmentationModel.load_from_checkpoint(
+                checkpoint_path,
+                input_channels=get_input_channels_from_checkpoint(checkpoint_path),
+            )
         except Exception as e2:
             raise ValueError(
                 f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
             )
 
-def load_scratch_segmentation_model_from_checkpoint(checkpoint_path, default_deep_supervision=False):
+
+def load_scratch_segmentation_model_from_checkpoint(
+    checkpoint_path, default_deep_supervision=False
+):
     """Loads a segmentation model from a checkpoint. If the model cannot be loaded
     tries to load it with the default number of input channels and deep supervision turned off.
 
@@ -142,11 +147,16 @@ def load_scratch_segmentation_model_from_checkpoint(checkpoint_path, default_dee
         return SegmentationModel.load_from_checkpoint(checkpoint_path)
     except Exception as e:
         try:
-            return SegmentationModel.load_from_checkpoint(checkpoint_path, input_channels=get_input_channels_from_checkpoint(checkpoint_path), deep_supervision=default_deep_supervision)
+            return SegmentationModel.load_from_checkpoint(
+                checkpoint_path,
+                input_channels=get_input_channels_from_checkpoint(checkpoint_path),
+                deep_supervision=default_deep_supervision,
+            )
         except Exception as e2:
             raise ValueError(
                 f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
             )
+
 
 def load_segmentation_model_from_checkpoint(checkpoint_path):
     """Loads a segmentation model from a checkpoint.

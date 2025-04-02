@@ -22,6 +22,7 @@ def nan_helper(
 
     return np.isnan(y), lambda z: z.nonzero()[0]
 
+
 def inf_helper(
     y,
 ):
@@ -43,6 +44,7 @@ def inf_helper(
 
     return np.isinf(y), lambda z: z.nonzero()[0]
 
+
 def interpolate_nans(
     signal: np.ndarray,
 ) -> np.ndarray:
@@ -62,6 +64,7 @@ def interpolate_nans(
     nans, x = nan_helper(signal)
     signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
     return signal
+
 
 def interpolate_infs(
     signal: np.ndarray,
@@ -83,6 +86,7 @@ def interpolate_infs(
     signal[infs] = np.interp(x(infs), x(~infs), signal[~infs])
     return signal
 
+
 def interpolate_nans_infs(
     signal: np.ndarray,
 ) -> np.ndarray:
@@ -103,7 +107,7 @@ def interpolate_nans_infs(
     signal = interpolate_infs(signal)
     return signal
 
+
 # Exception class for the case when a method is not implemented
 class NotImplementedError(Exception):
     pass
-

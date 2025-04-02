@@ -8,7 +8,7 @@ time series
    :members:
    :undoc-members:
    :show-inheritance:
-   
+
 growth rate
 ------------
 

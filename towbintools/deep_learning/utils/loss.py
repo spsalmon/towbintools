@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class FocalTverskyLoss(nn.Module):
     def __init__(self, weight=None, size_average=True, ignore_index=-1):
-        super(FocalTverskyLoss, self).__init__()
+        super().__init__()
         self.ignore_index = ignore_index
 
     def forward(self, inputs, targets, smooth=100, alpha=0.3, beta=0.7, gamma=4 / 3):
@@ -15,7 +15,7 @@ class FocalTverskyLoss(nn.Module):
         targets = targets.view(-1)
 
         # remove elements with ignore_index from the loss calculation
-        mask = (targets != self.ignore_index)
+        mask = targets != self.ignore_index
         inputs = inputs[mask]
         targets = targets[mask]
 
@@ -29,10 +29,11 @@ class FocalTverskyLoss(nn.Module):
 
         return FocalTversky
 
+
 class BCELossWithIgnore(nn.Module):
     def __init__(self, ignore_index=-1):
-        super(BCELossWithIgnore, self).__init__()
-        self.bce_loss = nn.BCELoss(reduction='none')
+        super().__init__()
+        self.bce_loss = nn.BCELoss(reduction="none")
         self.ignore_index = ignore_index
 
     def forward(self, input, target):
@@ -49,6 +50,6 @@ class BCELossWithIgnore(nn.Module):
 
         # Apply the mask to the loss
         masked_loss = loss * mask
-        
+
         # Return the mean of the masked loss
         return masked_loss.sum() / mask.sum().clamp(min=1e-8)

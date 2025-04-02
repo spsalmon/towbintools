@@ -36,6 +36,7 @@ dependencies = [
 dev=[
     "black",
     "isort",
+    "pre-commit",
 ]
 
 [build-system]
