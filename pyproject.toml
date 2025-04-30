@@ -1,6 +1,6 @@
 [project]
 name = "towbintools"
-version = "0.3.0"
+version = "0.3.2"
 authors = [
   {name="Sacha Psalmon", email="sacha.psalmon@unibe.ch" },
   {name="Boris Gusev", email="boris.gusev@unibe.ch" }
@@ -29,7 +29,8 @@ dependencies = [
     "pytorch-lightning",
     "albumentations",
     "python-dateutil>=2.8.2",
-    "csbdeep"
+    "csbdeep",
+    "whittaker_eilers",
 ]
 
 [project.optional-dependencies]

@@ -145,7 +145,7 @@ def edge_based_segmentation(
     out = cv2.morphologyEx(
         out,
         cv2.MORPH_CLOSE,
-        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size)),
+        kernel,
     )
 
     new_contours, _ = cv2.findContours(out, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)

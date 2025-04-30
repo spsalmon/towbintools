@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import interpolate
 from scipy.signal import medfilt
-from scipy.signal import savgol_filter
+from whittaker_eilers import WhittakerSmoother
 
 from towbintools.foundation.utils import interpolate_nans
 
@@ -115,7 +115,7 @@ def compute_exponential_series_at_time_classified(
         volume (np.ndarray): A time series representing volume.
         worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
         time (np.ndarray): The time(s) at which the volume is to be computed.
-        fit_width (int, optional): Width for the linear regression fit used in computing the volume. Default is 10.
+        fit_width (int, optional): Width for the linear regression fit used in computing the volume. (default: 10)
 
     Returns:
         np.ndarray: Volume at desired time(s).
@@ -155,20 +155,21 @@ def compute_exponential_series_at_time_classified(
 def smooth_series_classified(
     series: np.ndarray,
     worm_types: np.ndarray,
-    medfilt_window=7,
-    savgol_window=7,
-    savgol_order=3,
+    series_time=None,
+    lmbda=0.0075,
+    order=2,
+    medfilt_window=5,
 ) -> np.ndarray:
     """
-    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using a Savitzky-Golay filter, and finally interpolated using b-splines.
+    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using Whittaker-Eilers smoothing.
 
     Parameters:
         series (np.ndarray): The time series.
         worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-        medfilt_window (int, optional): The window size for the median filter. Default is 7.
-        savgol_window (int, optional): The window size for the Savitzky-Golay filter. Default is 7.
-        savgol_order (int, optional): The order of the Savitzky-Golay filter. Default is 3.
-
+        series_time (np.ndarray, optional): The time points of the original series. If None, the time points are assumed to be the indices of the series. (default: None)
+        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
+        order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
+        medfilt_window (int, optional): The window size for the median filter. (default: 5)
     Returns:
         np.ndarray: The series at the given time(s).
     """
@@ -186,13 +187,25 @@ def smooth_series_classified(
     # Median filter to remove outliers
     series = medfilt(series, medfilt_window)
 
-    # Savitzky-Golay filter to smooth the data
-    series = savgol_filter(series, savgol_window, savgol_order)
+    if series_time is not None:
+        nan_series_time = np.isnan(series_time)
+        series = series[~nan_series_time]
+        series_time = series_time[~nan_series_time]
+        whittaker_smoother = WhittakerSmoother(
+            lmbda=lmbda, order=order, data_length=len(series), x_input=series_time
+        )
+        smoothed_series = whittaker_smoother.smooth(series)
+    else:
+        whittaker_smoother = WhittakerSmoother(
+            lmbda=lmbda, order=order, data_length=len(series)
+        )
+
+        smoothed_series = whittaker_smoother.smooth(series)
 
     # Interpolate the nans again just in case
-    series = interpolate_nans(series)
+    smoothed_series = interpolate_nans(smoothed_series)
 
-    return series
+    return smoothed_series
 
 
 def compute_series_at_time_classified(
@@ -200,9 +213,8 @@ def compute_series_at_time_classified(
     worm_types: np.ndarray,
     time: np.ndarray,
     series_time=None,
-    medfilt_window=7,
-    savgol_window=7,
-    savgol_order=3,
+    lmbda=0.0075,
+    medfilt_window=5,
     bspline_order=3,
 ) -> np.ndarray:
     """
@@ -212,11 +224,10 @@ def compute_series_at_time_classified(
         series (np.ndarray): The time series.
         worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         time (np.ndarray): The time points at which the series is to be computed.
-        series_time (np.ndarray, optional): The time points of the original series. Default is None. If None, the time points are assumed to be the indices of the series.
-        medfilt_window (int, optional): The window size for the median filter. Default is 7.
-        savgol_window (int, optional): The window size for the Savitzky-Golay filter. Default is 7.
-        savgol_order (int, optional): The order of the Savitzky-Golay filter. Default is 3.
-        bspline_order (int, optional): The order of the b-spline interpolation. Default is 3.
+        series_time (np.ndarray, optional): The time points of the original series. If None, the time points are assumed to be the indices of the series. (default: None)
+        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
+        medfilt_window (int, optional): The window size for the median filter. (default: 5)
+        bspline_order (int, optional): The order of the b-spline interpolation. (default: 3)
 
     Returns:
         np.ndarray: The series at the given time(s).
@@ -231,7 +242,11 @@ def compute_series_at_time_classified(
 
     # Smooth the series
     series = smooth_series_classified(
-        series, worm_types, medfilt_window, savgol_window, savgol_order
+        series,
+        worm_types,
+        series_time,
+        medfilt_window=medfilt_window,
+        lmbda=lmbda,
     )
 
     # Interpolate the series using b-splines
