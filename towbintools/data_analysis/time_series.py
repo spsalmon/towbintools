@@ -202,6 +202,8 @@ def smooth_series_classified(
 
         smoothed_series = whittaker_smoother.smooth(series)
 
+    smoothed_series = np.array(smoothed_series)
+
     # Interpolate the nans again just in case
     smoothed_series = interpolate_nans(smoothed_series)
 

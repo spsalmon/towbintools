@@ -55,7 +55,6 @@ FEATURES_TO_COMPUTE_AT_MOLT = [
     "area",
     "fluo",
     "width",
-    "energy",
 ]
 
 
