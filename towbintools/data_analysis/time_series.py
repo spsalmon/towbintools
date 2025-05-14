@@ -210,6 +210,59 @@ def smooth_series_classified(
     return smoothed_series
 
 
+def smooth_series(
+    series: np.ndarray,
+    series_time=None,
+    lmbda=0.0075,
+    order=2,
+    medfilt_window=5,
+) -> np.ndarray:
+    """
+    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using Whittaker-Eilers smoothing.
+
+    Parameters:
+        series (np.ndarray): The time series.
+        series_time (np.ndarray, optional): The time points of the original series. If None, the time points are assumed to be the indices of the series. (default: None)
+        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
+        order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
+        medfilt_window (int, optional): The window size for the median filter. (default: 5)
+    Returns:
+        np.ndarray: The series at the given time(s).
+    """
+
+    # Check if the series has any non nan values
+    if np.all(np.isnan(series)):
+        return np.full(series.shape, np.nan)
+
+    # Interpolate the nans
+    series = interpolate_nans(series)
+
+    # Median filter to remove outliers
+    series = medfilt(series, medfilt_window)
+
+    if series_time is not None:
+        nan_series_time = np.isnan(series_time)
+        series = series[~nan_series_time]
+        series_time = series_time[~nan_series_time]
+        whittaker_smoother = WhittakerSmoother(
+            lmbda=lmbda, order=order, data_length=len(series), x_input=series_time
+        )
+        smoothed_series = whittaker_smoother.smooth(series)
+    else:
+        whittaker_smoother = WhittakerSmoother(
+            lmbda=lmbda, order=order, data_length=len(series)
+        )
+
+        smoothed_series = whittaker_smoother.smooth(series)
+
+    smoothed_series = np.array(smoothed_series)
+
+    # Interpolate the nans again just in case
+    smoothed_series = interpolate_nans(smoothed_series)
+
+    return smoothed_series
+
+
 def compute_series_at_time_classified(
     series: np.ndarray,
     worm_types: np.ndarray,

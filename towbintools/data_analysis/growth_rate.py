@@ -1,11 +1,10 @@
 import numpy as np
-from scipy.ndimage import uniform_filter1d
 from scipy.signal import medfilt
 from scipy.signal import savgol_filter
 
-from towbintools.data_analysis.time_series import (
-    correct_series_with_classification,
-)
+from towbintools.data_analysis.time_series import correct_series_with_classification
+from towbintools.data_analysis.time_series import smooth_series
+from towbintools.data_analysis.time_series import smooth_series_classified
 from towbintools.foundation.utils import interpolate_nans_infs
 
 
@@ -127,53 +126,6 @@ def compute_growth_rate_exponential(
     return slope
 
 
-def compute_instantaneous_growth_rate(
-    series,
-    time,
-    smoothing_method="savgol",
-    savgol_filter_window=15,
-    savgol_filter_order=3,
-    moving_average_window=15,
-):
-    """
-    Compute the instantaneous growth rate of a time series.
-
-    Parameters:
-        series (np.ndarray): The series of values to compute the growth rate of.
-        time (np.ndarray): The time data corresponding to the series.
-        smoothing_method (str): The method to use for smoothing the series. Can be either 'savgol' or 'moving_average'.
-        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
-        savgol_filter_order (int): The order of the Savitzky-Golay filter.
-        moving_average_window (int): The window size of the moving average filter.
-
-    Returns:
-        np.ndarray: The instantaneous growth rate of the time series.
-    """
-
-    # Assert that the series and time have the same length
-    assert len(series) == len(time), "The series and time must have the same length."
-
-    # Remove extreme outliers with a small median filter
-    series = medfilt(series, 3)
-
-    # Interpolate NaN and inf values
-    series = interpolate_nans_infs(series)
-
-    if smoothing_method == "savgol":
-        # Smooth the series time series a bit more with a Savitzky-Golay filter
-        series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
-    elif smoothing_method == "moving_average":
-        # Smooth the series time series a bit more with a moving average filter
-        series = uniform_filter1d(series, size=moving_average_window)
-    elif smoothing_method == "none":
-        pass
-
-    # Compute the instantaneous growth rate
-    growth_rate = np.gradient(series, time)
-
-    return growth_rate
-
-
 def compute_growth_rate_classified(
     series,
     time,
@@ -231,14 +183,45 @@ def compute_growth_rate_classified(
     return growth_rate
 
 
+def compute_instantaneous_growth_rate(
+    series,
+    time,
+    lmbda=0.0075,
+    order=2,
+    medfilt_window=5,
+):
+    """
+    Compute the instantaneous growth rate of a time series.
+
+    Parameters:
+        series (np.ndarray): The series of values to compute the growth rate of.
+        time (np.ndarray): The time data corresponding to the series.
+        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
+        order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
+        medfilt_window (int, optional): The window size for the median filter. (default: 5)
+
+    Returns:
+        np.ndarray: The instantaneous growth rate of the time series.
+    """
+
+    # Assert that the series and time have the same length
+    assert len(series) == len(time), "The series and time must have the same length."
+
+    series = smooth_series(series, time, lmbda, order, medfilt_window)
+
+    # Compute the instantaneous growth rate
+    growth_rate = np.gradient(series, time)
+
+    return growth_rate
+
+
 def compute_instantaneous_growth_rate_classified(
     series,
     time,
     worm_type,
-    smoothing_method="savgol",
-    savgol_filter_window=15,
-    savgol_filter_order=3,
-    moving_average_window=15,
+    lmbda=0.0075,
+    order=2,
+    medfilt_window=5,
 ):
     """
     Compute the instantaneous growth rate of a time series after correcting the non-worm points by removing them and interpolating them back.
@@ -247,10 +230,9 @@ def compute_instantaneous_growth_rate_classified(
         series (np.ndarray): The time series of values.
         time (np.ndarray): The time data corresponding to the series.
         worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-        smoothing_method (str): The method to use for smoothing the series. Can be either 'savgol' or 'moving_average'.
-        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
-        savgol_filter_order (int): The order of the Savitzky-Golay filter.
-        moving_average_window (int): The window size of the moving average filter.
+        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
+        order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
+        medfilt_window (int, optional): The window size for the median filter. (default: 5)
 
     Returns:
         np.ndarray: The instantaneous growth rate of the time series.
@@ -262,15 +244,11 @@ def compute_instantaneous_growth_rate_classified(
     ), "The series, time, and worm_type must have the same length."
 
     # Correct the series time series
-    series_worms = correct_series_with_classification(series, worm_type)
-    growth_rate = compute_instantaneous_growth_rate(
-        series_worms,
-        time,
-        smoothing_method,
-        savgol_filter_window,
-        savgol_filter_order,
-        moving_average_window,
+    series = smooth_series_classified(
+        series, worm_type, time, lmbda, order, medfilt_window
     )
+    # Compute the instantaneous growth rate
+    growth_rate = np.gradient(series, time)
 
     return growth_rate
 
