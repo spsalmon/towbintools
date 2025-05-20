@@ -51,7 +51,7 @@ def filter_series_with_classification(series, worm_type):
     return series_worms
 
 
-def interpolate_larval_stage(time, series, ecdysis, larval_stage, n_points=100):
+def interpolate_larval_stage(series, time, ecdysis, larval_stage, n_points=100):
     if larval_stage < 1 or larval_stage > 4:
         raise ValueError("The larval stage must be between 1 and 4.")
 
@@ -74,7 +74,7 @@ def interpolate_larval_stage(time, series, ecdysis, larval_stage, n_points=100):
     return interpolated_time, interpolated_series
 
 
-def interpolate_entire_development(time, series, ecdysis, n_points=100):
+def interpolate_entire_development(series, time, ecdysis, n_points=100):
     interpolated_time = np.full((4, n_points), np.nan)
     interpolated_series = np.full((4, n_points), np.nan)
     for larval_stage in range(1, 5):
@@ -90,7 +90,7 @@ def interpolate_entire_development(time, series, ecdysis, n_points=100):
 
 
 def interpolate_entire_development_classified(
-    time, series, ecdysis, worm_type, n_points=100
+    series, time, ecdysis, worm_type, n_points=100
 ):
     time = filter_series_with_classification(time, worm_type)
     series = filter_series_with_classification(series, worm_type)
@@ -100,8 +100,8 @@ def interpolate_entire_development_classified(
 
 def compute_exponential_series_at_time_classified(
     series: np.ndarray,
-    worm_types: np.ndarray,
     time: np.ndarray,
+    worm_types: np.ndarray,
     fit_width: int = 10,
 ) -> float:
     """
@@ -113,8 +113,8 @@ def compute_exponential_series_at_time_classified(
 
     Parameters:
         volume (np.ndarray): A time series representing volume.
-        worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
         time (np.ndarray): The time(s) at which the volume is to be computed.
+        worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
         fit_width (int, optional): Width for the linear regression fit used in computing the volume. (default: 10)
 
     Returns:
@@ -154,8 +154,8 @@ def compute_exponential_series_at_time_classified(
 
 def smooth_series_classified(
     series: np.ndarray,
+    series_time,
     worm_types: np.ndarray,
-    series_time=None,
     lmbda=0.0075,
     order=2,
     medfilt_window=5,
@@ -165,8 +165,8 @@ def smooth_series_classified(
 
     Parameters:
         series (np.ndarray): The time series.
+        series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
         worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-        series_time (np.ndarray, optional): The time points of the original series. If None, the time points are assumed to be the indices of the series. (default: None)
         lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
         order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
         medfilt_window (int, optional): The window size for the median filter. (default: 5)
@@ -184,35 +184,19 @@ def smooth_series_classified(
     # Remove the points of non-worms from the time series and interpolate them back
     series = correct_series_with_classification(series, worm_types)
 
-    # Median filter to remove outliers
-    series = medfilt(series, medfilt_window)
-
-    if series_time is not None:
-        nan_series_time = np.isnan(series_time)
-        series = series[~nan_series_time]
-        series_time = series_time[~nan_series_time]
-        whittaker_smoother = WhittakerSmoother(
-            lmbda=lmbda, order=order, data_length=len(series), x_input=series_time
-        )
-        smoothed_series = whittaker_smoother.smooth(series)
-    else:
-        whittaker_smoother = WhittakerSmoother(
-            lmbda=lmbda, order=order, data_length=len(series)
-        )
-
-        smoothed_series = whittaker_smoother.smooth(series)
-
-    smoothed_series = np.array(smoothed_series)
-
-    # Interpolate the nans again just in case
-    smoothed_series = interpolate_nans(smoothed_series)
-
+    smoothed_series = _smooth_series(
+        series,
+        series_time,
+        lmbda=lmbda,
+        order=order,
+        medfilt_window=medfilt_window,
+    )
     return smoothed_series
 
 
 def smooth_series(
     series: np.ndarray,
-    series_time=None,
+    series_time,
     lmbda=0.0075,
     order=2,
     medfilt_window=5,
@@ -222,7 +206,7 @@ def smooth_series(
 
     Parameters:
         series (np.ndarray): The time series.
-        series_time (np.ndarray, optional): The time points of the original series. If None, the time points are assumed to be the indices of the series. (default: None)
+        series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
         lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
         order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
         medfilt_window (int, optional): The window size for the median filter. (default: 5)
@@ -237,17 +221,38 @@ def smooth_series(
     # Interpolate the nans
     series = interpolate_nans(series)
 
+    smoothed_series = _smooth_series(
+        series,
+        series_time,
+        lmbda=lmbda,
+        order=order,
+        medfilt_window=medfilt_window,
+    )
+    return smoothed_series
+
+
+def _smooth_series(
+    series: np.ndarray,
+    series_time: np.ndarray,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
+) -> np.ndarray:
     # Median filter to remove outliers
     series = medfilt(series, medfilt_window)
 
     if series_time is not None:
         nan_series_time = np.isnan(series_time)
-        series = series[~nan_series_time]
-        series_time = series_time[~nan_series_time]
+        non_nan_series = series[~nan_series_time]
+        non_nan_series_time = series_time[~nan_series_time]
         whittaker_smoother = WhittakerSmoother(
-            lmbda=lmbda, order=order, data_length=len(series), x_input=series_time
+            lmbda=lmbda,
+            order=order,
+            data_length=len(non_nan_series),
+            x_input=non_nan_series_time,
         )
-        smoothed_series = whittaker_smoother.smooth(series)
+
+        smoothed_series = whittaker_smoother.smooth(non_nan_series)
     else:
         whittaker_smoother = WhittakerSmoother(
             lmbda=lmbda, order=order, data_length=len(series)
@@ -257,7 +262,15 @@ def smooth_series(
 
     smoothed_series = np.array(smoothed_series)
 
-    # Interpolate the nans again just in case
+    # pad the smoothed series to the original shape
+    smoothed_series = np.pad(
+        smoothed_series,
+        (0, series.shape[0] - smoothed_series.shape[0]),
+        mode="constant",
+        constant_values=np.nan,
+    )
+
+    # Interpolate the nans again
     smoothed_series = interpolate_nans(smoothed_series)
 
     return smoothed_series
@@ -265,9 +278,9 @@ def smooth_series(
 
 def compute_series_at_time_classified(
     series: np.ndarray,
-    worm_types: np.ndarray,
     time: np.ndarray,
-    series_time=None,
+    series_time: np.ndarray,
+    worm_types: np.ndarray,
     lmbda=0.0075,
     medfilt_window=5,
     bspline_order=3,
@@ -277,9 +290,9 @@ def compute_series_at_time_classified(
 
     Parameters:
         series (np.ndarray): The time series.
-        worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         time (np.ndarray): The time points at which the series is to be computed.
-        series_time (np.ndarray, optional): The time points of the original series. If None, the time points are assumed to be the indices of the series. (default: None)
+        series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
+        worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
         medfilt_window (int, optional): The window size for the median filter. (default: 5)
         bspline_order (int, optional): The order of the b-spline interpolation. (default: 3)
@@ -298,8 +311,8 @@ def compute_series_at_time_classified(
     # Smooth the series
     series = smooth_series_classified(
         series,
-        worm_types,
         series_time,
+        worm_types,
         medfilt_window=medfilt_window,
         lmbda=lmbda,
     )
@@ -357,8 +370,8 @@ def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
             interpolated_time,
             interpolated_series,
         ) = interpolate_entire_development_classified(
-            time_point,
             series_point,
+            time_point,
             ecdysis_point,
             worm_type_point,
             n_points=n_points,

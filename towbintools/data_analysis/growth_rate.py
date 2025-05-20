@@ -245,7 +245,7 @@ def compute_instantaneous_growth_rate_classified(
 
     # Correct the series time series
     series = smooth_series_classified(
-        series, worm_type, time, lmbda, order, medfilt_window
+        series, time, worm_type, lmbda, order, medfilt_window
     )
     # Compute the instantaneous growth rate
     growth_rate = np.gradient(series, time)

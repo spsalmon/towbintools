@@ -6,7 +6,6 @@ from scipy.signal import savgol_filter
 from scipy.stats import linregress
 
 from .utils import interpolate_nans
-from towbintools.data_analysis import compute_series_at_time_classified
 
 
 def interpolate_peaks(
@@ -246,7 +245,7 @@ def find_molts(
     fit_width: int = 5,
 ) -> tuple[dict, dict]:
     """
-    Identify molt events and compute the worm volume at each molt event.
+    Identify molt events.
 
     Integrated approach that uses a combination of several utility functions to:
     1. Identify hatch time of the worm.
@@ -263,7 +262,6 @@ def find_molts(
 
     Returns:
         dict: Dictionary containing the hatch time and end-molt times.
-        dict: Dictionary containing the computed volumes at hatch and each molt event.
     """
     volume = volume.astype(float)
 
@@ -277,11 +275,6 @@ def find_molts(
         volume_for_finding_molts, midmolts, search_width, fit_width
     )
 
-    ecdysis_array = np.array([hatch_time, *endmolts])
-    volume_at_ecdysis = compute_series_at_time_classified(
-        volume, worm_types, ecdysis_array
-    )
-
     ecdysis = {
         "hatch_time": hatch_time,
         "M1": endmolts[0],
@@ -289,11 +282,5 @@ def find_molts(
         "M3": endmolts[2],
         "M4": endmolts[3],
     }
-    volume_at_ecdysis = {
-        "volume_at_hatch": volume_at_ecdysis[0],
-        "volume_at_M1": volume_at_ecdysis[1],
-        "volume_at_M2": volume_at_ecdysis[2],
-        "volume_at_M3": volume_at_ecdysis[3],
-        "volume_at_M4": volume_at_ecdysis[4],
-    }
-    return ecdysis, volume_at_ecdysis
+
+    return ecdysis
