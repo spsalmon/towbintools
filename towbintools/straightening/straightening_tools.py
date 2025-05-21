@@ -504,7 +504,9 @@ def _extend_midline_to_boundary(
     border_radius = distance_transform.max()
     # border consists of pixels that have distance 1 or sqrt(2) to the background
     # border then effectively has connectivity 2 (or cv2 8)
-    border = (distance_transform == 1) ^ (distance_transform == np.sqrt(2))
+    border = np.logical_or(
+        np.isclose(distance_transform, 1), np.isclose(distance_transform, np.sqrt(2))
+    )
     # cv2 connectivity 4 is same as skimage connectivity 1; connectivity of 1 pixel distance i.e cross pattern
     # extract the largest component because border may have 'lonely' bits
     border = _largest_mask_component(border, connectivity=4)
