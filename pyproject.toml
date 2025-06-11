@@ -1,6 +1,6 @@
 [project]
 name = "towbintools"
-version = "0.3.5"
+version = "0.3.6"
 authors = [
   {name="Sacha Psalmon", email="sacha.psalmon@unibe.ch" },
   {name="Boris Gusev", email="boris.gusev@unibe.ch" }
@@ -13,26 +13,29 @@ readme = "README.md"
 requires-python = ">=3.8"
 
 dependencies = [
-    "numpy",
-    "scikit-image",
-    "scikit-learn",
-    "opencv-contrib-python",
-    "ome-types",
-    "lxml",
-    "aicsimageio",
-    "scipy",
-    "pandas",
-    "tifffile",
-    "xgboost",
-    "joblib",
-    "pytorch-toolbelt",
+    "torch",
     "pytorch-lightning",
-    "albumentations",
-    "python-dateutil",
-    "csbdeep",
-    "whittaker_eilers",
+    "torchmetrics",
+    "pytorch-toolbelt",
     "segmentation-models-pytorch",
     "timm",
+    "albumentations",
+    "csbdeep",
+
+    "scikit-learn",
+    "xgboost",
+    "joblib",
+
+    "opencv-contrib-python",
+    "scikit-image",
+    "tifffile",
+
+    "numpy",
+    "pandas",
+    "scipy",
+    "ome-types",
+
+    "whittaker-eilers",
 ]
 
 [project.optional-dependencies]
