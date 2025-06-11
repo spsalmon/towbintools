@@ -15,6 +15,5 @@ lxml
 albumentations
 pretrained-microscopy-models @ git+https://github.com/nasa/pretrained-microscopy-models
 pytorch-lightning
-numba
 csbdeep
 pytorch_toolbelt

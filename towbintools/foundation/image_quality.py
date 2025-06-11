@@ -1,9 +1,7 @@
 import cv2
 import numpy as np
-from numba import njit
 
 
-@njit
 def normalized_variance_measure(
     image: np.ndarray,
 ) -> float:

@@ -141,7 +141,11 @@ def find_best_plane(
             "If the z-stack has more than 3 dimensions, the channel must be specified."
         )
 
-    zstack_for_measure = zstack.copy()[:, channel, ...].squeeze()
+    elif zstack.ndim > 3:
+        zstack_for_measure = zstack.copy()[:, channel, ...].squeeze()
+    else:
+        zstack_for_measure = zstack.copy()
+
     if contrast_augmentation:
         zstack_for_measure = augment_contrast_zstack(
             zstack_for_measure,
