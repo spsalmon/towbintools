@@ -23,7 +23,7 @@ def create_pretrained_segmentation_model(
         learning_rate (float): The learning rate for the optimizer.
         architecture (str): The architecture of the segmentation model.
         encoder (str): The encoder of the segmentation model.
-        pretrained_weights (str): Dataset the encoder was trained on. Can be one of the following: "imagenet", "image-micronet", "micronet" or "None".
+        pretrained_weights (str): Dataset the encoder was trained on.
         normalization (dict): Parameters for the normalization.
         checkpoint_path (str): Path to a checkpoint file.
         criterion (torch.nn.Module): The loss function.
@@ -118,6 +118,7 @@ def load_pretrained_model_from_checkpoint(checkpoint_path):
             return PretrainedSegmentationModel.load_from_checkpoint(
                 checkpoint_path,
                 input_channels=get_input_channels_from_checkpoint(checkpoint_path),
+                pretrained_weights=None,
             )
         except Exception as e2:
             raise ValueError(

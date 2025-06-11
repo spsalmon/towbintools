@@ -13,7 +13,8 @@ ome-types
 aicsimageio
 lxml
 albumentations
-pretrained-microscopy-models @ git+https://github.com/nasa/pretrained-microscopy-models
+segmentation-models-pytorch
+timm
 pytorch-lightning
 csbdeep
 pytorch_toolbelt
