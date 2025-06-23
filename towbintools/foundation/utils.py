@@ -62,7 +62,11 @@ def interpolate_nans(
     """
 
     nans, x = nan_helper(signal)
-    signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
+    try:
+        signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
+    except ValueError:
+        # if all values are NaN, we cannot interpolate
+        signal = np.full_like(signal, np.nan)
     return signal
 
 
@@ -83,7 +87,11 @@ def interpolate_infs(
     """
 
     infs, x = inf_helper(signal)
-    signal[infs] = np.interp(x(infs), x(~infs), signal[~infs])
+    try:
+        signal[infs] = np.interp(x(infs), x(~infs), signal[~infs])
+    except ValueError:
+        # if all values are inf, we cannot interpolate
+        signal = np.full_like(signal, np.nan)
     return signal
 
 
