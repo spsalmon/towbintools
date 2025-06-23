@@ -27,8 +27,7 @@ def correct_series_with_classification(series, worm_type):
         # Interpolate the NaNs
         series_worms = interpolate_nans(series_worms)
     except ValueError:
-        print("Error in interpolation, returning original series.")
-        return series
+        return np.full(series.shape, np.nan)
 
     return series_worms
 
