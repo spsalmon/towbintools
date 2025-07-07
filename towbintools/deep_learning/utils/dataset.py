@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
+import torch
 from joblib import delayed
 from joblib import Parallel
 from pytorch_toolbelt import inference
@@ -10,6 +11,8 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
+from towbintools.data_analysis.time_series import crop_series_to_length
+from towbintools.data_analysis.time_series import pad_series_to_length
 from towbintools.deep_learning.utils.augmentation import (
     get_prediction_augmentation,
 )
@@ -236,6 +239,154 @@ class ClassificationDataset(Dataset):
             img = img[np.newaxis, ...]
 
         return img.astype(np.float32), class_value
+
+
+class KeypointDetection1DTrainingDataset(Dataset):
+    def __init__(
+        self,
+        inputs,
+        targets,
+        enforce_divisibility_by=32,
+        resize_method="pad",
+    ):
+        self.input_series = inputs
+        self.targets = targets
+        self.enforce_divisibility_by = enforce_divisibility_by
+
+        self.resize_method = resize_method
+        if resize_method == "pad":
+            self.resize_function = pad_series_to_length
+            self.target_resize_function = pad_series_to_length
+            self.multiplier_function = get_closest_upper_multiple
+        elif resize_method == "crop":
+            self.resize_function = crop_series_to_length
+            self.target_resize_function = crop_series_to_length
+            self.multiplier_function = get_closest_lower_multiple
+
+    def __len__(self):
+        return len(self.input_series)
+
+    def __getitem__(self, i):
+        series = self.input_series[i]
+        target = self.targets[i]
+
+        if series.ndim == 1:
+            series = series.reshape(1, -1)
+        if target.ndim == 1:
+            target = target.reshape(1, -1)
+
+        return series.astype(np.float32), target.astype(np.float32), series.shape
+
+    def collate_fn(self, batch):
+        series, targets, original_shapes = zip(*batch)
+
+        if self.enforce_divisibility_by is None:
+            return series, targets, original_shapes
+
+        if self.resize_method == "crop":
+            target_length = min([shape[-1] for shape in original_shapes])
+        else:
+            target_length = max([shape[-1] for shape in original_shapes])
+
+        new_length = self.multiplier_function(
+            target_length, self.enforce_divisibility_by
+        )
+
+        # resize the images
+        resized_series = []
+        for series_i in series:
+            resized_series_i = self.resize_function(series_i, new_length)
+            resized_series.append(resized_series_i)
+
+        resized_series = np.array(resized_series, dtype=np.float32)
+
+        resized_targets = []
+        for target_i in targets:
+            resized_target_i = self.target_resize_function(target_i, new_length)
+            resized_targets.append(resized_target_i)
+        resized_targets = np.array(resized_targets, dtype=np.float32)
+
+        # remove series if they contain NaN values
+        valid_series_index = [
+            i
+            for i, series_i in enumerate(resized_series)
+            if not np.any(np.isnan(series_i))
+        ]
+        resized_series = resized_series[valid_series_index]
+        resized_targets = resized_targets[valid_series_index]
+        original_shapes = [original_shapes[i] for i in valid_series_index]
+
+        if type(resized_series) is np.ndarray:
+            resized_series = torch.tensor(resized_series, dtype=torch.float32)
+        if type(resized_targets) is np.ndarray:
+            resized_targets = torch.tensor(resized_targets, dtype=torch.float32)
+
+        return resized_series, resized_targets
+
+
+class KeypointDetection1DPredictionDataset(Dataset):
+    def __init__(
+        self,
+        inputs,
+        enforce_divisibility_by=32,
+        resize_method="pad",
+    ):
+        self.input_series = inputs
+        self.enforce_divisibility_by = enforce_divisibility_by
+
+        self.resize_method = resize_method
+        if resize_method == "pad":
+            self.resize_function = pad_series_to_length
+            self.multiplier_function = get_closest_upper_multiple
+        elif resize_method == "crop":
+            self.resize_function = crop_series_to_length
+            self.multiplier_function = get_closest_lower_multiple
+
+    def __len__(self):
+        return len(self.input_series)
+
+    def __getitem__(self, i):
+        series = self.input_series[i]
+
+        if series.ndim == 1:
+            series = series.reshape(1, -1)
+
+        return series.astype(np.float32), series.shape
+
+    def collate_fn(self, batch):
+        series, original_shapes = zip(*batch)
+
+        if self.enforce_divisibility_by is None:
+            return series, original_shapes
+
+        if self.resize_method == "crop":
+            target_length = min([shape[-1] for shape in original_shapes])
+        else:
+            target_length = max([shape[-1] for shape in original_shapes])
+
+        new_length = self.multiplier_function(
+            target_length, self.enforce_divisibility_by
+        )
+
+        # resize the images
+        resized_series = []
+        for series_i in series:
+            resized_series_i = self.resize_function(series_i, new_length)
+            resized_series.append(resized_series_i)
+
+        resized_series = np.array(resized_series, dtype=np.float32)
+
+        # any series containing NaN would cause the batch to fail, so we replace them with zeros
+        invalid_series_index = [
+            i for i, series_i in enumerate(resized_series) if np.any(np.isnan(series_i))
+        ]
+        for i in invalid_series_index:
+            resized_series[i] = np.zeros(new_length, dtype=np.float32)
+
+        if type(resized_series) is np.ndarray:
+            resized_series = torch.tensor(resized_series, dtype=torch.float32)
+
+        return resized_series, invalid_series_index, original_shapes
 
 
 def split_dataset(dataframe, validation_size, test_size):

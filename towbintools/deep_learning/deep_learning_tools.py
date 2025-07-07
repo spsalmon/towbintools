@@ -1,3 +1,4 @@
+from towbintools.deep_learning.architectures import KeypointDetection1DModel
 from towbintools.deep_learning.architectures import PretrainedSegmentationModel
 from towbintools.deep_learning.architectures import SegmentationModel
 from towbintools.deep_learning.utils.util import (
@@ -95,6 +96,11 @@ def create_segmentation_model(
         criterion=criterion,
     )
 
+    return model
+
+
+def create_keypoint_detection_model():
+    model = KeypointDetection1DModel()
     return model
 
 

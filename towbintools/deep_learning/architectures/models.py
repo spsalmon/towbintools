@@ -6,8 +6,11 @@ import torch.nn as nn
 from torchmetrics.classification import BinaryF1Score
 from torchmetrics.classification import MulticlassF1Score
 
+from .archs import AttentionUnet1D
 from .archs import Unet
+from .archs import Unet1D
 from .archs import UnetPlusPlus
+from .archs import UnetPlusPlus1D
 from towbintools.deep_learning.utils.loss import FocalTverskyLoss
 
 
@@ -417,6 +420,110 @@ class SegmentationModel(pl.LightningModule):
         else:
             pred = torch.argmax(pred, dim=1)
 
+        return pred
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        return optimizer
+
+
+class KeypointDetection1DModel(pl.LightningModule):
+    def __init__(
+        self,
+        input_channels,
+        n_classes,
+        learning_rate,
+        normalization,
+        architecture="Unet",
+        activation="sigmoid",
+        criterion=None,
+    ):
+        """Pytorch Lightning Module for 1D Keypoint Detection using a U-Net architecture.
+
+        Parameters:
+            input_channels (int): The number of input channels.
+            n_classes (int): The number of classes in the segmentation task.
+            learning_rate (float): The learning rate for the optimizer.
+            normalization (dict): Parameters for the normalization.
+            criterion (torch.nn.Module): The loss function to use for training. Default is nn.MSELoss.
+        """
+
+        super().__init__()
+
+        if architecture == "Unet":
+            model = Unet1D(num_classes=n_classes, input_channels=input_channels)
+        elif architecture == "AttentionUnet":
+            model = AttentionUnet1D(
+                num_classes=n_classes, input_channels=input_channels
+            )
+        elif architecture == "UnetPlusPlus":
+            model = UnetPlusPlus1D(num_classes=n_classes, input_channels=input_channels)
+        else:
+            raise ValueError(f"Unsupported architecture: {architecture}")
+
+        self.model = model
+        self.learning_rate = learning_rate
+
+        # Set a default ignore_index if not present
+        if not hasattr(self, "ignore_index"):
+            self.ignore_index = -100
+
+        if criterion is None:
+            self.criterion = nn.MSELoss()
+            # self.criterion = nn.L1Loss()
+        else:
+            self.criterion = criterion
+
+        if activation == "relu":
+            self.activation = nn.ReLU(inplace=True)
+        elif activation == "leaky_relu":
+            self.activation = nn.LeakyReLU(inplace=True)
+        elif activation == "sigmoid":
+            self.activation = nn.Sigmoid()
+        else:
+            raise ValueError(f"Unsupported activation function: {activation}")
+
+        self.normalization = normalization
+        self.save_hyperparameters()
+
+    def forward(self, x):
+        y = self.model(x)
+        return self.activation(y)
+
+    def training_step(self, batch):
+        x, y = batch
+        y_hat = self.model(x)
+        y_hat = self.activation(y_hat)
+        loss = self.criterion(y_hat, y)
+        self.log(
+            "train_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+        return loss
+
+    def validation_step(self, batch):
+        x, y = batch
+        y_hat = self.model(x)
+        y_hat = self.activation(y_hat)
+        loss = self.criterion(y_hat, y)
+        self.log(
+            "val_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+
+    def predict_step(self, batch):
+        x = batch
+        pred = self.model(x)
         return pred
 
     def configure_optimizers(self):

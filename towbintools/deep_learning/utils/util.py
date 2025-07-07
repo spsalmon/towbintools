@@ -1,3 +1,4 @@
+import os
 from math import ceil
 from math import floor
 
@@ -133,3 +134,45 @@ def get_input_channels_from_checkpoint(checkpoint_path):
             input_channels = state_dict[key].shape[1]
             break
     return input_channels
+
+
+def create_lightweight_checkpoint(input_path, output_path):
+    """
+    Load existing PyTorch Lightning checkpoint and save a lightweight version
+    """
+    # Load the full checkpoint
+    print(f"Loading checkpoint from: {input_path}")
+    checkpoint = torch.load(input_path, map_location="cpu")
+
+    # Display original file size
+    original_size = os.path.getsize(input_path) / (1024 * 1024)  # MB
+    print(f"Original file size: {original_size:.2f} MB")
+
+    # Create lightweight checkpoint with only essential information
+    lightweight_checkpoint = {
+        "state_dict": checkpoint["state_dict"],
+        "hyper_parameters": checkpoint.get("hyper_parameters", {}),
+    }
+
+    # Optionally keep other useful metadata
+    optional_keys = ["epoch", "global_step", "pytorch-lightning_version"]
+    for key in optional_keys:
+        if key in checkpoint:
+            lightweight_checkpoint[key] = checkpoint[key]
+
+    # Save the lightweight version
+    torch.save(lightweight_checkpoint, output_path)
+
+    # Display new file size and savings
+    new_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
+    savings = ((original_size - new_size) / original_size) * 100
+
+    print(f"Lightweight file size: {new_size:.2f} MB")
+    print(f"Space saved: {savings:.1f}%")
+
+    # Show what was removed
+    removed_keys = set(checkpoint.keys()) - set(lightweight_checkpoint.keys())
+    if removed_keys:
+        print(f"Removed keys: {removed_keys}")
+
+    return lightweight_checkpoint

@@ -8,4 +8,8 @@ __all__ = [
     "UnetPlusPlus",
     "PretrainedSegmentationModel",
     "SegmentationModel",
+    "Unet1D",
+    "AttentionUnet1D",
+    "UnetPlusPlus1D",
+    "KeypointDetection1DModel",
 ]

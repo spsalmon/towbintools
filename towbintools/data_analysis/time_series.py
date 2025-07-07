@@ -1,9 +1,130 @@
 import numpy as np
 from scipy import interpolate
+from scipy.interpolate import interp1d
 from scipy.signal import medfilt
 from whittaker_eilers import WhittakerSmoother
 
 from towbintools.foundation.utils import interpolate_nans
+
+
+def resize_series_to_length(series, new_length, kind="linear"):
+    """
+    Resize a 1D or 2D series to a new length using interpolation.
+
+    Parameters:
+        series (np.ndarray): The time series to resize.
+        new_length (int): The desired length of the resized series.
+        kind (str, optional): The type of interpolation to use. (default: "linear")
+
+    Returns:
+        np.ndarray: The resized series of the specified length.
+
+    Raises:
+        ValueError: If the input series is not 1D or 2D.
+    """
+    series = np.asarray(series)
+    length = series.shape[-1]
+    if length == new_length:
+        return series
+    x_old = np.linspace(0, 1, length)
+    x_new = np.linspace(0, 1, new_length)
+    if series.ndim == 1:
+        f = interp1d(x_old, series, kind=kind, fill_value="extrapolate")
+        return f(x_new)
+    elif series.ndim == 2:
+        f = interp1d(x_old, series, axis=1, kind=kind, fill_value="extrapolate")
+        return f(x_new)
+    else:
+        raise ValueError("Input series must be 1D or 2D array.")
+
+
+def pad_series_to_length(series, new_length, pad_value=0):
+    """
+    Pad a 1D or 2D series to a new length with a specified pad value.
+
+    Parameters:
+        series (np.ndarray): The time series to pad.
+        new_length (int): The desired length of the padded series.
+        pad_value (int, optional): The value to use for padding. Default is 0
+
+    Returns:
+        np.ndarray: The padded series of the specified length.
+
+    Raises:
+        ValueError: If the input series is not 1D or 2D.
+    """
+    series = np.asarray(series)
+    length = series.shape[-1]
+    if length == new_length:
+        return series
+    if series.ndim == 1:
+        return np.pad(
+            series, (0, new_length - length), mode="constant", constant_values=pad_value
+        )
+    elif series.ndim == 2:
+        return np.pad(
+            series,
+            ((0, 0), (0, new_length - length)),
+            mode="constant",
+            constant_values=pad_value,
+        )
+    else:
+        raise ValueError("Input series must be 1D or 2D array.")
+
+
+def crop_series_to_length(series, new_length):
+    """
+    Crop a 1D or 2D series to a new length.
+
+    Parameters:
+        series (np.ndarray): The time series to crop.
+        new_length (int): The desired length of the cropped series.
+
+    Returns:
+        np.ndarray: The cropped series of the specified length.
+
+    Raises:
+        ValueError: If the input series is not 1D or 2D.
+    """
+    series = np.asarray(series)
+    length = series.shape[-1]
+    if length == new_length:
+        return series
+    if series.ndim == 1:
+        return series[0:new_length]
+    elif series.ndim == 2:
+        return series[:, 0:new_length]
+    else:
+        raise ValueError("Input series must be 1D or 2D array.")
+
+
+def random_crop_series_to_length(series, new_length):
+    """
+    Randomly crop a 1D or 2D series to a new length.
+
+    Parameters:
+        series (np.ndarray): The time series to crop.
+        new_length (int): The desired length of the cropped series.
+
+    Returns:
+        np.ndarray: The cropped series of the specified length.
+
+    Raises:
+        ValueError: If the input series is not 1D or 2D.
+    """
+    series = np.asarray(series)
+    length = series.shape[-1]
+
+    if length == new_length:
+        return series
+    if series.ndim == 1:
+        start = np.random.randint(0, length - new_length + 1)
+        return series[start : start + new_length]
+    elif series.ndim == 2:
+        start = np.random.randint(0, length - new_length + 1)
+        return series[:, start : start + new_length]
+    else:
+        raise ValueError("Input series must be 1D or 2D array.")
 
 
 def correct_series_with_classification(series, worm_type):
