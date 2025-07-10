@@ -2,7 +2,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 
-def heatmap_to_keypoints(heatmap, height_threshold=0.5):
+def heatmap_to_keypoints_1D(heatmap, height_threshold=0.5):
     """
     Convert a heatmap to keypoints by finding the peaks.
     """

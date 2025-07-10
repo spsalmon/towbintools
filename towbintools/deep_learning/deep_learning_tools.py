@@ -17,7 +17,8 @@ def create_pretrained_segmentation_model(
     checkpoint_path=None,
     criterion=None,
 ):
-    """Creates a segmentation model with a pretrained encoder.
+    """
+    Create a segmentation model with a pretrained encoder.
 
     Parameters:
         n_classes (int): The number of classes in the segmentation task.
@@ -31,7 +32,6 @@ def create_pretrained_segmentation_model(
 
     Returns:
         PretrainedSegmentationModel: The segmentation model with a pretrained encoder.
-
     """
     if checkpoint_path is not None:
         model = PretrainedSegmentationModel.load_from_checkpoint(
@@ -65,7 +65,8 @@ def create_segmentation_model(
     checkpoint_path=None,
     criterion=None,
 ):
-    """Creates a segmentation model.
+    """
+    Create a segmentation model.
 
     Parameters:
         architecture (str): The architecture of the segmentation model.
@@ -79,7 +80,6 @@ def create_segmentation_model(
 
     Returns:
         SegmentationModel: The segmentation model.
-
     """
 
     if checkpoint_path is not None:
@@ -99,13 +99,48 @@ def create_segmentation_model(
     return model
 
 
-def create_keypoint_detection_model():
-    model = KeypointDetection1DModel()
+def create_keypoint_detection_model(
+    architecture,
+    input_channels,
+    n_classes,
+    learning_rate=1e-4,
+    checkpoint_path=None,
+    criterion=None,
+    activation="relu",
+):
+    """
+    Create a keypoint detection model.
+
+    Parameters:
+        architecture (str): The architecture of the keypoint detection model.
+        input_channels (int): The number of input channels.
+        n_classes (int): The number of classes in the keypoint detection task.
+        learning_rate (float): The learning rate for the optimizer.
+        checkpoint_path (str): Path to a checkpoint file.
+        criterion (torch.nn.Module): The loss function.
+        activation (str): The activation function to use.
+
+    Returns:
+        KeypointDetection1DModel: The keypoint detection model.
+    """
+
+    if checkpoint_path is not None:
+        model = KeypointDetection1DModel.load_from_checkpoint(checkpoint_path)
+        return model
+
+    model = KeypointDetection1DModel(
+        input_channels,
+        n_classes,
+        learning_rate,
+        architecture=architecture,
+        activation=activation,
+        criterion=criterion,
+    )
     return model
 
 
 def load_pretrained_model_from_checkpoint(checkpoint_path):
-    """Loads a pretrained segmentation model from a checkpoint. If the model cannot be loaded
+    """Load a pretrained segmentation model from a checkpoint. If the model cannot be loaded
     tries to load it with the default number of input channels.
 
     Parameters:
@@ -135,7 +170,7 @@ def load_pretrained_model_from_checkpoint(checkpoint_path):
 def load_scratch_segmentation_model_from_checkpoint(
     checkpoint_path, default_deep_supervision=False
 ):
-    """Loads a segmentation model from a checkpoint. If the model cannot be loaded
+    """Load a segmentation model from a checkpoint. If the model cannot be loaded
     tries to load it with the default number of input channels and deep supervision turned off.
 
     This function first tries to load the model as a PretrainedSegmentationModel. If that fails,
@@ -166,7 +201,7 @@ def load_scratch_segmentation_model_from_checkpoint(
 
 
 def load_segmentation_model_from_checkpoint(checkpoint_path):
-    """Loads a segmentation model from a checkpoint.
+    """Load a segmentation model from a checkpoint.
 
     This function first tries to load the model as a PretrainedSegmentationModel. If that fails,
     it tries to load it as a SegmentationModel. If both attempts fail, it raises an error.
@@ -190,3 +225,23 @@ def load_segmentation_model_from_checkpoint(checkpoint_path):
             raise ValueError(
                 f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
             )
+
+
+def load_keypoint_detection_model_from_checkpoint(checkpoint_path):
+    """Load a keypoint detection model from a checkpoint.
+
+    Parameters:
+        checkpoint_path (str): Path to a checkpoint file.
+
+    Returns:
+        KeypointDetection1DModel: The keypoint detection model.
+
+    Raises:
+        ValueError: If the model cannot be loaded from the checkpoint.
+    """
+    try:
+        return KeypointDetection1DModel.load_from_checkpoint(checkpoint_path)
+    except Exception as e:
+        raise ValueError(
+            f"Could not load keypoint detection model from checkpoint {checkpoint_path}. Error: {e}"
+        )

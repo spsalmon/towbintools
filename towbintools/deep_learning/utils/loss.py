@@ -53,3 +53,14 @@ class BCELossWithIgnore(nn.Module):
 
         # Return the mean of the masked loss
         return masked_loss.sum() / mask.sum().clamp(min=1e-8)
+
+
+class PeakWeightedMSELoss(nn.Module):
+    def __init__(self, ignore_index=-1, peak_weight=3.0):
+        super().__init__()
+        self.ignore_index = ignore_index
+        self.peak_weight = peak_weight
+
+    def forward(self, input, target):
+        weights = 1.0 + self.peak_weight * target  # Higher weight for higher values
+        return (weights * (input - target) ** 2).mean()

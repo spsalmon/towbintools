@@ -21,3 +21,5 @@ scipy
 ome-types
 
 whittaker-eilers
+polars
+pyarrow

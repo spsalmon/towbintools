@@ -1,6 +1,6 @@
 [project]
 name = "towbintools"
-version = "0.3.7"
+version = "0.3.8"
 authors = [
   {name="Sacha Psalmon", email="sacha.psalmon@unibe.ch" },
   {name="Boris Gusev", email="boris.gusev@unibe.ch" }
@@ -32,6 +32,8 @@ dependencies = [
 
     "numpy",
     "pandas",
+    "polars",
+    "pyarrow",
     "scipy",
     "ome-types",
 

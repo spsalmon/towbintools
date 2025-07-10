@@ -12,6 +12,7 @@ from .archs import Unet1D
 from .archs import UnetPlusPlus
 from .archs import UnetPlusPlus1D
 from towbintools.deep_learning.utils.loss import FocalTverskyLoss
+from towbintools.deep_learning.utils.loss import PeakWeightedMSELoss
 
 
 class PretrainedClassificationModel(pl.LightningModule):
@@ -433,8 +434,7 @@ class KeypointDetection1DModel(pl.LightningModule):
         input_channels,
         n_classes,
         learning_rate,
-        normalization,
-        architecture="Unet",
+        architecture="UnetPlusPlus",
         activation="sigmoid",
         criterion=None,
     ):
@@ -444,8 +444,9 @@ class KeypointDetection1DModel(pl.LightningModule):
             input_channels (int): The number of input channels.
             n_classes (int): The number of classes in the segmentation task.
             learning_rate (float): The learning rate for the optimizer.
-            normalization (dict): Parameters for the normalization.
-            criterion (torch.nn.Module): The loss function to use for training. Default is nn.MSELoss.
+            architecture (str): The architecture of the segmentation model. (default: "Unet")
+            criterion (torch.nn.Module): The loss function to use for training. (default: nn.MSELoss)
+            activation (str): The activation function to use at the end of the model. (default: "sigmoid")
         """
 
         super().__init__()
@@ -469,8 +470,10 @@ class KeypointDetection1DModel(pl.LightningModule):
             self.ignore_index = -100
 
         if criterion is None:
-            self.criterion = nn.MSELoss()
+            # self.criterion = nn.MSELoss()
             # self.criterion = nn.L1Loss()
+            self.criterion = PeakWeightedMSELoss()
+
         else:
             self.criterion = criterion
 
@@ -480,10 +483,11 @@ class KeypointDetection1DModel(pl.LightningModule):
             self.activation = nn.LeakyReLU(inplace=True)
         elif activation == "sigmoid":
             self.activation = nn.Sigmoid()
+        elif activation == "none":
+            self.activation = nn.Identity()
         else:
             raise ValueError(f"Unsupported activation function: {activation}")
 
-        self.normalization = normalization
         self.save_hyperparameters()
 
     def forward(self, x):
