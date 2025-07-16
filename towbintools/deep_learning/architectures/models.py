@@ -12,6 +12,7 @@ from .archs import Unet1D
 from .archs import UnetPlusPlus
 from .archs import UnetPlusPlus1D
 from towbintools.deep_learning.utils.loss import FocalTverskyLoss
+from towbintools.deep_learning.utils.loss import MultiClassFocalLoss
 from towbintools.deep_learning.utils.loss import PeakWeightedMSELoss
 
 
@@ -36,6 +37,11 @@ class PretrainedClassificationModel(pl.LightningModule):
         normalization,
     ):
         super().__init__()
+        if n_classes == 1:
+            self.activation = nn.Sigmoid()
+        else:
+            self.activation = nn.Softmax(dim=1)
+
         model = timm.create_model(
             architecture,
             pretrained=True,
@@ -47,7 +53,7 @@ class PretrainedClassificationModel(pl.LightningModule):
         self.learning_rate = learning_rate
         self.n_classes = n_classes
         if n_classes == 2:
-            self.criterion = nn.BCELoss()
+            self.criterion = nn.BCEWithLogitsLoss()
             self.f1_score = BinaryF1Score()
         else:
             self.criterion = nn.CrossEntropyLoss()
@@ -57,10 +63,8 @@ class PretrainedClassificationModel(pl.LightningModule):
         self.save_hyperparameters()
 
     def forward(self, x):
-        if self.n_classes == 2:
-            return torch.sigmoid(self.model(x))
-        else:
-            return torch.softmax(self.model(x), dim=1)
+        y = self.model(x)
+        return self.activation(y)
 
     def log_tb_images(self, viz_batch) -> None:
         # Get tensorboard logger
@@ -75,7 +79,7 @@ class PretrainedClassificationModel(pl.LightningModule):
 
     def training_step(self, batch):
         x, y = batch
-        y_hat = self.forward(x).squeeze()
+        y_hat = self.model(x).squeeze()
         if y_hat.dim() == 0:
             y_hat = y_hat.unsqueeze(0)
         y = y.to(torch.float)
@@ -104,7 +108,7 @@ class PretrainedClassificationModel(pl.LightningModule):
 
     def validation_step(self, batch):
         x, y = batch
-        y_hat = self.forward(x).squeeze()
+        y_hat = self.model(x).squeeze()
         if y_hat.dim() == 0:
             y_hat = y_hat.unsqueeze(0)
         y = y.to(torch.float)
@@ -165,11 +169,10 @@ class PretrainedSegmentationModel(pl.LightningModule):
         ignore_index=None,
     ):
         super().__init__()
-
         if n_classes == 1:
-            activation = "sigmoid"
+            self.activation = nn.Sigmoid()
         else:
-            activation = "softmax"
+            self.activation = nn.Softmax(dim=1)
 
         model = smp.create_model(
             arch=architecture,
@@ -177,7 +180,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
             encoder_weights=pretrained_weights,
             in_channels=input_channels,
             classes=n_classes,
-            activation=activation,
+            activation=None,
         )
 
         self.model = model
@@ -188,7 +191,11 @@ class PretrainedSegmentationModel(pl.LightningModule):
             if n_classes == 1:
                 self.criterion = FocalTverskyLoss(ignore_index=self.ignore_index)
             else:
-                self.criterion = nn.CrossEntropyLoss(ignore_index=self.ignore_index)
+                self.criterion = MultiClassFocalLoss(
+                    ignore_index=self.ignore_index,
+                    n_classes=n_classes,
+                    alpha=torch.tensor([0.75] * n_classes),
+                )
         else:
             self.criterion = criterion
 
@@ -211,7 +218,8 @@ class PretrainedSegmentationModel(pl.LightningModule):
         self.save_hyperparameters(ignore=["criterion"])
 
     def forward(self, x):
-        return self.model(x)
+        y = self.model(x)
+        return self.activation(y)
 
     def training_step(self, batch):
         x, y = batch
@@ -266,7 +274,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
     def predict_step(self, batch):
         x = batch
 
-        pred = self.model(x)  # prediction already has softmax / sigmoid applied
+        pred = self.forward(x)
 
         # binarize predictions
         if self.n_classes == 1:
@@ -362,7 +370,6 @@ class SegmentationModel(pl.LightningModule):
     def training_step(self, batch):
         x, y = batch
         y_hat = self.model(x)
-        y_hat = self.activation(y_hat)
         loss = self.criterion(y_hat, y)
         self.log(
             "train_loss",
@@ -388,7 +395,6 @@ class SegmentationModel(pl.LightningModule):
     def validation_step(self, batch):
         x, y = batch
         y_hat = self.model(x)
-        y_hat = self.activation(y_hat)
         loss = self.criterion(y_hat, y)
         self.log(
             "val_loss",
@@ -412,8 +418,7 @@ class SegmentationModel(pl.LightningModule):
 
     def predict_step(self, batch):
         x = batch
-        pred = self.model(x)
-        pred = self.activation(pred)
+        pred = self.forward(x)
 
         # binarize predictions
         if self.n_classes == 1:
@@ -470,8 +475,6 @@ class KeypointDetection1DModel(pl.LightningModule):
             self.ignore_index = -100
 
         if criterion is None:
-            # self.criterion = nn.MSELoss()
-            # self.criterion = nn.L1Loss()
             self.criterion = PeakWeightedMSELoss()
 
         else:
