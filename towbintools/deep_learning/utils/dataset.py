@@ -1,5 +1,6 @@
 import datetime
 import os
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -481,19 +482,24 @@ def create_segmentation_training_dataframes(
     return training_dataframe, validation_dataframe
 
 
-def get_unique_shapes_from_tiffs(image_paths=list[str]) -> np.ndarray:
+def get_unique_shapes_from_tiffs(
+    image_paths=list[str], channels_to_keep: Optional[list[int]] = None
+) -> np.ndarray:
     """
     Get unique shapes from a list of TIFF images in parallel.
 
     Parameters:
         image_paths (List[str]): List of image paths to extract shapes from
+        channels_to_keep (Optional[list[int]]): List of channel indices to keep. If None, all channels are considered.
 
     Returns:
         np.ndarray: Unique image shapes found in the dataframe
     """
 
     shapes = Parallel(n_jobs=-1)(
-        delayed(image_handling.get_shape_from_tiff)(image_path)
+        delayed(image_handling.get_shape_from_tiff)(
+            image_path, channels_to_keep=channels_to_keep
+        )
         for image_path in image_paths
     )
 
@@ -552,7 +558,7 @@ def create_segmentation_dataloaders(
 
     image_paths = training_dataframe["image"].values.tolist()
 
-    unique_shapes = get_unique_shapes_from_tiffs(image_paths)
+    unique_shapes = get_unique_shapes_from_tiffs(image_paths, channels_to_keep=channels)
     image_slicers = {
         tuple(shape): inference.ImageSlicer(
             shape, tiler_params["tile_size"], tiler_params["tile_step"]

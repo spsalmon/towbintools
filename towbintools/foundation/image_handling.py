@@ -318,16 +318,21 @@ def read_tiff_file(
         return image[:, channels_to_keep, ...].squeeze()  # type: ignore
 
 
-def get_shape_from_tiff(file_path: str) -> Optional[tuple]:
+def get_shape_from_tiff(
+    file_path: str, channels_to_keep: Optional[list[int]] = None
+) -> Optional[tuple]:
     """
     Get the shape of the image stored in the TIFF file.
 
     Parameters:
             file_path (str): Path to the TIFF image file.
+            channels_to_keep (Optional[list[int]]): List of channel indices to keep. If None, all channels are considered.
 
     Returns:
             Tuple: The shape of the image as a tuple.
                    Returns None if the file cannot be read.
+    Raises:
+            ValueError: If the image file cannot be read or if the shape cannot be determined.
     """
     try:
         with TiffFile(file_path) as tif:
@@ -340,7 +345,22 @@ def get_shape_from_tiff(file_path: str) -> Optional[tuple]:
                     f"Warning: {file_path} has different shapes across series: {shapes}"
                 )
 
-            return shapes[0]
+            shape = shapes[0]
+            if channels_to_keep is not None and len(shape) > 2:
+                if len(shape) == 3:
+                    shape = (
+                        (len(channels_to_keep), shape[1], shape[2])
+                        if len(channels_to_keep) > 1
+                        else (shape[1], shape[2])
+                    )
+                elif len(shape) == 4:
+                    shape = (
+                        (shape[0], len(channels_to_keep), shape[2], shape[3])
+                        if len(channels_to_keep) > 1
+                        else (shape[0], shape[2], shape[3])
+                    )
+
+            return shape
     except Exception as e:
         print(f"Error while reading file {file_path} : {e}")
         return None
