@@ -202,20 +202,13 @@ class PretrainedSegmentationModel(pl.LightningModule):
         else:
             self.criterion = criterion
 
-        try:
-            if n_classes == 1:
-                self.f1_score = BinaryF1Score(ignore_index=self.criterion.ignore_index)
-            else:
-                self.f1_score = MulticlassF1Score(
-                    num_classes=n_classes,
-                    ignore_index=self.criterion.ignore_index,
-                )
-        except Exception as e:
-            print(f"Criterion does not support ignore_index: {e}")
-            if n_classes == 1:
-                self.f1_score = BinaryF1Score()
-            else:
-                self.f1_score = MulticlassF1Score(num_classes=n_classes)
+        if n_classes == 1:
+            self.f1_score = BinaryF1Score(ignore_index=self.criterion.ignore_index)
+        else:
+            self.f1_score = MulticlassF1Score(
+                num_classes=n_classes + 1,
+                ignore_index=self.criterion.ignore_index,
+            )
 
         self.normalization = normalization
         self.save_hyperparameters(ignore=["criterion"])
@@ -329,6 +322,11 @@ class SegmentationModel(pl.LightningModule):
 
         super().__init__()
 
+        if n_classes == 1:
+            self.activation = nn.Sigmoid()
+        else:
+            self.activation = nn.Softmax(dim=1)
+
         if architecture == "Unet":
             model = Unet(num_classes=n_classes, input_channels=input_channels)
         elif architecture == "UnetPlusPlus":
@@ -356,25 +354,13 @@ class SegmentationModel(pl.LightningModule):
         else:
             self.criterion = criterion
 
-        try:
-            if n_classes == 1:
-                self.f1_score = BinaryF1Score(ignore_index=self.criterion.ignore_index)
-            else:
-                self.f1_score = MulticlassF1Score(
-                    num_classes=n_classes,
-                    ignore_index=self.criterion.ignore_index,
-                )
-        except Exception as e:
-            print(f"Criterion does not support ignore_index: {e}")
-            if n_classes == 1:
-                self.f1_score = BinaryF1Score()
-            else:
-                self.f1_score = MulticlassF1Score(num_classes=n_classes)
-
         if n_classes == 1:
-            self.activation = nn.Sigmoid()
+            self.f1_score = BinaryF1Score(ignore_index=self.criterion.ignore_index)
         else:
-            self.activation = nn.Softmax(dim=1)
+            self.f1_score = MulticlassF1Score(
+                num_classes=n_classes + 1,
+                ignore_index=self.criterion.ignore_index,
+            )
 
         self.normalization = normalization
         self.save_hyperparameters()
