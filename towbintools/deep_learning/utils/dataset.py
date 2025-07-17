@@ -504,11 +504,17 @@ def get_unique_shapes_from_tiffs(
     )
 
     valid_shapes = [shape for shape in shapes if shape is not None]
+    all_shapes = set(valid_shapes)
+    # because of potential rotation during augmentation, add the permutation
+    for shape in valid_shapes:
+        if len(shape) >= 2:
+            rotated = shape[:-2] + (shape[-1], shape[-2])
+            all_shapes.add(rotated)
 
     if len(valid_shapes) == 0:
         raise ValueError("No valid shapes found in the dataframe")
 
-    return np.unique(valid_shapes, axis=0)
+    return np.array(list(all_shapes))
 
 
 def create_segmentation_dataloaders(

@@ -68,8 +68,7 @@ class MultiClassFocalLoss(nn.Module):
         self.gamma = gamma
         self.ignore_index = ignore_index
         self.reduction = reduction
-        # Replace NLLLoss with CrossEntropyLoss
-        self.ce_loss = nn.CrossEntropyLoss(
+        self.ce_loss = nn.NLLLoss(
             weight=alpha, reduction="none", ignore_index=ignore_index
         )
 
@@ -94,14 +93,14 @@ class MultiClassFocalLoss(nn.Module):
             return torch.tensor(0.0)
         x = x[unignored_mask]
 
-        # compute weighted cross entropy term: -alpha * log(pt)
-        # (alpha is already part of self.ce_loss)
-        ce = self.ce_loss(x, y)  # x is now raw logits, not log probabilities
-
         # get probabilities for focal term calculation
         log_p = F.log_softmax(x, dim=-1)
-        all_rows = torch.arange(len(x))
-        log_pt = log_p[all_rows, y]
+
+        ce = self.ce_loss(log_p, y)
+
+        y = y.long()
+        # get true class column from each row
+        log_pt = torch.gather(log_p, 1, y.unsqueeze(1)).squeeze(1)
 
         # compute focal term: (1 - pt)^gamma
         pt = log_pt.exp()
@@ -114,6 +113,7 @@ class MultiClassFocalLoss(nn.Module):
             loss = loss.mean()
         elif self.reduction == "sum":
             loss = loss.sum()
+
         return loss
 
 

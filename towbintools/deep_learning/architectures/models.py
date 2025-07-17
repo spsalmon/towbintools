@@ -94,6 +94,8 @@ class PretrainedClassificationModel(pl.LightningModule):
             sync_dist=True,
         )
 
+        y_hat = self.activation(y_hat)
+
         f1_score = self.f1_score(y_hat, y)
         self.log(
             "train_f1_score",
@@ -122,6 +124,8 @@ class PretrainedClassificationModel(pl.LightningModule):
             logger=True,
             sync_dist=True,
         )
+
+        y_hat = self.activation(y_hat)
 
         f1_score = self.f1_score(y_hat, y)
         self.log(
@@ -179,7 +183,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
             encoder_name=encoder,
             encoder_weights=pretrained_weights,
             in_channels=input_channels,
-            classes=n_classes,
+            classes=n_classes + 1 if n_classes > 1 else n_classes,
             activation=None,
         )
 
@@ -193,8 +197,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
             else:
                 self.criterion = MultiClassFocalLoss(
                     ignore_index=self.ignore_index,
-                    n_classes=n_classes,
-                    alpha=torch.tensor([0.75] * n_classes),
+                    alpha=torch.tensor([0.1] + [0.75] * n_classes),
                 )
         else:
             self.criterion = criterion
@@ -216,6 +219,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
 
         self.normalization = normalization
         self.save_hyperparameters(ignore=["criterion"])
+        self.n_classes = n_classes
 
     def forward(self, x):
         y = self.model(x)
@@ -234,6 +238,10 @@ class PretrainedSegmentationModel(pl.LightningModule):
             logger=True,
             sync_dist=True,
         )
+
+        y_hat = self.activation(y_hat)
+        if self.n_classes > 1 and y.dim() == 4 and y.shape[1] == 1:
+            y = y.squeeze(1)
 
         f1_score = self.f1_score(y_hat, y)
         self.log(
@@ -260,6 +268,10 @@ class PretrainedSegmentationModel(pl.LightningModule):
             logger=True,
             sync_dist=True,
         )
+
+        y_hat = self.activation(y_hat)
+        if self.n_classes > 1 and y.dim() == 4 and y.shape[1] == 1:
+            y = y.squeeze(1)
 
         f1_score = self.f1_score(y_hat, y)
         self.log(
@@ -316,11 +328,12 @@ class SegmentationModel(pl.LightningModule):
         """
 
         super().__init__()
+
         if architecture == "Unet":
             model = Unet(num_classes=n_classes, input_channels=input_channels)
         elif architecture == "UnetPlusPlus":
             model = UnetPlusPlus(
-                num_classes=n_classes,
+                num_classes=n_classes + 1 if n_classes > 1 else n_classes,
                 input_channels=input_channels,
                 deep_supervision=deep_supervision,
             )
@@ -336,7 +349,10 @@ class SegmentationModel(pl.LightningModule):
             if n_classes == 1:
                 self.criterion = FocalTverskyLoss(ignore_index=self.ignore_index)
             else:
-                self.criterion = nn.CrossEntropyLoss(ignore_index=self.ignore_index)
+                self.criterion = MultiClassFocalLoss(
+                    ignore_index=self.ignore_index,
+                    alpha=torch.tensor([0.1] + [0.75] * n_classes),
+                )
         else:
             self.criterion = criterion
 
@@ -362,6 +378,7 @@ class SegmentationModel(pl.LightningModule):
 
         self.normalization = normalization
         self.save_hyperparameters()
+        self.n_classes = n_classes
 
     def forward(self, x):
         y = self.model(x)
@@ -381,7 +398,12 @@ class SegmentationModel(pl.LightningModule):
             sync_dist=True,
         )
 
+        y_hat = self.activation(y_hat)
+        if self.n_classes > 1 and y.dim() == 4 and y.shape[1] == 1:
+            y = y.squeeze(1)
+
         f1_score = self.f1_score(y_hat, y)
+
         self.log(
             "train_f1_score",
             f1_score,
@@ -405,6 +427,10 @@ class SegmentationModel(pl.LightningModule):
             logger=True,
             sync_dist=True,
         )
+
+        y_hat = self.activation(y_hat)
+        if self.n_classes > 1 and y.dim() == 4 and y.shape[1] == 1:
+            y = y.squeeze(1)
 
         f1_score = self.f1_score(y_hat, y)
         self.log(
