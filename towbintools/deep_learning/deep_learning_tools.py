@@ -7,7 +7,7 @@ from towbintools.deep_learning.utils.util import (
 
 
 def create_pretrained_segmentation_model(
-    input_channels=3,
+    input_channels=1,
     n_classes=1,
     architecture="UnetPlusPlus",
     encoder="efficientnet-b4",
@@ -15,6 +15,7 @@ def create_pretrained_segmentation_model(
     normalization={"type": "percentile", "lo": 1, "hi": 99},
     learning_rate=1e-5,
     checkpoint_path=None,
+    reset_optimizer=True,
     criterion=None,
 ):
     """
@@ -37,9 +38,25 @@ def create_pretrained_segmentation_model(
         model = PretrainedSegmentationModel.load_from_checkpoint(
             checkpoint_path, map_location="cpu"
         )
+
+        if reset_optimizer:
+            model.optimizer = None
+            model.lr_scheduler = None
+
         # change the learning rate and normalization
         model.learning_rate = learning_rate
         model.normalization = normalization
+
+        # check if the architecture matches
+        if model.architecture != architecture:
+            raise ValueError(
+                f"Checkpoint architecture {model.architecture} does not match the requested architecture {architecture}"
+            )
+        # check if the encoder matches
+        if model.encoder != encoder:
+            raise ValueError(
+                f"Checkpoint encoder {model.encoder} does not match the requested encoder {encoder}"
+            )
         return model
 
     model = PretrainedSegmentationModel(
@@ -63,6 +80,7 @@ def create_segmentation_model(
     learning_rate=1e-5,
     deep_supervision=False,
     checkpoint_path=None,
+    reset_optimizer=True,
     criterion=None,
 ):
     """
@@ -84,6 +102,13 @@ def create_segmentation_model(
 
     if checkpoint_path is not None:
         model = SegmentationModel.load_from_checkpoint(checkpoint_path)
+
+        if reset_optimizer:
+            model.optimizer = None
+            model.lr_scheduler = None
+        model.learning_rate = learning_rate
+        model.normalization = normalization
+        model.deep_supervision = deep_supervision
         return model
 
     model = SegmentationModel(
