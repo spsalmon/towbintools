@@ -34,31 +34,6 @@ def create_pretrained_segmentation_model(
     Returns:
         PretrainedSegmentationModel: The segmentation model with a pretrained encoder.
     """
-    if checkpoint_path is not None:
-        model = PretrainedSegmentationModel.load_from_checkpoint(
-            checkpoint_path, map_location="cpu"
-        )
-
-        if reset_optimizer:
-            model.optimizer = None
-            model.lr_scheduler = None
-
-        # change the learning rate and normalization
-        model.learning_rate = learning_rate
-        model.normalization = normalization
-
-        # check if the architecture matches
-        if model.architecture != architecture:
-            raise ValueError(
-                f"Checkpoint architecture {model.architecture} does not match the requested architecture {architecture}"
-            )
-        # check if the encoder matches
-        if model.encoder != encoder:
-            raise ValueError(
-                f"Checkpoint encoder {model.encoder} does not match the requested encoder {encoder}"
-            )
-        return model
-
     model = PretrainedSegmentationModel(
         input_channels=input_channels,
         n_classes=n_classes,
@@ -69,6 +44,38 @@ def create_pretrained_segmentation_model(
         normalization=normalization,
         criterion=criterion,
     )
+
+    if checkpoint_path is not None:
+        loaded_model = PretrainedSegmentationModel.load_from_checkpoint(
+            checkpoint_path, map_location="cpu"
+        )
+
+        if reset_optimizer:
+            loaded_model.optimizer = None
+            loaded_model.lr_scheduler = None
+
+            loaded_model._optimizer = None
+            loaded_model._lr_scheduler = None
+
+        # change the learning rate and normalization
+        loaded_model.learning_rate = learning_rate
+        loaded_model.normalization = normalization
+
+        # check if the architecture matches
+        if not isinstance(loaded_model.model, model.model.__class__):
+            raise ValueError(
+                f"Checkpoint architecture {loaded_model.model.architecture} does not match the requested architecture {architecture}"
+            )
+        # check if the encoder matches
+        if loaded_model.model.encoder.__class__ != model.model.encoder.__class__:
+            raise ValueError(
+                f"Checkpoint encoder architecture {type(loaded_model.model.encoder).__name__} does not match the requested encoder architecture {type(model.model.encoder).__name__}"
+            )
+
+        loaded_model.configure_optimizers()
+
+        return loaded_model
+
     return model
 
 

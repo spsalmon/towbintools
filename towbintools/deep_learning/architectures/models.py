@@ -87,7 +87,7 @@ class PretrainedClassificationModel(pl.LightningModule):
         self.log(
             "train_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -118,7 +118,7 @@ class PretrainedClassificationModel(pl.LightningModule):
         self.log(
             "val_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -131,7 +131,7 @@ class PretrainedClassificationModel(pl.LightningModule):
         self.log(
             "val_f1_score",
             f1_score,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -225,7 +225,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
         self.log(
             "train_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -255,7 +255,7 @@ class PretrainedSegmentationModel(pl.LightningModule):
         self.log(
             "val_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -270,9 +270,10 @@ class PretrainedSegmentationModel(pl.LightningModule):
         self.log(
             "val_f1_score",
             f1_score,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             logger=True,
+            prog_bar=True,
             sync_dist=True,
         )
 
@@ -377,7 +378,7 @@ class SegmentationModel(pl.LightningModule):
         self.log(
             "train_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -407,7 +408,7 @@ class SegmentationModel(pl.LightningModule):
         self.log(
             "val_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -422,9 +423,10 @@ class SegmentationModel(pl.LightningModule):
         self.log(
             "val_f1_score",
             f1_score,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             logger=True,
+            prog_bar=True,
             sync_dist=True,
         )
 
@@ -517,7 +519,7 @@ class KeypointDetection1DModel(pl.LightningModule):
         self.log(
             "train_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
@@ -533,7 +535,7 @@ class KeypointDetection1DModel(pl.LightningModule):
         self.log(
             "val_loss",
             loss,
-            on_step=True,
+            on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,

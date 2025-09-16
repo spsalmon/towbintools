@@ -3,6 +3,7 @@ from math import ceil
 from math import floor
 
 import torch
+from torch.serialization import safe_globals
 
 # import torch.nn as nn
 # from efficientnet_pytorch.utils import Conv2dStaticSamePadding
@@ -64,7 +65,13 @@ def create_lightweight_checkpoint(input_path, output_path):
     Load existing PyTorch Lightning checkpoint and save a lightweight version
     """
     print(f"Loading checkpoint from: {input_path}")
-    checkpoint = torch.load(input_path, map_location="cpu")
+
+    try:
+        checkpoint = torch.load(input_path, map_location="cpu", weights_only=False)
+    except Exception as e:
+        print(f"Standard loading failed, trying with safe_globals: {e}")
+        with safe_globals([getattr]):
+            checkpoint = torch.load(input_path, map_location="cpu")
 
     original_size = os.path.getsize(input_path) / (1024 * 1024)  # MB
     print(f"Original file size: {original_size:.2f} MB")
