@@ -1,7 +1,9 @@
 import numpy as np
 
 
-def compute_fluorescence_in_mask(image, mask, aggregation="sum"):
+def compute_fluorescence_in_mask(
+    image, mask, aggregation="sum", background_aggregation=None
+):
     """Quantify fluorescence of an image in a mask.
 
     Parameters:
@@ -13,6 +15,14 @@ def compute_fluorescence_in_mask(image, mask, aggregation="sum"):
     Returns:
         float: Quantification of the fluorescence of the image in the mask.
     """
+
+    # compute on background substracted image if a way to compute background is provided
+    if background_aggregation is not None:
+        background_value = compute_background_fluorescence(
+            image, mask, aggregation=background_aggregation
+        )
+        image = image - background_value
+        image = np.clip(image, a_min=0, a_max=None)
 
     if aggregation == "sum":
         return np.sum(image[mask > 0])
