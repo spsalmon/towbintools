@@ -294,11 +294,9 @@ def smooth_series_classified(
         np.ndarray: The series at the given time(s).
     """
 
-    # Check if the series has any non nan values
     if np.all(np.isnan(series)):
         return np.full(series.shape, np.nan)
 
-    # Interpolate the nans
     series = interpolate_nans(series)
 
     # Remove the points of non-worms from the time series and interpolate them back
@@ -334,11 +332,9 @@ def smooth_series(
         np.ndarray: The series at the given time(s).
     """
 
-    # Check if the series has any non nan values
     if np.all(np.isnan(series)):
         return np.full(series.shape, np.nan)
 
-    # Interpolate the nans
     series = interpolate_nans(series)
 
     smoothed_series = _smooth_series(
@@ -428,7 +424,6 @@ def compute_series_at_time_classified(
         else:
             return np.full(time.shape, np.nan)
 
-    # Smooth the series
     series = smooth_series_classified(
         series,
         series_time,
@@ -437,7 +432,6 @@ def compute_series_at_time_classified(
         lmbda=lmbda,
     )
 
-    # Interpolate the series using b-splines
     if series_time is None:
         series_time = np.arange(len(series))
 

@@ -43,7 +43,6 @@ def find_endpoints(
         )
     )
 
-    # Initialize the output image.
     output_image = np.zeros(binary_image.shape)
     # Apply the Hit-Or-Miss morphology operation for all the kernels.
     for kernel in kernels:

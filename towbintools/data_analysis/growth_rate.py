@@ -31,15 +31,12 @@ def compute_growth_rate_linear(
         float: The linear growth rate of the time series.
     """
 
-    # Assert that the series and time have the same length
     assert len(series) == len(time), "The series and time must have the same length."
 
-    # Compute the number of points to ignore at the beginning and end
     num_points = len(series)
     num_ignore_start = int(ignore_start_fraction * num_points)
     num_ignore_end = int(ignore_end_fraction * num_points)
 
-    # Assert that the fraction of points to ignore is not too large
     assert (
         num_ignore_start + num_ignore_end < num_points
     ), "The fraction of points to ignore is too large."
@@ -55,10 +52,8 @@ def compute_growth_rate_linear(
     # Remove extreme outliers with a small median filter
     series = medfilt(series, 3)
 
-    # Interpolate NaN and inf values
     series = interpolate_nans_infs(series)
 
-    # Smooth the series time series a bit more with a Savitzky-Golay filter
     series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
 
     # Compute linear regression
@@ -90,15 +85,12 @@ def compute_growth_rate_exponential(
         float: The exponential growth rate of the time series.
     """
 
-    # Assert that the series and time have the same length
     assert len(series) == len(time), "The series and time must have the same length."
 
-    # Compute the number of points to ignore at the beginning and end
     num_points = len(series)
     num_ignore_start = int(ignore_start_fraction * num_points)
     num_ignore_end = int(ignore_end_fraction * num_points)
 
-    # Assert that the fraction of points to ignore is not too large
     assert (
         num_ignore_start + num_ignore_end < num_points
     ), "The fraction of points to ignore is too large."
@@ -114,10 +106,8 @@ def compute_growth_rate_exponential(
     # Remove extreme outliers with a small median filter
     series = medfilt(series, 3)
 
-    # Interpolate NaN and inf values
     series = interpolate_nans_infs(series)
 
-    # Smooth the series time series a bit more with a Savitzky-Golay filter
     series = savgol_filter(series, savgol_filter_window, savgol_filter_order)
 
     # Compute exponential regression
@@ -153,12 +143,10 @@ def compute_growth_rate_classified(
         float: The growth rate of the time series.
     """
 
-    # Assert that the series, time, and worm_type have the same length
     assert (
         len(series) == len(time) == len(worm_type)
     ), "The series, time, and worm_type must have the same length."
 
-    # Correct the series time series
     series_worms = correct_series_with_classification(series, worm_type)
 
     if method == "exponential":
@@ -204,7 +192,6 @@ def compute_instantaneous_growth_rate(
         np.ndarray: The instantaneous growth rate of the time series.
     """
 
-    # Assert that the series and time have the same length
     assert len(series) == len(time), "The series and time must have the same length."
 
     series = smooth_series(series, time, lmbda, order, medfilt_window)
@@ -238,12 +225,11 @@ def compute_instantaneous_growth_rate_classified(
         np.ndarray: The instantaneous growth rate of the time series.
     """
 
-    # Assert that the series, time, and worm_type have the same length
     assert (
         len(series) == len(time) == len(worm_type)
     ), "The series, time, and worm_type must have the same length."
 
-    # Correct the series time series
+    # Correct and smooth the time series
     series = smooth_series_classified(
         series, time, worm_type, lmbda, order, medfilt_window
     )
@@ -282,12 +268,11 @@ def compute_growth_rate_per_larval_stage(
         dict: The growth rate per larval stage.
     """
 
-    # Assert that the series, time, and worm_type have the same length
     assert (
         len(series) == len(time) == len(worm_type)
     ), "The series, time, and worm_type, must have the same length."
 
-    # Correct the series time series
+    # Correct the time series
     series_worms = correct_series_with_classification(series, worm_type)
 
     # extract ecdisis indices
@@ -336,7 +321,7 @@ def compute_larval_stage_duration(ecdysis):
         dict: The duration of each larval stage.
     """
 
-    # extract ecdisis indices
+    # extract ecdysis indices
     hatch_time = ecdysis["HatchTime"]
     M1 = ecdysis["M1"]
     M2 = ecdysis["M2"]

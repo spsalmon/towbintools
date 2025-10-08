@@ -67,7 +67,6 @@ def find_mid_molts(
         print(f"Caught an exception while running SavGol filter: {e}")
         savgol_log_volume = medfilt_log_volume
 
-    # Calculate derivative
     log_diff = np.diff(savgol_log_volume)
     # Smooth derivative
     smoothed_log_diff = uniform_filter1d(uniform_filter1d(log_diff, size=25), size=10)

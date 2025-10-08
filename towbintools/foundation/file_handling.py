@@ -30,9 +30,7 @@ def get_all_timepoints_from_dir(
         if not os.path.isdir(os.path.join(dir_path, x))
     ]
 
-    # Iterate through each image path
     for image_path in image_paths:
-        # Search for time and point independently
         time_match = time_pattern.search(image_path)
         point_match = point_pattern.search(image_path)
 
@@ -60,27 +58,23 @@ def fill_empty_timepoints(
     Returns:
         pd.DataFrame: The filled filemap dataframe with missing time points included.
     """
-    # Get unique points and times from the filemap dataframe.
     all_points = filemap["Point"].unique()
     all_times = filemap["Time"].unique()
     missing_times = []
 
-    # Iterate through each point.
     for point in all_points:
         # Get the unique times associated with the current point.
         times_of_point = filemap.loc[filemap["Point"] == point, "Time"].unique()  # type: ignore
-        # Find the missing times by comparing with all times.
+
         missing = set(all_times) - set(times_of_point)
-        # Generate dictionaries with missing times and empty image paths.
         missing_times.extend(
             [{"Time": time, "Point": point, "ImagePath": ""} for time in missing]
         )
 
-    # Create a new dataframe with the missing times and empty image paths.
     filemap_extended = pd.DataFrame(
         missing_times, columns=["Time", "Point", "ImagePath"]
     )
-    # Concatenate the original filemap with the extended filemap.
+
     filled_filemap = pd.concat([filemap, filemap_extended]).sort_values(
         by=["Point", "Time"]
     )
@@ -100,11 +94,8 @@ def get_dir_filemap(
     Returns:
         pd.DataFrame: The filemap dataframe with 'Time', 'Point', and 'ImagePath' columns.
     """
-    # Retrieve all time points from the directory.
     timepoint_list = get_all_timepoints_from_dir(dir_path)
-    # Create a filemap dataframe from the timepoint list.
     filemap = pd.DataFrame(timepoint_list, columns=["Time", "Point", "ImagePath"])
-    # Fill in missing time points in the filemap.
     filled_filemap = fill_empty_timepoints(filemap)
 
     return filled_filemap
