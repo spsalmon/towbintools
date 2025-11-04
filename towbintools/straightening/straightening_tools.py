@@ -85,7 +85,8 @@ class Warper:
                 spline_us.append(None)
                 continue
             # raw spline only smooths and does not account for inter-pixel distances
-            raw_spline = _fit_spline(ml, parametrisation=None, smoothing_factor=len(ml))
+            s = len(ml) - np.sqrt(2 * len(ml))
+            raw_spline = _fit_spline(ml, parametrisation=None, smoothing_factor=s)
             # refined spline accounts for inter-pixel distances
             refined_spline, spline_length, refined_us = _refine_spline(raw_spline)
             splines.append(refined_spline)
@@ -425,7 +426,9 @@ def _extract_midline(
 
     # start from 1 as not interested in background
     radius = distance_transform.max()
-    midline = _main_midline_path(midline_image, connectivity=2, pixel_trim=radius)
+    midline = _main_midline_path(
+        midline_image, connectivity=2, pixel_trim=int(radius * 0.5)
+    )
     midline = _extend_midline_to_boundary(midline, distance_transform)
     if combined_coord_array:
         midline = np.c_[midline]
@@ -764,19 +767,25 @@ def _warped_coords(
 
 def _refine_spline(
     smooth_spline: BSpline,
+    extrapolation_range: float = 0.01,
 ) -> tuple[BSpline, float, list[float]]:
-    """given a smooth spline, refine it such that 1unit in spline domain equals 1unit in spline range
+    """given a smooth spline, refine it such that 1unit in spline domain equals 1unit in spline range.
+    slightly extrapolates beyond ends of spline by extrapolation_range (as fraction of total length) to be sure to cover full real length.
 
     does not apply further smoothing"""
     if smooth_spline is None:
         return None
     # refines spline by fitting on parametrisation that respects inter-pixel distance
-    points = smooth_spline(np.linspace(0, 1, 1000))
+    points = smooth_spline(
+        np.linspace(-extrapolation_range, 1 + extrapolation_range, 1000)
+    )
     bb_dists = np.linalg.norm(points[:-1] - points[1:], axis=1)
     parametrisation = np.r_[0, np.cumsum(bb_dists)]
+    spline_length = parametrisation[-1]
+
     # don't smooth because points already smooth
     refined_spline = _fit_spline(points, parametrisation, smoothing_factor=0)
-    spline_length = parametrisation[-1]
+
     return refined_spline, spline_length, parametrisation
 
 
