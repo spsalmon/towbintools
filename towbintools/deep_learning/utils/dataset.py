@@ -206,6 +206,58 @@ class SegmentationPredictionDataset(Dataset):
         return img_paths, resized_images, original_shapes
 
 
+class StackPredictionDataset(Dataset):
+    def __init__(
+        self,
+        stack,
+        channels,
+        transform=None,
+        enforce_divisibility_by=32,
+        pad_or_crop="pad",
+    ):
+        if isinstance(stack, str):
+            stack = image_handling.read_tiff_file(stack, channels_to_keep=channels)
+
+        self.stack_shape = stack.shape
+        self.channels = channels
+        self.transform = transform
+        self.enforce_divisibility_by = enforce_divisibility_by
+        if pad_or_crop not in ["pad", "crop"]:
+            raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
+
+        self.pad_or_crop = pad_or_crop
+
+        if pad_or_crop == "pad":
+            self.resize_function = image_handling.pad_to_dim_equally
+            self.multiplier_function = get_closest_upper_multiple
+        else:
+            self.resize_function = image_handling.crop_to_dim_equally
+            self.multiplier_function = get_closest_lower_multiple
+
+        new_x_dim = self.multiplier_function(
+            self.stack_shape[-2], self.enforce_divisibility_by
+        )
+        new_y_dim = self.multiplier_function(
+            self.stack_shape[-1], self.enforce_divisibility_by
+        )
+        self.stack = self.resize_function(stack, new_x_dim, new_y_dim)
+
+    def __len__(self):
+        return self.stack_shape[0]
+
+    def __getitem__(self, i):
+        plane = self.stack[i]
+
+        if self.transform is not None:
+            transformed = self.transform(image=plane)
+            plane = transformed["image"]
+
+        if len(plane.shape) == 2:
+            plane = plane[np.newaxis, ...]
+
+        return plane.astype(np.float32)
+
+
 class ClassificationDataset(Dataset):
     def __init__(
         self,

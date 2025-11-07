@@ -428,6 +428,80 @@ def check_if_zstack(file_path: str) -> bool:
         return False
 
 
+def check_if_time_series(file_path: str) -> bool:
+    """
+    Determine whether the given OME-TIFF file represents a time series.
+
+    Checks the z-dimension size in the OME-TIFF metadata to determine
+    if the image is a time series (more than one time point).
+
+    Returns False if the file is not a valid OME-TIFF or the metadata cannot be read.
+
+    Parameters:
+        file_path (str): Path to the OME-TIFF image file.
+
+    Returns:
+        bool: True if the image is a time series (t_dim > 1), False otherwise or if the file is not a valid OME-TIFF or the metadata cannot be read.
+    """
+    try:
+        ome_metadata = ome_types.from_tiff(file_path).images[0].pixels  # type: ignore
+        tdim = ome_metadata.size_t
+        return tdim > 1
+    except Exception as e:
+        print(
+            f"Caught exception when trying to check if given file is a z-stack using OME-TIFF metadata in {file_path}: {e}"
+        )
+        return False
+
+
+def check_if_stack(
+    file_path: str,
+    channels_to_keep: Optional[list[int]] = None,
+) -> tuple[bool, tuple[int, int]]:
+    """
+    Determine whether the given OME-TIFF file represents a stack (either z-stack or time series).
+    Checks the z-dimension and t-dimension sizes in the OME-TIFF metadata to determine
+    if the image is a stack (more than one z-plane or more than one time point).
+    If the metadata cannot be read, it will try to infer the stack status from the image shape.
+
+    Parameters:
+        file_path (str): Path to the OME-TIFF image file.
+    Returns:
+        bool: True if the image is a stack (z_dim > 1 or t_dim > 1), False otherwise.
+        tuple[int, int]: A tuple containing the z-dimension and t-dimension sizes (z_dim, t_dim).
+    """
+
+    dimensions = get_image_size_metadata(file_path)
+
+    if dimensions is None:
+        # try to infer it from the image shape
+        shape = get_shape_from_tiff(file_path, channels_to_keep=channels_to_keep)
+        print(f"Inferred shape: {shape}")
+        if len(shape) == 3 and len(channels_to_keep) == 1:
+            # assume (z,y,x)
+            is_stack = True
+            t_dim, z_dim = 1, shape[0]
+        elif len(shape) == 4 and len(channels_to_keep) == 1:
+            # assume (t,z,y,x)
+            is_stack = True
+            t_dim, z_dim = shape[0], shape[1]
+        elif len(shape) == 4 and len(channels_to_keep) > 1:
+            # assume (z,c,y,x)
+            is_stack = True
+            t_dim, z_dim = 1, shape[0]
+        elif len(shape) > 4 and len(channels_to_keep) > 1:
+            # assume (t,z,c,y,x)
+            is_stack = True
+            t_dim, z_dim = shape[0], shape[1]
+        else:
+            is_stack = False
+    else:
+        t_dim, z_dim = dimensions.get("t_dim", 1), dimensions.get("z_dim", 1)
+        is_stack = (t_dim > 1) or (z_dim > 1)
+
+    return is_stack, (z_dim, t_dim)
+
+
 def get_acquisition_date(file_path: str) -> Optional[datetime]:
     """
     Extract the acquisition date from the OME-TIFF metadata of the given file.

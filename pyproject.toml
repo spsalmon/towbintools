@@ -1,6 +1,6 @@
 [project]
 name = "towbintools"
-version = "0.3.11"
+version = "0.3.12"
 authors = [
   {name="Sacha Psalmon", email="sacha.psalmon@unibe.ch" },
   {name="Boris Gusev", email="boris.gusev@unibe.ch" }
