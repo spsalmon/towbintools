@@ -495,6 +495,7 @@ def check_if_stack(
             t_dim, z_dim = shape[0], shape[1]
         else:
             is_stack = False
+            t_dim, z_dim = 1, 1  # assume single image
     else:
         t_dim, z_dim = dimensions.get("t_dim", 1), dimensions.get("z_dim", 1)
         is_stack = (t_dim > 1) or (z_dim > 1)
