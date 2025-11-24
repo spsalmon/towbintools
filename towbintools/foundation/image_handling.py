@@ -476,6 +476,8 @@ def check_if_stack(
     if dimensions is None:
         # try to infer it from the image shape
         shape = get_shape_from_tiff(file_path, channels_to_keep=channels_to_keep)
+        if channels_to_keep is None:
+            channels_to_keep = []  # ensure it's a list
         print(f"Inferred shape: {shape}")
         if len(shape) == 3 and len(channels_to_keep) == 1:
             # assume (z,y,x)

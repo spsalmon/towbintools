@@ -125,7 +125,7 @@ def get_experiment_dir_filemap(
         raw_timepoint_list, columns=["Time", "Point", "ImagePath"]
     )
     experiment_filemap = fill_empty_timepoints(raw_filemap)
-    experiment_filemap.rename(columns={"ImagePath": "raw"}, inplace=True)
+    experiment_filemap.rename(columns={"ImagePath": raw_dir}, inplace=True)
 
     analysis_dir = os.path.join(dir_path, analysis_dir)
     if os.path.exists(analysis_dir):
