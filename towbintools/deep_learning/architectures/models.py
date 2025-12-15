@@ -17,13 +17,12 @@ from towbintools.deep_learning.utils.loss import PeakWeightedMSELoss
 
 
 class PretrainedClassificationModel(pl.LightningModule):
-    """Pytorch Lightning Module for training a classification model with a pretrained weights. The model and weights are loaded from the pretrained_microscopy_models package.
-    Because of the way they were pretrained, input images are required to have 3 channels.
+    """Pytorch Lightning Module for training a classification model with a pretrained weights.
 
     Parameters:
             architecture (str): The architecture of the classification model.
             input_channels (int): The number of input channels.
-            n_classes (int): The number of classes in the segmentation task.
+            classes (list[str]): The list of classes in the classification task.
             learning_rate (float): The learning rate for the optimizer.
             normalization (dict): Parameters for the normalization.
     """
@@ -32,11 +31,13 @@ class PretrainedClassificationModel(pl.LightningModule):
         self,
         architecture,
         input_channels,
-        n_classes,
+        classes,
         learning_rate,
         normalization,
     ):
         super().__init__()
+        classes = list(set(classes))
+        n_classes = len(classes)
         if n_classes == 1:
             self.activation = nn.Sigmoid()
         else:
@@ -51,6 +52,7 @@ class PretrainedClassificationModel(pl.LightningModule):
 
         self.model = model
         self.learning_rate = learning_rate
+        self.classes = classes
         self.n_classes = n_classes
         if n_classes == 2:
             self.criterion = nn.BCEWithLogitsLoss()
@@ -144,8 +146,7 @@ class PretrainedClassificationModel(pl.LightningModule):
 
 
 class PretrainedSegmentationModel(pl.LightningModule):
-    """Pytorch Lightning Module for training a segmentation model with a pretrained encoder. The encoder is loaded from the pretrained_microscopy_models package.
-    This model automatically contains an activation layer at the end addapted to the number of classes.
+    """Pytorch Lightning Module for training a segmentation model with a pretrained encoder.
 
     Parameters:
             input_channels (int): The number of input channels.

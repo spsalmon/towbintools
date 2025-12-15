@@ -37,6 +37,8 @@ class TiledSegmentationDataset(Dataset):
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
+        if not isinstance(channels, list):
+            channels = [channels]
         self.channels = channels
         self.image_slicers = image_slicers
         self.transform = transform
@@ -45,7 +47,7 @@ class TiledSegmentationDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, i):
-        img = image_handling.read_tiff_file(self.images[i], [self.channels])
+        img = image_handling.read_tiff_file(self.images[i], self.channels)
         mask = image_handling.read_tiff_file(self.ground_truth[i])
 
         if self.transform is not None:
@@ -83,8 +85,12 @@ class SegmentationDataset(Dataset):
     ):
         self.images = dataset[image_column].values.tolist()
         self.ground_truth = dataset[mask_column].values.tolist()
+        if not isinstance(channels, list):
+            channels = [channels]
         self.channels = channels
         self.transform = transform
+        if enforce_divisibility_by is None:
+            enforce_divisibility_by = 1
         self.enforce_divisibility_by = enforce_divisibility_by
         if pad_or_crop not in ["pad", "crop"]:
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
@@ -106,7 +112,7 @@ class SegmentationDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, i):
-        img = image_handling.read_tiff_file(self.images[i], [self.channels])
+        img = image_handling.read_tiff_file(self.images[i], self.channels)
         mask = image_handling.read_tiff_file(self.ground_truth[i])
 
         if self.transform is not None:
@@ -114,28 +120,40 @@ class SegmentationDataset(Dataset):
             img = transformed["image"]
             mask = transformed["mask"]
 
-        if self.enforce_divisibility_by is not None:
-            dim_x, dim_y = img.shape[-2:]
-
-            if (
-                dim_x % self.enforce_divisibility_by != 0
-                or dim_y % self.enforce_divisibility_by != 0
-            ):
-                new_dim_x = self.multiplier_function(
-                    dim_x, self.enforce_divisibility_by
-                )
-                new_dim_y = self.multiplier_function(
-                    dim_y, self.enforce_divisibility_by
-                )
-
-                img = self.resize_function(img, new_dim_x, new_dim_y)
-                mask = self.mask_resize_function(mask, new_dim_x, new_dim_y)
-
         if len(img.shape) == 2:
             img = img[np.newaxis, ...]
         mask = mask[np.newaxis, ...]
 
         return img.astype(np.float32), mask
+
+    def collate_fn(self, batch):
+        imgs, masks = zip(*batch)
+
+        original_shapes = [img.shape for img in imgs]
+
+        # find the maximum dimensions in the batch
+        if self.pad_or_crop == "pad":
+            dim_x = max([shape[-2] for shape in original_shapes])
+            dim_y = max([shape[-1] for shape in original_shapes])
+        else:
+            dim_x = min([shape[-2] for shape in original_shapes])
+            dim_y = min([shape[-1] for shape in original_shapes])
+
+        # find the new dimensions
+        new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
+        new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
+
+        # resize the images
+        resized_images = []
+        resized_masks = []
+        for img, mask in zip(imgs, masks):
+            resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
+            resized_masks.append(self.mask_resize_function(mask, new_dim_x, new_dim_y))
+
+        resized_images = np.array(resized_images, dtype=np.float32)
+        resized_masks = np.array(resized_masks, dtype=np.float32)
+
+        return resized_images, resized_masks
 
 
 class SegmentationPredictionDataset(Dataset):
@@ -148,8 +166,12 @@ class SegmentationPredictionDataset(Dataset):
         pad_or_crop="pad",
     ):
         self.images = image_paths
+        if not isinstance(channels, list):
+            channels = [channels]
         self.channels = channels
         self.transform = transform
+        if enforce_divisibility_by is None:
+            enforce_divisibility_by = 1
         self.enforce_divisibility_by = enforce_divisibility_by
         if pad_or_crop not in ["pad", "crop"]:
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
@@ -168,7 +190,7 @@ class SegmentationPredictionDataset(Dataset):
 
     def __getitem__(self, i):
         img_path = self.images[i]
-        img = image_handling.read_tiff_file(img_path, [self.channels])
+        img = image_handling.read_tiff_file(img_path, self.channels)
 
         if self.transform is not None:
             transformed = self.transform(image=img)
@@ -181,9 +203,6 @@ class SegmentationPredictionDataset(Dataset):
 
     def collate_fn(self, batch):
         img_paths, imgs, original_shapes = zip(*batch)
-
-        if self.enforce_divisibility_by is None:
-            return img_paths, imgs, original_shapes
 
         # find the maximum dimensions in the batch
         if self.pad_or_crop == "pad":
@@ -215,10 +234,14 @@ class StackPredictionDataset(Dataset):
         enforce_divisibility_by=32,
         pad_or_crop="pad",
     ):
+        if not isinstance(channels, list):
+            channels = [channels]
+
         if isinstance(stack, str):
             stack = image_handling.read_tiff_file(stack, channels_to_keep=channels)
 
         self.stack_shape = stack.shape
+
         self.channels = channels
         self.transform = transform
         self.enforce_divisibility_by = enforce_divisibility_by
@@ -292,6 +315,186 @@ class ClassificationDataset(Dataset):
             img = img[np.newaxis, ...]
 
         return img.astype(np.float32), class_value
+
+
+class QualityControlDataset(Dataset):
+    def __init__(
+        self,
+        image_paths,
+        mask_paths,
+        channels,
+        labels,
+        classes,
+        enforce_divisibility_by=32,
+        resize_method="pad",
+        transform=None,
+    ):
+        self.images = image_paths
+        self.masks = mask_paths
+        if not isinstance(channels, list):
+            channels = [channels]
+        self.channels = channels
+
+        classes = list(set(classes))
+        if isinstance(labels[0], str):
+            label_mapping = {cls: i for i, cls in enumerate(classes)}
+            labels = [label_mapping[label] for label in labels]
+
+        # if there are more than 2 classes, convert labels to one-hot encoding
+        if len(classes) > 2:
+            labels = np.eye(len(classes))[labels].astype(np.int64)
+
+        self.classes = classes
+        if enforce_divisibility_by is None:
+            enforce_divisibility_by = 1
+        self.enforce_divisibility_by = enforce_divisibility_by
+
+        self.resize_method = resize_method
+        if resize_method == "pad":
+            self.resize_function = pad_series_to_length
+            self.multiplier_function = get_closest_upper_multiple
+        elif resize_method == "crop":
+            self.resize_function = crop_series_to_length
+            self.multiplier_function = get_closest_lower_multiple
+
+        self.transform = transform
+        self.n_classes = len(set(classes))
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, i):
+        img = image_handling.read_tiff_file(self.images[i], self.channels)
+        mask = image_handling.read_tiff_file(self.masks[i])
+        label = self.labels[i]
+        if self.transform is not None:
+            transformed = self.transform(image=img, mask=mask)
+            img = transformed["image"]
+            mask = transformed["mask"]
+
+        if len(img.shape) == 2:
+            img = img[np.newaxis, ...]
+        if len(mask.shape) == 2:
+            mask = mask[np.newaxis, ...]
+        return img.astype(np.float32), mask.astype(np.float32), label
+
+    def collate_fn(self, batch):
+        # for training, we can simply remove any masks that have no foreground
+        imgs, masks, labels = zip(*batch)
+
+        valid_indices = [i for i, mask in enumerate(masks) if np.sum(mask) > 0]
+        imgs = [imgs[i] for i in valid_indices]
+        masks = [masks[i] for i in valid_indices]
+        labels = [labels[i] for i in valid_indices]
+
+        original_shapes = [img.shape for img in imgs]
+
+        # find the maximum dimensions in the batch
+        if self.resize_method == "pad":
+            dim_x = max([shape[-2] for shape in original_shapes])
+            dim_y = max([shape[-1] for shape in original_shapes])
+        else:
+            dim_x = min([shape[-2] for shape in original_shapes])
+            dim_y = min([shape[-1] for shape in original_shapes])
+
+        # find the new dimensions
+        new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
+        new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
+
+        # resize the images
+        resized_images = []
+        resized_masks = []
+        for img, mask in zip(imgs, masks):
+            resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
+            resized_masks.append(self.resize_function(mask, new_dim_x, new_dim_y))
+
+        resized_images = np.array(resized_images, dtype=np.float32)
+        resized_masks = np.array(resized_masks, dtype=np.float32)
+        labels = np.array(labels, dtype=np.int64)
+
+        return resized_images, resized_masks, labels
+
+
+class QualityControlPredictionDataset(Dataset):
+    def __init__(
+        self,
+        image_paths,
+        mask_paths,
+        channels,
+        enforce_divisibility_by=32,
+        resize_method="pad",
+        transform=None,
+    ):
+        self.images = image_paths
+        self.masks = mask_paths
+        if not isinstance(channels, list):
+            channels = [channels]
+        self.channels = channels
+        if enforce_divisibility_by is None:
+            enforce_divisibility_by = 1
+        self.enforce_divisibility_by = enforce_divisibility_by
+
+        self.resize_method = resize_method
+        if resize_method == "pad":
+            self.resize_function = pad_series_to_length
+            self.multiplier_function = get_closest_upper_multiple
+        elif resize_method == "crop":
+            self.resize_function = crop_series_to_length
+            self.multiplier_function = get_closest_lower_multiple
+
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, i):
+        img = image_handling.read_tiff_file(self.images[i], self.channels)
+        mask = image_handling.read_tiff_file(self.masks[i])
+        if self.transform is not None:
+            transformed = self.transform(image=img, mask=mask)
+            img = transformed["image"]
+            mask = transformed["mask"]
+
+        if len(img.shape) == 2:
+            img = img[np.newaxis, ...]
+        if len(mask.shape) == 2:
+            mask = mask[np.newaxis, ...]
+        return img.astype(np.float32), mask.astype(np.float32)
+
+    def collate_fn(self, batch):
+        imgs, masks = zip(*batch)
+
+        # this time we remove all masks that have no foreground, but we keep their indices
+        valid_indices = [i for i, mask in enumerate(masks) if np.sum(mask) > 0]
+        removed_indices = [i for i in range(len(masks)) if i not in valid_indices]
+        imgs = [imgs[i] for i in valid_indices]
+        masks = [masks[i] for i in valid_indices]
+
+        original_shapes = [img.shape for img in imgs]
+
+        # find the maximum dimensions in the batch
+        if self.resize_method == "pad":
+            dim_x = max([shape[-2] for shape in original_shapes])
+            dim_y = max([shape[-1] for shape in original_shapes])
+        else:
+            dim_x = min([shape[-2] for shape in original_shapes])
+            dim_y = min([shape[-1] for shape in original_shapes])
+
+        # find the new dimensions
+        new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
+        new_dim_y = self.multiplier_function(dim_y, self.enforce_divisibility_by)
+
+        # resize the images
+        resized_images = []
+        resized_masks = []
+        for img, mask in zip(imgs, masks):
+            resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
+            resized_masks.append(self.resize_function(mask, new_dim_x, new_dim_y))
+
+        resized_images = np.array(resized_images, dtype=np.float32)
+        resized_masks = np.array(resized_masks, dtype=np.float32)
+
+        return resized_images, resized_masks, removed_indices
 
 
 class KeypointDetection1DTrainingDataset(Dataset):

@@ -58,17 +58,19 @@ class EnforceNChannels(ImageOnlyTransform):
 
 
 class CustomFlip(DualTransform):
-    """Flip the input image horizontally or vertically with a given probability. Works well with images ordered in the OME-TIFF way."""
+    """Flip the input image horizontally, vertically, or both with a given probability. Works well with images ordered in the OME-TIFF way."""
 
     def __init__(self, always_apply=False, p=0.5):
         super().__init__(p=p)
-        self.axis = np.random.choice([-1, -2])
+        flip_options = [(-2,), (-1,), (-1, -2)]
+        self.axis = np.random.choice([0, 1, 2])
+        self.flip_axes = flip_options[self.axis]
 
     def apply(self, img, **params):
-        return np.flip(img, axis=self.axis)
+        return np.flip(img, axis=self.flip_axes)
 
     def apply_to_mask(self, img, **params):
-        return np.flip(img, axis=self.axis)
+        return np.flip(img, axis=self.flip_axes)
 
     def get_transform_init_args_names(self):
         return ()
@@ -90,6 +92,32 @@ class CustomRotate90(DualTransform):
 
     def get_transform_init_args_names(self):
         return ()
+
+
+def get_qc_training_augmentation(normalization_type, **kwargs):
+    train_transform = [
+        CustomFlip(p=0.75),
+        albu.RandomGamma(p=0.5),
+    ]
+
+    if normalization_type == "data_range":
+        train_transform.append(NormalizeDataRange())
+    elif normalization_type == "mean_std":
+        train_transform.append(NormalizeMeanStd(kwargs["mean"], kwargs["std"]))
+    elif normalization_type == "percentile":
+        try:
+            train_transform.append(
+                NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"])
+            )
+        except KeyError:
+            train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
+
+    enforce_n_channels = kwargs.get("enforce_n_channels", None)
+
+    if enforce_n_channels is not None:
+        train_transform.append(EnforceNChannels(enforce_n_channels))
+
+    return albu.Compose(train_transform)
 
 
 def get_training_augmentation(normalization_type, **kwargs):
