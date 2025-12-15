@@ -150,8 +150,8 @@ class SegmentationDataset(Dataset):
             resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
             resized_masks.append(self.mask_resize_function(mask, new_dim_x, new_dim_y))
 
-        resized_images = np.array(resized_images, dtype=np.float32)
-        resized_masks = np.array(resized_masks, dtype=np.float32)
+        resized_images = torch.tensor(np.array(resized_images), dtype=torch.float32)
+        resized_masks = torch.tensor(np.array(resized_masks), dtype=torch.float32)
 
         return resized_images, resized_masks
 
@@ -220,8 +220,7 @@ class SegmentationPredictionDataset(Dataset):
         resized_images = []
         for img in imgs:
             resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
-        resized_images = np.array(resized_images, dtype=np.float32)
-
+        resized_images = torch.tensor(np.array(resized_images), dtype=torch.float32)
         return img_paths, resized_images, original_shapes
 
 
@@ -344,6 +343,8 @@ class QualityControlDataset(Dataset):
         if len(classes) > 2:
             labels = np.eye(len(classes))[labels].astype(np.int64)
 
+        self.labels = labels
+
         self.classes = classes
         if enforce_divisibility_by is None:
             enforce_divisibility_by = 1
@@ -351,10 +352,10 @@ class QualityControlDataset(Dataset):
 
         self.resize_method = resize_method
         if resize_method == "pad":
-            self.resize_function = pad_series_to_length
+            self.resize_function = image_handling.pad_to_dim_equally
             self.multiplier_function = get_closest_upper_multiple
         elif resize_method == "crop":
-            self.resize_function = crop_series_to_length
+            self.resize_function = image_handling.crop_to_dim_equally
             self.multiplier_function = get_closest_lower_multiple
 
         self.transform = transform
@@ -366,6 +367,10 @@ class QualityControlDataset(Dataset):
     def __getitem__(self, i):
         img = image_handling.read_tiff_file(self.images[i], self.channels)
         mask = image_handling.read_tiff_file(self.masks[i])
+
+        if img.shape != mask.shape:
+            # pad the smaller one to match the larger one
+            img, mask = image_handling.pad_images_to_same_dim(img, mask)
         label = self.labels[i]
         if self.transform is not None:
             transformed = self.transform(image=img, mask=mask)
@@ -376,26 +381,41 @@ class QualityControlDataset(Dataset):
             img = img[np.newaxis, ...]
         if len(mask.shape) == 2:
             mask = mask[np.newaxis, ...]
-        return img.astype(np.float32), mask.astype(np.float32), label
+        combined_imgs = np.concatenate([img, mask], axis=0)
+        return combined_imgs, label
 
     def collate_fn(self, batch):
         # for training, we can simply remove any masks that have no foreground
-        imgs, masks, labels = zip(*batch)
+        combined_imgs, labels = zip(*batch)
 
-        valid_indices = [i for i, mask in enumerate(masks) if np.sum(mask) > 0]
-        imgs = [imgs[i] for i in valid_indices]
-        masks = [masks[i] for i in valid_indices]
+        valid_indices = [
+            i for i, img in enumerate(combined_imgs) if np.sum(img[-1]) > 0
+        ]
+        combined_imgs = [combined_imgs[i] for i in valid_indices]
         labels = [labels[i] for i in valid_indices]
 
-        original_shapes = [img.shape for img in imgs]
+        original_shapes = [img.shape for img in combined_imgs]
 
         # find the maximum dimensions in the batch
+        # images will have wildly different sizes, so we cap the maximum size to avoid OOM
+        # we also enforce a minimum size to avoid too much cropping
+        MAX_DIM_X = 2048
+        MIN_DIM_X = 64
+        MAX_DIM_Y = 1024
+        MIN_DIM_Y = 64
+
         if self.resize_method == "pad":
             dim_x = max([shape[-2] for shape in original_shapes])
             dim_y = max([shape[-1] for shape in original_shapes])
+            # Cap at maximum
+            dim_x = min(dim_x, MAX_DIM_X)
+            dim_y = min(dim_y, MAX_DIM_Y)
         else:
             dim_x = min([shape[-2] for shape in original_shapes])
             dim_y = min([shape[-1] for shape in original_shapes])
+            # Enforce minimum
+            dim_x = max(dim_x, MIN_DIM_X)
+            dim_y = max(dim_y, MIN_DIM_Y)
 
         # find the new dimensions
         new_dim_x = self.multiplier_function(dim_x, self.enforce_divisibility_by)
@@ -403,16 +423,25 @@ class QualityControlDataset(Dataset):
 
         # resize the images
         resized_images = []
-        resized_masks = []
-        for img, mask in zip(imgs, masks):
-            resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
-            resized_masks.append(self.resize_function(mask, new_dim_x, new_dim_y))
+        for img in combined_imgs:
+            if img.shape[-2] > dim_x or img.shape[-1] > dim_y:
+                img = image_handling.crop_to_dim_equally(
+                    img, min(img.shape[-2], dim_x), min(img.shape[-1], dim_y)
+                )
+            elif img.shape[-2] < dim_x or img.shape[-1] < dim_y:
+                img = image_handling.pad_to_dim_equally(
+                    img, max(img.shape[-2], dim_x), max(img.shape[-1], dim_y)
+                )
+            resized_images.append(img)
 
-        resized_images = np.array(resized_images, dtype=np.float32)
-        resized_masks = np.array(resized_masks, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        resized_img = self.resize_function(
+            np.array(resized_images), new_dim_x, new_dim_y
+        )
+        resized_images.append(resized_img)
 
-        return resized_images, resized_masks, labels
+        resized_images = torch.tensor(np.array(resized_images), dtype=torch.float32)
+        labels = torch.tensor(np.array(labels), dtype=torch.int64)
+        return resized_images, labels
 
 
 class QualityControlPredictionDataset(Dataset):
@@ -450,6 +479,11 @@ class QualityControlPredictionDataset(Dataset):
     def __getitem__(self, i):
         img = image_handling.read_tiff_file(self.images[i], self.channels)
         mask = image_handling.read_tiff_file(self.masks[i])
+
+        if img.shape != mask.shape:
+            # pad the smaller one to match the larger one
+            img, mask = image_handling.pad_images_to_same_dim(img, mask)
+
         if self.transform is not None:
             transformed = self.transform(image=img, mask=mask)
             img = transformed["image"]
@@ -457,20 +491,26 @@ class QualityControlPredictionDataset(Dataset):
 
         if len(img.shape) == 2:
             img = img[np.newaxis, ...]
+
         if len(mask.shape) == 2:
             mask = mask[np.newaxis, ...]
-        return img.astype(np.float32), mask.astype(np.float32)
+        combined_imgs = np.concatenate([img, mask], axis=0)
+
+        return combined_imgs.astype(np.float32)
 
     def collate_fn(self, batch):
-        imgs, masks = zip(*batch)
+        # for prediction, we need to keep track of which masks have no foreground, to automatically mark them as unusable
+        combined_imgs = batch
 
-        # this time we remove all masks that have no foreground, but we keep their indices
-        valid_indices = [i for i, mask in enumerate(masks) if np.sum(mask) > 0]
-        removed_indices = [i for i in range(len(masks)) if i not in valid_indices]
-        imgs = [imgs[i] for i in valid_indices]
-        masks = [masks[i] for i in valid_indices]
+        valid_indices = [
+            i for i, img in enumerate(combined_imgs) if np.sum(img[-1]) > 0
+        ]
+        rejected_indices = [
+            i for i in range(len(combined_imgs)) if i not in valid_indices
+        ]
+        combined_imgs = [combined_imgs[i] for i in valid_indices]
 
-        original_shapes = [img.shape for img in imgs]
+        original_shapes = [img.shape for img in combined_imgs]
 
         # find the maximum dimensions in the batch
         if self.resize_method == "pad":
@@ -486,15 +526,13 @@ class QualityControlPredictionDataset(Dataset):
 
         # resize the images
         resized_images = []
-        resized_masks = []
-        for img, mask in zip(imgs, masks):
-            resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
-            resized_masks.append(self.resize_function(mask, new_dim_x, new_dim_y))
+        for img in combined_imgs:
+            resized_img = self.resize_function(img, new_dim_x, new_dim_y)
+            resized_images.append(resized_img)
 
-        resized_images = np.array(resized_images, dtype=np.float32)
-        resized_masks = np.array(resized_masks, dtype=np.float32)
+        resized_images = torch.tensor(np.array(resized_images), dtype=torch.float32)
 
-        return resized_images, resized_masks, removed_indices
+        return resized_images, rejected_indices
 
 
 class KeypointDetection1DTrainingDataset(Dataset):

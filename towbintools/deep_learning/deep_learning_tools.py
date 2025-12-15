@@ -1,9 +1,48 @@
 from towbintools.deep_learning.architectures import KeypointDetection1DModel
+from towbintools.deep_learning.architectures import PretrainedClassificationModel
 from towbintools.deep_learning.architectures import PretrainedSegmentationModel
 from towbintools.deep_learning.architectures import SegmentationModel
 from towbintools.deep_learning.utils.util import (
     get_input_channels_from_checkpoint,
 )
+
+
+def create_classification_model(
+    architecture,
+    input_channels,
+    classes,
+    learning_rate=1e-4,
+    checkpoint_path=None,
+    normalization={"type": "percentile", "lo": 1, "hi": 99},
+):
+    """
+    Create a classification model.
+
+    Parameters:
+        architecture (str): The architecture of the classification model.
+        input_channels (int): The number of input channels.
+        classes (list[str]): The list of class names.
+        learning_rate (float): The learning rate for the optimizer.
+        checkpoint_path (str): Path to a checkpoint file.
+        criterion (torch.nn.Module): The loss function.
+        activation (str): The activation function to use.
+
+    Returns:
+        PretrainedClassificationModel: The classification model.
+    """
+
+    if checkpoint_path is not None:
+        model = PretrainedClassificationModel.load_from_checkpoint(checkpoint_path)
+        return model
+
+    model = PretrainedClassificationModel(
+        architecture,
+        input_channels,
+        classes,
+        learning_rate,
+        normalization,
+    )
+    return model
 
 
 def create_pretrained_segmentation_model(
@@ -171,7 +210,7 @@ def create_keypoint_detection_model(
     return model
 
 
-def load_pretrained_model_from_checkpoint(checkpoint_path):
+def load_pretrained_segmentation_model_from_checkpoint(checkpoint_path):
     """Load a pretrained segmentation model from a checkpoint. If the model cannot be loaded
     tries to load it with the default number of input channels.
 
@@ -249,7 +288,7 @@ def load_segmentation_model_from_checkpoint(checkpoint_path):
     """
 
     try:
-        return load_pretrained_model_from_checkpoint(checkpoint_path)
+        return load_pretrained_segmentation_model_from_checkpoint(checkpoint_path)
     except Exception as e:
         try:
             return load_scratch_segmentation_model_from_checkpoint(checkpoint_path)
