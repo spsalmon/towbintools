@@ -36,7 +36,6 @@ class PretrainedClassificationModel(pl.LightningModule):
         normalization,
     ):
         super().__init__()
-        classes = list(set(classes))
         n_classes = len(classes)
         if n_classes == 1:
             self.activation = nn.Sigmoid()
@@ -80,11 +79,13 @@ class PretrainedClassificationModel(pl.LightningModule):
             raise ValueError("TensorBoard Logger not found")
 
     def training_step(self, batch):
+        if batch is None:
+            return None
         x, y = batch
-        y_hat = self.model(x).squeeze()
+        y_hat = self.model(x)
         if y_hat.dim() == 0:
             y_hat = y_hat.unsqueeze(0)
-        y = y.to(torch.float)
+
         loss = self.criterion(y_hat, y)
         self.log(
             "train_loss",
@@ -97,6 +98,9 @@ class PretrainedClassificationModel(pl.LightningModule):
         )
 
         y_hat = self.activation(y_hat)
+
+        if self.n_classes > 2:
+            y_hat = torch.argmax(y_hat, dim=1)
 
         f1_score = self.f1_score(y_hat, y)
         self.log(
@@ -111,11 +115,13 @@ class PretrainedClassificationModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch):
+        if batch is None:
+            return None
         x, y = batch
-        y_hat = self.model(x).squeeze()
+        y_hat = self.model(x)
         if y_hat.dim() == 0:
             y_hat = y_hat.unsqueeze(0)
-        y = y.to(torch.float)
+
         loss = self.criterion(y_hat, y)
         self.log(
             "val_loss",
@@ -128,6 +134,9 @@ class PretrainedClassificationModel(pl.LightningModule):
         )
 
         y_hat = self.activation(y_hat)
+
+        if self.n_classes > 2:
+            y_hat = torch.argmax(y_hat, dim=1)
 
         f1_score = self.f1_score(y_hat, y)
         self.log(

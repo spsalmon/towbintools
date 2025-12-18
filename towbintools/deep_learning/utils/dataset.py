@@ -334,14 +334,14 @@ class QualityControlDataset(Dataset):
             channels = [channels]
         self.channels = channels
 
-        classes = list(set(classes))
+        classes = list(classes)
         if isinstance(labels[0], str):
             label_mapping = {cls: i for i, cls in enumerate(classes)}
             labels = [label_mapping[label] for label in labels]
 
         # if there are more than 2 classes, convert labels to one-hot encoding
-        if len(classes) > 2:
-            labels = np.eye(len(classes))[labels].astype(np.int64)
+        # if len(classes) > 2:
+        #     labels = np.eye(len(classes))[labels].astype(np.int64)
 
         self.labels = labels
 
@@ -359,7 +359,7 @@ class QualityControlDataset(Dataset):
             self.multiplier_function = get_closest_lower_multiple
 
         self.transform = transform
-        self.n_classes = len(set(classes))
+        self.n_classes = len(classes)
 
     def __len__(self):
         return len(self.images)
@@ -382,6 +382,7 @@ class QualityControlDataset(Dataset):
         if len(mask.shape) == 2:
             mask = mask[np.newaxis, ...]
         combined_imgs = np.concatenate([img, mask], axis=0)
+        # combined_imgs = img.copy()
         return combined_imgs, label
 
     def collate_fn(self, batch):
@@ -391,8 +392,12 @@ class QualityControlDataset(Dataset):
         valid_indices = [
             i for i, img in enumerate(combined_imgs) if np.sum(img[-1]) > 0
         ]
-        combined_imgs = [combined_imgs[i] for i in valid_indices]
-        labels = [labels[i] for i in valid_indices]
+
+        if len(valid_indices) <= 1:
+            return None
+        else:
+            combined_imgs = [combined_imgs[i] for i in valid_indices]
+            labels = [labels[i] for i in valid_indices]
 
         original_shapes = [img.shape for img in combined_imgs]
 
@@ -400,20 +405,20 @@ class QualityControlDataset(Dataset):
         # images will have wildly different sizes, so we cap the maximum size to avoid OOM
         # we also enforce a minimum size to avoid too much cropping
         MAX_DIM_X = 2048
-        MIN_DIM_X = 64
-        MAX_DIM_Y = 1024
+        MIN_DIM_X = 32
+        MAX_DIM_Y = 2048
         MIN_DIM_Y = 64
 
         if self.resize_method == "pad":
             dim_x = max([shape[-2] for shape in original_shapes])
             dim_y = max([shape[-1] for shape in original_shapes])
-            # Cap at maximum
+
             dim_x = min(dim_x, MAX_DIM_X)
             dim_y = min(dim_y, MAX_DIM_Y)
         else:
             dim_x = min([shape[-2] for shape in original_shapes])
             dim_y = min([shape[-1] for shape in original_shapes])
-            # Enforce minimum
+
             dim_x = max(dim_x, MIN_DIM_X)
             dim_y = max(dim_y, MIN_DIM_Y)
 
@@ -424,23 +429,23 @@ class QualityControlDataset(Dataset):
         # resize the images
         resized_images = []
         for img in combined_imgs:
-            if img.shape[-2] > dim_x or img.shape[-1] > dim_y:
+            img_h, img_w = img.shape[-2], img.shape[-1]
+
+            if img_h > new_dim_x or img_w > new_dim_y:
                 img = image_handling.crop_to_dim_equally(
-                    img, min(img.shape[-2], dim_x), min(img.shape[-1], dim_y)
+                    img, min(img_h, new_dim_x), min(img_w, new_dim_y)
                 )
-            elif img.shape[-2] < dim_x or img.shape[-1] < dim_y:
+
+            if img_h < new_dim_x or img_w < new_dim_y:
                 img = image_handling.pad_to_dim_equally(
-                    img, max(img.shape[-2], dim_x), max(img.shape[-1], dim_y)
+                    img, new_dim_x, new_dim_y, pad_value=0
                 )
+
             resized_images.append(img)
 
-        resized_img = self.resize_function(
-            np.array(resized_images), new_dim_x, new_dim_y
-        )
-        resized_images.append(resized_img)
-
         resized_images = torch.tensor(np.array(resized_images), dtype=torch.float32)
-        labels = torch.tensor(np.array(labels), dtype=torch.int64)
+        labels = torch.tensor(np.array(labels), dtype=torch.long)
+
         return resized_images, labels
 
 

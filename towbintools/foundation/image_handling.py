@@ -60,7 +60,7 @@ def pad_to_dim_equally(
     Raises:
         ValueError: If target dimensions are smaller than input dimensions.
     """
-    if xdim < image.shape[0] or ydim < image.shape[1]:
+    if xdim < image.shape[-2] or ydim < image.shape[-1]:
         raise ValueError("Target dimensions cannot be smaller than image dimensions")
 
     x_total = xdim - image.shape[-2]
