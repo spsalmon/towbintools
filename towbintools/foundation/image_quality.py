@@ -14,7 +14,7 @@ def normalized_variance_measure(
     Returns:
             float: The computed normalized variance value.
     """
-    mean = np.mean(image)
+    mean = np.mean(image) + 1e-8  # to avoid division by zero
     var = np.var(image)
     return np.divide(var, mean)
 

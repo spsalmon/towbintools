@@ -127,20 +127,20 @@ def random_crop_series_to_length(series, new_length):
         raise ValueError("Input series must be 1D or 2D array.")
 
 
-def correct_series_with_classification(series, worm_type):
+def correct_series_with_classification(series, qc):
     """
     Remove the points of non-worms from the time series and interpolate them back.
 
     Parameters:
         series (np.ndarray): The time series of values.
-        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
 
     Returns:
         np.ndarray: The corrected time series.
     """
 
     # Set the series of non worms to NaN
-    non_worms_indices = worm_type != "worm"
+    non_worms_indices = qc != "worm"
     series_worms = series.copy()
     series_worms[non_worms_indices] = np.nan
 
@@ -153,18 +153,18 @@ def correct_series_with_classification(series, worm_type):
     return series_worms
 
 
-def filter_series_with_classification(series, worm_type):
+def filter_series_with_classification(series, qc):
     """Remove the points of non-worms from the time series.
 
     Parameters:
         series (np.ndarray): The time series of values.
-        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
 
     Returns:
         np.ndarray: The filtered time series."""
 
     # Set the series of non worms to NaN
-    non_worms_indices = worm_type != "worm"
+    non_worms_indices = qc != "worm"
     series_worms = series.copy()
     series_worms[non_worms_indices] = np.nan
 
@@ -209,11 +209,9 @@ def interpolate_entire_development(series, time, ecdysis, n_points=100):
     return interpolated_time, interpolated_series
 
 
-def interpolate_entire_development_classified(
-    series, time, ecdysis, worm_type, n_points=100
-):
-    time = filter_series_with_classification(time, worm_type)
-    series = filter_series_with_classification(series, worm_type)
+def interpolate_entire_development_classified(series, time, ecdysis, qc, n_points=100):
+    time = filter_series_with_classification(time, qc)
+    series = filter_series_with_classification(series, qc)
 
     return interpolate_entire_development(time, series, ecdysis, n_points)
 
@@ -221,20 +219,20 @@ def interpolate_entire_development_classified(
 def compute_exponential_series_at_time_classified(
     series: np.ndarray,
     time: np.ndarray,
-    worm_types: np.ndarray,
+    qc: np.ndarray,
     fit_width: int = 10,
 ) -> float:
     """
     Compute the value of a time series at a given time(s) using linear regression on a logarithmic transformation of the data.
 
     This function uses linear regression on a logarithmic transformation of the volume data to predict
-    the volume at the specified hatch time and end-molts. Only data points where `worm_types` is "worm"
+    the volume at the specified hatch time and end-molts. Only data points where `qc` is "worm"
     are used for fitting. The function returns the volume at desired time.
 
     Parameters:
         volume (np.ndarray): A time series representing volume.
         time (np.ndarray): The time(s) at which the volume is to be computed.
-        worm_types (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
+        qc (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
         fit_width (int, optional): Width for the linear regression fit used in computing the volume. (default: 10)
 
     Returns:
@@ -249,7 +247,7 @@ def compute_exponential_series_at_time_classified(
                 dtype=int,
             )
 
-            filtered_fit_x = fit_x[np.where(worm_types[fit_x] == "worm")]
+            filtered_fit_x = fit_x[np.where(qc[fit_x] == "worm")]
             if filtered_fit_x.size != 0:
                 fit_y = np.log(series[filtered_fit_x])
                 try:
@@ -275,7 +273,7 @@ def compute_exponential_series_at_time_classified(
 def smooth_series_classified(
     series: np.ndarray,
     series_time,
-    worm_types: np.ndarray,
+    qc: np.ndarray,
     lmbda=0.0075,
     order=2,
     medfilt_window=5,
@@ -286,7 +284,7 @@ def smooth_series_classified(
     Parameters:
         series (np.ndarray): The time series.
         series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
-        worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
         order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
         medfilt_window (int, optional): The window size for the median filter. (default: 5)
@@ -300,7 +298,7 @@ def smooth_series_classified(
     series = interpolate_nans(series)
 
     # Remove the points of non-worms from the time series and interpolate them back
-    series = correct_series_with_classification(series, worm_types)
+    series = correct_series_with_classification(series, qc)
 
     smoothed_series = _smooth_series(
         series,
@@ -396,7 +394,7 @@ def compute_series_at_time_classified(
     series: np.ndarray,
     time: np.ndarray,
     series_time: np.ndarray,
-    worm_types: np.ndarray,
+    qc: np.ndarray,
     lmbda=0.0075,
     medfilt_window=5,
     bspline_order=3,
@@ -408,7 +406,7 @@ def compute_series_at_time_classified(
         series (np.ndarray): The time series.
         time (np.ndarray): The time points at which the series is to be computed.
         series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
-        worm_types (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
         medfilt_window (int, optional): The window size for the median filter. (default: 5)
         bspline_order (int, optional): The order of the b-spline interpolation. (default: 3)
@@ -427,7 +425,7 @@ def compute_series_at_time_classified(
     series = smooth_series_classified(
         series,
         series_time,
-        worm_types,
+        qc,
         medfilt_window=medfilt_window,
         lmbda=lmbda,
     )
@@ -446,7 +444,7 @@ def compute_series_at_time_classified(
     return interpolated_series(time)
 
 
-def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
+def rescale_series(series, time, ecdysis, qc, points=None, n_points=100):
     """
     Interpolates one or multiple series and the time to have n_points points in total per larval stages.
 
@@ -454,7 +452,7 @@ def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
         series (np.ndarray) : Array of shape (nb_of_worms / points, length of series) containing the series to interpolate.
         time (np.ndarray) : Array of shape (nb_of_worms / points, length of series) containing the time information.
         ecdysis (np.ndarray) : Array of shape (nb_of_worms / points, 5) containing the ecdysis times.
-        worm_type (np.ndarray) : Array of shape (nb_of_worms / points, length of series) containing the worm type classification
+        qc (np.ndarray) : Array of shape (nb_of_worms / points, length of series) containing the worm type classification
         points (list) : List of points to consider for the interpolation. If None, all points are considered.
         n_points (int) : Number of points to interpolate the series to.
 
@@ -465,7 +463,7 @@ def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
     if points is not None:
         series = series[points]
         time = time[points]
-        worm_type = worm_type[points]
+        qc = qc[points]
         ecdysis = ecdysis[points]
 
     # Interpolate the time and the series
@@ -474,11 +472,11 @@ def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
     all_points_interpolated_series = []
 
     for point in range(series.shape[0]):
-        series_point, time_point, ecdysis_point, worm_type_point = (
+        series_point, time_point, ecdysis_point, qc_point = (
             series[point],
             time[point],
             ecdysis[point],
-            worm_type[point],
+            qc[point],
         )
         (
             interpolated_time,
@@ -487,7 +485,7 @@ def rescale_series(series, time, ecdysis, worm_type, points=None, n_points=100):
             series_point,
             time_point,
             ecdysis_point,
-            worm_type_point,
+            qc_point,
             n_points=n_points,
         )
 
@@ -567,7 +565,7 @@ def rescale_and_aggregate(
     time,
     ecdysis,
     larval_stage_durations,
-    worm_type,
+    qc,
     points=None,
     aggregation="mean",
     n_points=100,
@@ -579,7 +577,7 @@ def rescale_and_aggregate(
         series (np.ndarray) : Array of shape (nb_of_worms, length of series) containing the series to interpolate.
         time (np.ndarray) : Array of shape (nb_of_worms, length of series) containing the time information.
         ecdysis (np.ndarray) : Array of shape (nb_of_worms, 5) containing the ecdysis times.
-        worm_type (np.ndarray) : Array of shape (nb_of_worms, length of series) containing the worm type classification
+        qc (np.ndarray) : Array of shape (nb_of_worms, length of series) containing the worm type classification
         points (list) : List of points to consider for the interpolation. If None, all points are considered.
         aggregation (str) : Aggregation method to use. Can be 'mean' or 'median'.
         n_points (int) : Number of points to interpolate the series to.
@@ -594,9 +592,7 @@ def rescale_and_aggregate(
     (
         all_points_interpolated_time,
         all_points_interpolated_series,
-    ) = rescale_series(
-        series, time, ecdysis, worm_type, points=points, n_points=n_points
-    )
+    ) = rescale_series(series, time, ecdysis, qc, points=points, n_points=n_points)
     (
         rescaled_time,
         aggregated_series,

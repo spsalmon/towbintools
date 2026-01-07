@@ -119,7 +119,7 @@ def compute_growth_rate_exponential(
 def compute_growth_rate_classified(
     series,
     time,
-    worm_type,
+    qc,
     method="exponential",
     ignore_start_fraction=0.0,
     ignore_end_fraction=0.0,
@@ -132,7 +132,7 @@ def compute_growth_rate_classified(
     Parameters:
         series (np.ndarray): The time series of values.
         time (np.ndarray): The time data corresponding to the series.
-        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         method (str): The method to use for computing the growth rate. Can be either 'exponential' or 'linear'.
         ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
         ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
@@ -144,10 +144,10 @@ def compute_growth_rate_classified(
     """
 
     assert (
-        len(series) == len(time) == len(worm_type)
-    ), "The series, time, and worm_type must have the same length."
+        len(series) == len(time) == len(qc)
+    ), "The series, time, and qc must have the same length."
 
-    series_worms = correct_series_with_classification(series, worm_type)
+    series_worms = correct_series_with_classification(series, qc)
 
     if method == "exponential":
         growth_rate = compute_growth_rate_exponential(
@@ -205,7 +205,7 @@ def compute_instantaneous_growth_rate(
 def compute_instantaneous_growth_rate_classified(
     series,
     time,
-    worm_type,
+    qc,
     lmbda=0.0075,
     order=2,
     medfilt_window=5,
@@ -216,7 +216,7 @@ def compute_instantaneous_growth_rate_classified(
     Parameters:
         series (np.ndarray): The time series of values.
         time (np.ndarray): The time data corresponding to the series.
-        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
         order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
         medfilt_window (int, optional): The window size for the median filter. (default: 5)
@@ -226,13 +226,11 @@ def compute_instantaneous_growth_rate_classified(
     """
 
     assert (
-        len(series) == len(time) == len(worm_type)
-    ), "The series, time, and worm_type must have the same length."
+        len(series) == len(time) == len(qc)
+    ), "The series, time, and qc must have the same length."
 
     # Correct and smooth the time series
-    series = smooth_series_classified(
-        series, time, worm_type, lmbda, order, medfilt_window
-    )
+    series = smooth_series_classified(series, time, qc, lmbda, order, medfilt_window)
     # Compute the instantaneous growth rate
     growth_rate = np.gradient(series, time)
 
@@ -242,7 +240,7 @@ def compute_instantaneous_growth_rate_classified(
 def compute_growth_rate_per_larval_stage(
     series,
     time,
-    worm_type,
+    qc,
     ecdysis,
     method="exponential",
     ignore_start_fraction=0.0,
@@ -256,7 +254,7 @@ def compute_growth_rate_per_larval_stage(
     Parameters:
         series (np.ndarray): The time series of values.
         time (np.ndarray): The time data corresponding to the series.
-        worm_type (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
+        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
         ecdysis (dict): The ecdysis events of the worm.
         method (str): The method to use for computing the growth rate. Can be either 'exponential' or 'linear'.
         ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
@@ -269,11 +267,11 @@ def compute_growth_rate_per_larval_stage(
     """
 
     assert (
-        len(series) == len(time) == len(worm_type)
-    ), "The series, time, and worm_type, must have the same length."
+        len(series) == len(time) == len(qc)
+    ), "The series, time, and qc, must have the same length."
 
     # Correct the time series
-    series_worms = correct_series_with_classification(series, worm_type)
+    series_worms = correct_series_with_classification(series, qc)
 
     # extract ecdisis indices
     hatch_time = ecdysis["HatchTime"]
@@ -293,12 +291,12 @@ def compute_growth_rate_per_larval_stage(
         else:
             series_worms_stage = series_worms[start:end]
             time_stage = time[start:end]
-            worm_type_stage = worm_type[start:end]
+            qc_stage = qc[start:end]
 
             growth_rate_stage = compute_growth_rate_classified(
                 series_worms_stage,
                 time_stage,
-                worm_type_stage,
+                qc_stage,
                 method,
                 ignore_start_fraction,
                 ignore_end_fraction,
