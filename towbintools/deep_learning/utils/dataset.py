@@ -329,6 +329,7 @@ class QualityControlDataset(Dataset):
         transform=None,
     ):
         self.images = image_paths
+        self.image_only = (mask_paths is None) or (len(mask_paths) == 0)
         self.masks = mask_paths
         if not isinstance(channels, list):
             channels = [channels]
@@ -338,10 +339,6 @@ class QualityControlDataset(Dataset):
         if isinstance(labels[0], str):
             label_mapping = {cls: i for i, cls in enumerate(classes)}
             labels = [label_mapping[label] for label in labels]
-
-        # if there are more than 2 classes, convert labels to one-hot encoding
-        # if len(classes) > 2:
-        #     labels = np.eye(len(classes))[labels].astype(np.int64)
 
         self.labels = labels
 
@@ -366,24 +363,34 @@ class QualityControlDataset(Dataset):
 
     def __getitem__(self, i):
         img = image_handling.read_tiff_file(self.images[i], self.channels)
-        mask = image_handling.read_tiff_file(self.masks[i])
 
-        if img.shape != mask.shape:
-            # pad the smaller one to match the larger one
-            img, mask = image_handling.pad_images_to_same_dim(img, mask)
-        label = self.labels[i]
-        if self.transform is not None:
-            transformed = self.transform(image=img, mask=mask)
-            img = transformed["image"]
-            mask = transformed["mask"]
+        if self.image_only:
+            if self.transform is not None:
+                transformed = self.transform(image=img)
+                img = transformed["image"]
+            if len(img.shape) == 2:
+                img = img[np.newaxis, ...]
+            return img, self.labels[i]
 
-        if len(img.shape) == 2:
-            img = img[np.newaxis, ...]
-        if len(mask.shape) == 2:
-            mask = mask[np.newaxis, ...]
-        combined_imgs = np.concatenate([img, mask], axis=0)
-        # combined_imgs = img.copy()
-        return combined_imgs, label
+        else:
+            mask = image_handling.read_tiff_file(self.masks[i])
+
+            if img.shape != mask.shape:
+                # pad the smaller one to match the larger one
+                img, mask = image_handling.pad_images_to_same_dim(img, mask)
+            label = self.labels[i]
+            if self.transform is not None:
+                transformed = self.transform(image=img, mask=mask)
+                img = transformed["image"]
+                mask = transformed["mask"]
+
+            if len(img.shape) == 2:
+                img = img[np.newaxis, ...]
+            if len(mask.shape) == 2:
+                mask = mask[np.newaxis, ...]
+            combined_imgs = np.concatenate([img, mask], axis=0)
+            # combined_imgs = img.copy()
+            return combined_imgs, label
 
     def collate_fn(self, batch):
         # for training, we can simply remove any masks that have no foreground
