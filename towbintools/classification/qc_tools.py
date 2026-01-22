@@ -68,11 +68,12 @@ def compute_qc_features(
             )
 
         if image is not None:
+            # normalize image
+            image = normalize(image, 1, 99, axis=None)
+
             if image.shape != mask.shape:
                 image, mask = pad_images_to_same_dim(image, mask)
 
-            # normalize image
-            image = normalize(image, 1, 99, axis=None)
             props = regionprops_table(
                 mask,
                 intensity_image=image,

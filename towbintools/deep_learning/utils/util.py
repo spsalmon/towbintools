@@ -49,7 +49,7 @@ def rename_keys_and_adjust_dimensions(model, pretrained_model):
 
 
 def get_input_channels_from_checkpoint(checkpoint_path):
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     state_dict = checkpoint["state_dict"]
 
     input_channels = 0
@@ -71,7 +71,7 @@ def create_lightweight_checkpoint(input_path, output_path):
     except Exception as e:
         print(f"Standard loading failed, trying with safe_globals: {e}")
         with safe_globals([getattr]):
-            checkpoint = torch.load(input_path, map_location="cpu")
+            checkpoint = torch.load(input_path, map_location="cpu", weights_only=False)
 
     original_size = os.path.getsize(input_path) / (1024 * 1024)  # MB
     print(f"Original file size: {original_size:.2f} MB")

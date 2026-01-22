@@ -32,7 +32,9 @@ def create_classification_model(
     """
 
     if checkpoint_path is not None:
-        model = PretrainedClassificationModel.load_from_checkpoint(checkpoint_path)
+        model = PretrainedClassificationModel.load_from_checkpoint(
+            checkpoint_path, weights_only=False
+        )
         return model
 
     model = PretrainedClassificationModel(
@@ -86,7 +88,7 @@ def create_pretrained_segmentation_model(
 
     if checkpoint_path is not None:
         loaded_model = PretrainedSegmentationModel.load_from_checkpoint(
-            checkpoint_path, map_location="cpu"
+            checkpoint_path, map_location="cpu", weights_only=False
         )
 
         if reset_optimizer:
@@ -147,7 +149,9 @@ def create_segmentation_model(
     """
 
     if checkpoint_path is not None:
-        model = SegmentationModel.load_from_checkpoint(checkpoint_path)
+        model = SegmentationModel.load_from_checkpoint(
+            checkpoint_path, weights_only=False
+        )
 
         if reset_optimizer:
             model.optimizer = None
@@ -196,7 +200,9 @@ def create_keypoint_detection_model(
     """
 
     if checkpoint_path is not None:
-        model = KeypointDetection1DModel.load_from_checkpoint(checkpoint_path)
+        model = KeypointDetection1DModel.load_from_checkpoint(
+            checkpoint_path, weights_only=False
+        )
         return model
 
     model = KeypointDetection1DModel(
@@ -224,13 +230,16 @@ def load_pretrained_segmentation_model_from_checkpoint(checkpoint_path):
         ValueError: If the model cannot be loaded from the checkpoint.
     """
     try:
-        return PretrainedSegmentationModel.load_from_checkpoint(checkpoint_path)
+        return PretrainedSegmentationModel.load_from_checkpoint(
+            checkpoint_path, weights_only=False
+        )
     except Exception as e:
         try:
             return PretrainedSegmentationModel.load_from_checkpoint(
                 checkpoint_path,
                 input_channels=get_input_channels_from_checkpoint(checkpoint_path),
                 pretrained_weights=None,
+                weights_only=False,
             )
         except Exception as e2:
             raise ValueError(
@@ -257,13 +266,16 @@ def load_scratch_segmentation_model_from_checkpoint(
         ValueError: If the model cannot be loaded from the checkpoint.
     """
     try:
-        return SegmentationModel.load_from_checkpoint(checkpoint_path)
+        return SegmentationModel.load_from_checkpoint(
+            checkpoint_path, weights_only=False
+        )
     except Exception as e:
         try:
             return SegmentationModel.load_from_checkpoint(
                 checkpoint_path,
                 input_channels=get_input_channels_from_checkpoint(checkpoint_path),
                 deep_supervision=default_deep_supervision,
+                weights_only=False,
             )
         except Exception as e2:
             raise ValueError(
@@ -311,7 +323,9 @@ def load_keypoint_detection_model_from_checkpoint(checkpoint_path):
         ValueError: If the model cannot be loaded from the checkpoint.
     """
     try:
-        return KeypointDetection1DModel.load_from_checkpoint(checkpoint_path)
+        return KeypointDetection1DModel.load_from_checkpoint(
+            checkpoint_path, weights_only=False
+        )
     except Exception as e:
         raise ValueError(
             f"Could not load keypoint detection model from checkpoint {checkpoint_path}. Error: {e}"
