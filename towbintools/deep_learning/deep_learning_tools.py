@@ -105,7 +105,7 @@ def create_pretrained_segmentation_model(
         # check if the architecture matches
         if not isinstance(loaded_model.model, model.model.__class__):
             raise ValueError(
-                f"Checkpoint architecture {loaded_model.model.architecture} does not match the requested architecture {architecture}"
+                f"Checkpoint architecture {loaded_model.architecture} does not match the requested architecture {architecture}"
             )
         # check if the encoder matches
         if loaded_model.model.encoder.__class__ != model.model.encoder.__class__:

@@ -37,7 +37,7 @@ class PretrainedClassificationModel(pl.LightningModule):
     ):
         super().__init__()
         n_classes = len(classes)
-        if n_classes == 1:
+        if n_classes == 2:
             self.activation = nn.Sigmoid()
         else:
             self.activation = nn.Softmax(dim=1)

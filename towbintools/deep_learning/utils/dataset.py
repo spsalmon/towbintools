@@ -665,7 +665,7 @@ class KeypointDetection1DPredictionDataset(Dataset):
         if self.enforce_divisibility_by is None:
             return series, original_shapes
 
-        if self.resize_method == "crop":
+        elif self.resize_method == "crop":
             target_length = min([shape[-1] for shape in original_shapes])
         else:
             target_length = max([shape[-1] for shape in original_shapes])
