@@ -5,7 +5,7 @@ Most of the code is a python translation of our old Matlab pipeline.
 
 This package goes hand in hand with our modular pipelining tool : <https://github.com/spsalmon/towbintools_pipeline>
 
-Documentation : <https://towbintools.readthedocs.io/en/latest/towbintools.html>
+Documentation : <https://towbintools.readthedocs.io/en/latest/index.html>
 ## Install the package using pip
 
 Simply run the following command:
