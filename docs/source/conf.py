@@ -11,7 +11,6 @@
 import datetime
 import os
 import sys
-from importlib.metadata import version
 
 sys.path.insert(0, os.path.abspath("../../"))
 
@@ -20,7 +19,17 @@ sys.path.insert(0, os.path.abspath("../../"))
 
 project = "towbintools"
 author = "Sacha Psalmon"
-release = version("towbintools")
+try:
+    import urllib.request
+    import json
+
+    with urllib.request.urlopen(
+        "https://pypi.org/pypi/towbintools/json", timeout=5
+    ) as response:
+        data = json.loads(response.read())
+        release = data["info"]["version"]
+except Exception:
+    release = "unknown"
 copyright = f"{datetime.datetime.now().year}, Sacha Psalmon, Towbin Lab"
 
 
