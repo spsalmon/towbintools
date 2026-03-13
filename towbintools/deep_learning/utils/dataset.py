@@ -51,7 +51,7 @@ class TiledSegmentationDataset(Dataset):
         mask = image_handling.read_tiff_file(self.ground_truth[i])
 
         if self.transform is not None:
-            transformed = self.transform(image=img, mask=mask)
+            transformed = self.transform({"image": img, "mask": mask})
             img = transformed["image"]
             mask = transformed["mask"]
 
