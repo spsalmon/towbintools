@@ -50,12 +50,14 @@ class Warper:
             raise ValueError(
                 f"Image and Mask shapes don't match: img.shape = {img.shape}, mask.shape = {mask.shape}"
             )
-        mask = mask.astype(bool)
+
         if len(img.shape) == 2:
             img = img[np.newaxis, ...]
             mask = mask[np.newaxis, ...]
 
         validate_mask(mask)
+
+        mask = mask.astype(bool)
 
         # midlines
         mls = []
@@ -281,9 +283,8 @@ def validate_mask(mask: NDArray):
     provided mask should be:
         - 2D or 3D
         - not empty
-        - contain a single object (connected component) on each 2D plane
+        - contain a single object (connected component) on each 2D plane.
     """
-    mask = mask.astype(bool)
     if mask.ndim == 1:
         raise ValueError("Provided mask is 1D, but should either be 2D or 3D")
     elif mask.ndim == 2:
@@ -293,7 +294,7 @@ def validate_mask(mask: NDArray):
             f"Provided mask has {mask.ndim} dimensions, but should either be 2D or 3D"
         )
 
-    if not mask.any():
+    if np.sum(mask) == 0:
         raise ValueError("Mask is empty so cannot be computationally straightened")
 
     for i, plane in enumerate(mask):

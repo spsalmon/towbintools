@@ -233,7 +233,7 @@ class StackPredictionDataset(Dataset):
         enforce_divisibility_by=32,
         pad_or_crop="pad",
     ):
-        if not isinstance(channels, list):
+        if not isinstance(channels, list) and channels is not None:
             channels = [channels]
 
         if isinstance(stack, str):

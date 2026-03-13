@@ -1,296 +1,175 @@
-import albumentations as albu
 import numpy as np
-from albumentations.core.transforms_interface import DualTransform
-from albumentations.core.transforms_interface import ImageOnlyTransform
 from csbdeep.utils import normalize
+from monai.transforms import Compose
+from monai.transforms import RandGaussianSharpen
+from monai.transforms import RandGaussianSmooth
+from monai.transforms import RandLambda
+from monai.transforms import Randomizable
+from monai.transforms import Transform
+from monai.utils import set_track_meta
 
 from towbintools.foundation import image_handling
 
-
-class NormalizeDataRange(ImageOnlyTransform):
-    def __init__(self, always_apply=True, p=1.0):
-        super().__init__(always_apply, p)
-
-    def apply(self, img, **params):
-        return (img - np.min(img)) / (np.max(img) - np.min(img))
-
-    def get_transform_init_args_names(self):
-        return ()
+# Avoid MetaTensor overhead when working with plain numpy arrays
+set_track_meta(False)
 
 
-class NormalizeMeanStd(ImageOnlyTransform):
-    def __init__(self, mean, std, always_apply=True, p=1.0):
-        super().__init__(always_apply, p)
+# ---------------------------------------------------------------------------
+# Intensity transforms
+# ---------------------------------------------------------------------------
+
+
+class NormalizeDataRange(Transform):
+    def __call__(self, img: np.ndarray) -> np.ndarray:
+        return (img - img.min()) / (img.max() - img.min())
+
+
+class NormalizeMeanStd(Transform):
+    def __init__(self, mean: float, std: float):
         self.mean = mean
         self.std = std
 
-    def apply(self, img, **params):
+    def __call__(self, img: np.ndarray) -> np.ndarray:
         return (img - self.mean) / self.std
 
-    def get_transform_init_args_names(self):
-        return ("mean", "std")
 
-
-class NormalizePercentile(ImageOnlyTransform):
-    def __init__(self, lo, hi, axis=None, always_apply=True, p=1.0):
-        super().__init__(always_apply, p)
+class NormalizePercentile(Transform):
+    def __init__(self, lo: float, hi: float, axis=None):
         self.lo = lo
         self.hi = hi
         self.axis = axis
 
-    def apply(self, img, **params):
+    def __call__(self, img: np.ndarray) -> np.ndarray:
         return normalize(img, self.lo, self.hi, axis=self.axis)
 
-    def get_transform_init_args_names(self):
-        return ("lo", "hi")
 
-
-class EnforceNChannels(ImageOnlyTransform):
-    def __init__(self, n_channels, always_apply=True, p=1.0):
-        super().__init__(always_apply, p)
+class EnforceNChannels(Transform):
+    def __init__(self, n_channels: int):
         self.n_channels = n_channels
 
-    def apply(self, img, **params):
-        return enforce_n_channels(img, self.n_channels)
-
-    def get_transform_init_args_names(self):
-        return ("n_channels",)
+    def __call__(self, img: np.ndarray) -> np.ndarray:
+        return _enforce_n_channels(img, self.n_channels)
 
 
-class CustomFlip(DualTransform):
-    """Flip the input image horizontally, vertically, or both with a given probability. Works well with images ordered in the OME-TIFF way."""
-
-    def __init__(self, always_apply=False, p=0.5):
-        super().__init__(p=p)
-        flip_options = [(-2,), (-1,), (-1, -2)]
-        self.axis = np.random.choice([0, 1, 2])
-        self.flip_axes = flip_options[self.axis]
-
-    def apply(self, img, **params):
-        return np.flip(img, axis=self.flip_axes)
-
-    def apply_to_mask(self, img, **params):
-        return np.flip(img, axis=self.flip_axes)
-
-    def get_transform_init_args_names(self):
-        return ()
+# ---------------------------------------------------------------------------
+# Geometric transforms (image + mask)
+# ---------------------------------------------------------------------------
 
 
-class CustomRotate90(DualTransform):
-    """Rotate the input image by 90 degrees."""
+class CustomFlip(Randomizable, Transform):
+    """Flip along a randomly chosen axis (H, W, or both). OME-TIFF axis order aware."""
 
-    def __init__(self, p=0.5):
-        super().__init__(p=p)
-        self.axis = np.random.choice([-1, -2])
-        self.k = np.random.choice([1, 2, 3])
+    _FLIP_OPTIONS = [(-2,), (-1,), (-1, -2)]
 
-    def apply(self, img, **params):
-        return np.rot90(img, k=self.k, axes=(-2, -1))
+    def randomize(self, _=None):
+        self._axes = self._FLIP_OPTIONS[self.R.randint(3)]
 
-    def apply_to_mask(self, img, **params):
-        return np.rot90(img, k=self.k, axes=(-2, -1))
-
-    def get_transform_init_args_names(self):
-        return ()
+    def __call__(self, img: np.ndarray) -> np.ndarray:
+        self.randomize()
+        return np.flip(img, axis=self._axes)
 
 
-def get_qc_training_augmentation(normalization_type, **kwargs):
-    train_transform = [
-        CustomFlip(p=0.75),
-        albu.RandomGamma(p=0.5),
-    ]
+class CustomRotate90(Randomizable, Transform):
+    """Rotate 90/180/270 degrees in the H-W plane."""
 
+    def randomize(self, _=None):
+        self._k = self.R.choice([1, 2, 3])
+
+    def __call__(self, img: np.ndarray) -> np.ndarray:
+        self.randomize()
+        return np.rot90(img, k=self._k, axes=(-2, -1))
+
+
+# ---------------------------------------------------------------------------
+# Factory helpers
+# ---------------------------------------------------------------------------
+
+
+def _build_normalization(normalization_type: str, **kwargs) -> Transform:
     if normalization_type == "data_range":
-        train_transform.append(NormalizeDataRange())
+        return NormalizeDataRange()
     elif normalization_type == "mean_std":
-        train_transform.append(NormalizeMeanStd(kwargs["mean"], kwargs["std"]))
+        return NormalizeMeanStd(kwargs["mean"], kwargs["std"])
     elif normalization_type == "percentile":
-        try:
-            train_transform.append(
-                NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"])
-            )
-        except KeyError:
-            train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
-
-    enforce_n_channels = kwargs.get("enforce_n_channels", None)
-
-    if enforce_n_channels is not None:
-        train_transform.append(EnforceNChannels(enforce_n_channels))
-
-    return albu.Compose(train_transform)
-
-
-def get_training_augmentation(normalization_type, **kwargs):
-    train_transform = [
-        CustomFlip(p=0.75),
-        CustomRotate90(p=0.75),
-        albu.Defocus(p=0.5),
-        albu.RandomGamma(p=0.5),
-    ]
-
-    if normalization_type == "data_range":
-        train_transform.append(NormalizeDataRange())
-    elif normalization_type == "mean_std":
-        train_transform.append(NormalizeMeanStd(kwargs["mean"], kwargs["std"]))
-    elif normalization_type == "percentile":
-        try:
-            train_transform.append(
-                NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"])
-            )
-        except KeyError:
-            train_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
-
-    enforce_n_channels = kwargs.get("enforce_n_channels", None)
-
-    if enforce_n_channels is not None:
-        train_transform.append(EnforceNChannels(enforce_n_channels))
-
-    return albu.Compose(train_transform)
-
-
-def get_prediction_augmentation(normalization_type, **kwargs):
-    prediction_transform = []
-
-    if normalization_type == "data_range":
-        prediction_transform.append(NormalizeDataRange())
-    elif normalization_type == "mean_std":
-        prediction_transform.append(NormalizeMeanStd(kwargs["mean"], kwargs["std"]))
-    elif normalization_type == "percentile":
-        try:
-            prediction_transform.append(
-                NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs["axis"])
-            )
-        except KeyError:
-            prediction_transform.append(NormalizePercentile(kwargs["lo"], kwargs["hi"]))
-
-    enforce_n_channels = kwargs.get("enforce_n_channels", None)
-
-    if enforce_n_channels is not None:
-        prediction_transform.append(EnforceNChannels(enforce_n_channels))
-
-    return albu.Compose(prediction_transform)
-
-
-def get_prediction_augmentation_from_model(model, enforce_n_channels=None):
-    normalization_type = model.normalization["type"]
-    normalization_params = model.normalization
-
-    if normalization_type == "percentile":
-        try:
-            preprocessing_fn = get_prediction_augmentation(
-                normalization_type=normalization_type,
-                lo=normalization_params["lo"],
-                hi=normalization_params["hi"],
-                axis=normalization_params["axis"],
-                enforce_n_channels=enforce_n_channels,
-            )
-        except KeyError:
-            preprocessing_fn = get_prediction_augmentation(
-                normalization_type=normalization_type,
-                lo=normalization_params["lo"],
-                hi=normalization_params["hi"],
-                enforce_n_channels=enforce_n_channels,
-            )
-    elif normalization_type == "mean_std":
-        preprocessing_fn = get_prediction_augmentation(
-            normalization_type=normalization_type,
-            mean=normalization_params["mean"],
-            std=normalization_params["std"],
-            enforce_n_channels=enforce_n_channels,
-        )
-    elif normalization_type == "data_range":
-        preprocessing_fn = get_prediction_augmentation(
-            normalization_type=normalization_type,
-            enforce_n_channels=enforce_n_channels,
-        )
+        return NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs.get("axis"))
     else:
-        preprocessing_fn = get_prediction_augmentation(
-            normalization_type=normalization_type,
-            enforce_n_channels=enforce_n_channels,
-        )
-
-    return preprocessing_fn
+        raise ValueError(f"Unknown normalization type: {normalization_type}")
 
 
-def get_mean_and_std(image_path):
+def get_training_augmentation(normalization_type: str, **kwargs) -> Compose:
+    transforms = [
+        RandLambda(func=CustomFlip(), prob=0.75),
+        RandLambda(func=CustomRotate90(), prob=0.75),
+        RandGaussianSmooth(prob=0.5, sigma_x=(0.5, 1.5), sigma_y=(0.5, 1.5)),
+        RandGaussianSharpen(prob=0.5, sigma=(0.5, 1.5), alpha=(0.5, 1.5)),
+        _build_normalization(normalization_type, **kwargs),
+    ]
+
+    if (n := kwargs.get("enforce_n_channels")) is not None:
+        transforms.append(EnforceNChannels(n))
+
+    return Compose(transforms)
+
+
+def get_qc_training_augmentation(normalization_type: str, **kwargs) -> Compose:
+    transforms = [
+        RandLambda(func=CustomFlip(), prob=0.75),
+        _build_normalization(normalization_type, **kwargs),
+    ]
+
+    if (n := kwargs.get("enforce_n_channels")) is not None:
+        transforms.append(EnforceNChannels(n))
+
+    return Compose(transforms)
+
+
+def get_prediction_augmentation(normalization_type: str, **kwargs) -> Compose:
+    transforms = [_build_normalization(normalization_type, **kwargs)]
+
+    if (n := kwargs.get("enforce_n_channels")) is not None:
+        transforms.append(EnforceNChannels(n))
+
+    return Compose(transforms)
+
+
+def get_prediction_augmentation_from_model(model, enforce_n_channels=None) -> Compose:
+    params = model.normalization
+    return get_prediction_augmentation(
+        normalization_type=params["type"],
+        enforce_n_channels=enforce_n_channels,
+        **{k: v for k, v in params.items() if k != "type"},
+    )
+
+
+def get_mean_and_std(image_path: str) -> tuple[float, float]:
     image = image_handling.read_tiff_file(image_path, [2])
-    return np.mean(image), np.std(image)
+    return float(np.mean(image)), float(np.std(image))
 
 
-# def enforce_n_channels(image, n_channels):
-#     if not isinstance(image, torch.Tensor):
-#         image = torch.tensor(image, dtype=torch.float32)
-
-#     assert (
-#         len(image.shape) <= 3
-#     ), "Currently, multichannel zstacks are not supported"
-
-#     if len(image.shape) == 2:
-#         image = image.unsqueeze(0)
-
-#     current_channels = image.shape[0]
-
-#     # Assuming grayscale_img has a shape of (C, H, W)
-#     if current_channels == n_channels:
-#         return image
-
-#     if current_channels > n_channels:
-#         raise ValueError(
-#             f"The image has more channels than the specified number of channels ({n_channels})"
-#         )
-
-#     if n_channels % current_channels == 0:
-#         return image.repeat((n_channels // current_channels, 1, 1))
-
-#     else:
-#         # First repeat the maximum number of times that divides evenly
-#         base_repeats = n_channels // current_channels
-#         remaining_channels = n_channels % current_channels
-
-#         # Create the base repeated tensor
-#         repeated = image.repeat((base_repeats, 1, 1))
-
-#         # Add the remaining channels by selecting from the beginning
-#         remaining = image[:remaining_channels]
-
-#         # Concatenate along the channel dimension
-#         return torch.cat([repeated, remaining], dim=0)
+# ---------------------------------------------------------------------------
+# Internal utility
+# ---------------------------------------------------------------------------
 
 
-def enforce_n_channels(image, n_channels):
+def _enforce_n_channels(image: np.ndarray, n_channels: int) -> np.ndarray:
     if not isinstance(image, np.ndarray):
         image = np.array(image, dtype=np.float32)
 
-    assert len(image.shape) <= 3, "Currently, multichannel zstacks are not supported"
+    assert image.ndim <= 3, "Multichannel z-stacks are not supported"
 
-    # Add channel dimension if necessary
-    if len(image.shape) == 2:
+    if image.ndim == 2:
         image = np.expand_dims(image, axis=0)
 
-    current_channels = image.shape[0]
-
-    # Return if already correct number of channels
-    if current_channels == n_channels:
+    c = image.shape[0]
+    if c == n_channels:
         return image
+    if c > n_channels:
+        raise ValueError(f"Image has {c} channels, expected at most {n_channels}")
 
-    if current_channels > n_channels:
-        raise ValueError(
-            f"The image has more channels than the specified number of channels ({n_channels})"
-        )
+    base = n_channels // c
+    remainder = n_channels % c
 
-    if n_channels % current_channels == 0:
-        # Use np.tile instead of torch.repeat
-        return np.tile(image, (n_channels // current_channels, 1, 1))
-    else:
-        # First repeat the maximum number of times that divides evenly
-        base_repeats = n_channels // current_channels
-        remaining_channels = n_channels % current_channels
-
-        # Create the base repeated array
-        repeated = np.tile(image, (base_repeats, 1, 1))
-
-        # Add the remaining channels by selecting from the beginning
-        remaining = image[:remaining_channels]
-
-        # Concatenate along the channel dimension
-        return np.concatenate([repeated, remaining], axis=0)
+    repeated = np.tile(image, (base, 1, 1))
+    if remainder == 0:
+        return repeated
+    return np.concatenate([repeated, image[:remainder]], axis=0)

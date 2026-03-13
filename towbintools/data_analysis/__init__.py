@@ -11,7 +11,6 @@ from .time_series import compute_series_at_time_classified
 from .time_series import correct_series_with_classification
 from .time_series import filter_series_with_classification
 from .time_series import interpolate_entire_development
-from .time_series import interpolate_entire_development_classified
 from .time_series import rescale_and_aggregate
 from .time_series import rescale_series
 from .time_series import smooth_series_classified
@@ -30,7 +29,6 @@ __all__ = [
     "correct_series_with_classification",
     "filter_series_with_classification",
     "interpolate_entire_development",
-    "interpolate_entire_development_classified",
     "rescale_and_aggregate",
     "rescale_series",
     "smooth_series_classified",

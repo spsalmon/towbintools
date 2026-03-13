@@ -1,6 +1,6 @@
 [project]
 name = "towbintools"
-version = "0.3.15"
+version = "0.3.16"
 authors = [
   {name="Sacha Psalmon", email="sacha.psalmon@unibe.ch" },
   {name="Boris Gusev", email="boris.gusev@unibe.ch" }
@@ -19,7 +19,7 @@ dependencies = [
     "pytorch-toolbelt",
     "segmentation-models-pytorch",
     "timm",
-    "albumentations",
+    "monai",
     "csbdeep",
 
     "scikit-learn",

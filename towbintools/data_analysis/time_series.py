@@ -171,7 +171,9 @@ def filter_series_with_classification(series, qc):
     return series_worms
 
 
-def interpolate_larval_stage(series, time, ecdysis, larval_stage, n_points=100):
+def interpolate_larval_stage(
+    series, time, ecdysis, larval_stage, qc=None, n_points=100
+):
     if larval_stage < 1 or larval_stage > 4:
         raise ValueError("The larval stage must be between 1 and 4.")
 
@@ -187,33 +189,41 @@ def interpolate_larval_stage(series, time, ecdysis, larval_stage, n_points=100):
     ecdys = int(ecdys)
 
     interpolated_time = np.linspace(time[previous_ecdys], time[ecdys], n_points)
-    interpolated_series = interpolate.interp1d(time, series, kind="linear")(
-        interpolated_time
-    )
+
+    if qc is not None:
+        filtered_series = filter_series_with_classification(series, qc)
+        filtered_time = filter_series_with_classification(time, qc)
+    else:
+        filtered_series = series
+        filtered_time = time
+
+    # remove nan values for interpolation
+    valid_indices = ~np.isnan(filtered_time) & ~np.isnan(filtered_series)
+    filtered_time = filtered_time[valid_indices]
+    filtered_series = filtered_series[valid_indices]
+
+    interpolated_series = interpolate.make_interp_spline(
+        filtered_time, filtered_series, k=1
+    )(interpolated_time)
 
     return interpolated_time, interpolated_series
 
 
-def interpolate_entire_development(series, time, ecdysis, n_points=100):
+def interpolate_entire_development(series, time, ecdysis, qc=None, n_points=100):
     interpolated_time = np.full((4, n_points), np.nan)
     interpolated_series = np.full((4, n_points), np.nan)
     for larval_stage in range(1, 5):
         (
             interpolated_time_stage,
             interpolated_series_stage,
-        ) = interpolate_larval_stage(time, series, ecdysis, larval_stage, n_points)
+        ) = interpolate_larval_stage(
+            series, time, ecdysis, larval_stage, qc=qc, n_points=n_points
+        )
 
         interpolated_time[larval_stage - 1, :] = interpolated_time_stage
         interpolated_series[larval_stage - 1, :] = interpolated_series_stage
 
     return interpolated_time, interpolated_series
-
-
-def interpolate_entire_development_classified(series, time, ecdysis, qc, n_points=100):
-    time = filter_series_with_classification(time, qc)
-    series = filter_series_with_classification(series, qc)
-
-    return interpolate_entire_development(time, series, ecdysis, n_points)
 
 
 def compute_exponential_series_at_time_classified(
@@ -481,11 +491,11 @@ def rescale_series(series, time, ecdysis, qc, points=None, n_points=100):
         (
             interpolated_time,
             interpolated_series,
-        ) = interpolate_entire_development_classified(
+        ) = interpolate_entire_development(
             series_point,
             time_point,
             ecdysis_point,
-            qc_point,
+            qc=qc_point,
             n_points=n_points,
         )
 

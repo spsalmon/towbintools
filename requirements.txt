@@ -4,7 +4,7 @@ torchmetrics
 pytorch-toolbelt
 segmentation-models-pytorch
 timm
-albumentations
+monai
 csbdeep
 
 scikit-learn
