@@ -55,7 +55,12 @@ class TiledSegmentationDataset(Dataset):
             img = transformed["image"]
             mask = transformed["mask"]
 
+        # switch the axes to go from (C, H, W) to (H, W, C) if necessary
+        if len(img.shape) == 3:
+            img = np.transpose(img, (1, 2, 0))
+
         slicer = self.image_slicers[img.shape]
+
         tiles = slicer.split(img)
 
         if len(tiles[0].shape) == 2:
@@ -67,6 +72,8 @@ class TiledSegmentationDataset(Dataset):
         img = tiles[selected_tile]
         mask = tiles_ground_truth[selected_tile]
         mask = mask[np.newaxis, ...]
+
+        img = np.transpose(img, (2, 0, 1))  # switch back to (C, H, W)
 
         return img.astype(np.float32), mask
 
@@ -116,7 +123,7 @@ class SegmentationDataset(Dataset):
         mask = image_handling.read_tiff_file(self.ground_truth[i])
 
         if self.transform is not None:
-            transformed = self.transform(image=img, mask=mask)
+            transformed = self.transform({"image": img, "mask": mask})
             img = transformed["image"]
             mask = transformed["mask"]
 
@@ -193,7 +200,7 @@ class SegmentationPredictionDataset(Dataset):
         img = image_handling.read_tiff_file(img_path, self.channels)
 
         if self.transform is not None:
-            transformed = self.transform(image=img)
+            transformed = self.transform({"image": img})
             img = transformed["image"]
 
         if len(img.shape) == 2:
@@ -271,7 +278,7 @@ class StackPredictionDataset(Dataset):
         plane = self.stack[i]
 
         if self.transform is not None:
-            transformed = self.transform(image=plane)
+            transformed = self.transform({"image": plane})
             plane = transformed["image"]
 
         if len(plane.shape) == 2:
@@ -307,7 +314,7 @@ class ClassificationDataset(Dataset):
         class_value = self.ground_truth[i]
 
         if self.transform is not None:
-            transformed = self.transform(image=img)
+            transformed = self.transform({"image": img})
             img = transformed["image"]
 
         if len(img.shape) == 2:
@@ -366,7 +373,7 @@ class QualityControlDataset(Dataset):
 
         if self.image_only:
             if self.transform is not None:
-                transformed = self.transform(image=img)
+                transformed = self.transform({"image": img})
                 img = transformed["image"]
             if len(img.shape) == 2:
                 img = img[np.newaxis, ...]
@@ -380,7 +387,7 @@ class QualityControlDataset(Dataset):
                 img, mask = image_handling.pad_images_to_same_dim(img, mask)
             label = self.labels[i]
             if self.transform is not None:
-                transformed = self.transform(image=img, mask=mask)
+                transformed = self.transform({"image": img, "mask": mask})
                 img = transformed["image"]
                 mask = transformed["mask"]
 
@@ -497,7 +504,7 @@ class QualityControlPredictionDataset(Dataset):
             img, mask = image_handling.pad_images_to_same_dim(img, mask)
 
         if self.transform is not None:
-            transformed = self.transform(image=img, mask=mask)
+            transformed = self.transform({"image": img, "mask": mask})
             img = transformed["image"]
             mask = transformed["mask"]
 
@@ -870,6 +877,12 @@ def create_segmentation_dataloaders(
     image_paths = training_dataframe["image"].values.tolist()
 
     unique_shapes = get_unique_shapes_from_tiffs(image_paths, channels_to_keep=channels)
+    for i, shape in enumerate(unique_shapes):
+        if len(shape) == 3:
+            # switch the axes to go from (C, H, W) to (H, W, C)
+            shape = (shape[1], shape[2], shape[0])
+            unique_shapes[i] = shape
+
     image_slicers = {
         tuple(shape): inference.ImageSlicer(
             shape, tiler_params["tile_size"], tiler_params["tile_step"]

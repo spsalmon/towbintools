@@ -1,12 +1,12 @@
 import numpy as np
 from csbdeep.utils import normalize
+from monai.data import set_track_meta
 from monai.transforms import Compose
-from monai.transforms import RandGaussianSharpen
-from monai.transforms import RandGaussianSmooth
-from monai.transforms import RandLambda
+from monai.transforms import MapTransform
+from monai.transforms import RandGaussianSharpend
+from monai.transforms import RandGaussianSmoothd
 from monai.transforms import Randomizable
 from monai.transforms import Transform
-from monai.utils import set_track_meta
 
 from towbintools.foundation import image_handling
 
@@ -19,36 +19,62 @@ set_track_meta(False)
 # ---------------------------------------------------------------------------
 
 
-class NormalizeDataRange(Transform):
-    def __call__(self, img: np.ndarray) -> np.ndarray:
-        return (img - img.min()) / (img.max() - img.min())
+class NormalizeDataRange(MapTransform):
+    def __init__(self, keys):
+        MapTransform.__init__(self, keys)
+
+    def __call__(self, data):
+        d = dict(data)
+        for key in self.keys:
+            if not isinstance(d[key], np.ndarray):
+                d[key] = np.array(d[key])
+            d[key] = (d[key] - d[key].min()) / (d[key].max() - d[key].min())
+        return d
 
 
-class NormalizeMeanStd(Transform):
-    def __init__(self, mean: float, std: float):
+class NormalizeMeanStd(MapTransform):
+    def __init__(self, keys, mean: float, std: float):
+        MapTransform.__init__(self, keys)
         self.mean = mean
         self.std = std
 
-    def __call__(self, img: np.ndarray) -> np.ndarray:
-        return (img - self.mean) / self.std
+    def __call__(self, data):
+        d = dict(data)
+        for key in self.keys:
+            if not isinstance(d[key], np.ndarray):
+                d[key] = np.array(d[key])
+            d[key] = (d[key] - self.mean) / self.std
+        return d
 
 
-class NormalizePercentile(Transform):
-    def __init__(self, lo: float, hi: float, axis=None):
+class NormalizePercentile(MapTransform):
+    def __init__(self, keys, lo: float, hi: float, axis=None):
+        MapTransform.__init__(self, keys)
         self.lo = lo
         self.hi = hi
         self.axis = axis
 
-    def __call__(self, img: np.ndarray) -> np.ndarray:
-        return normalize(img, self.lo, self.hi, axis=self.axis)
+    def __call__(self, data):
+        d = dict(data)
+        for key in self.keys:
+            if not isinstance(d[key], np.ndarray):
+                d[key] = np.array(d[key])
+            d[key] = normalize(d[key], self.lo, self.hi, axis=self.axis)
+        return d
 
 
-class EnforceNChannels(Transform):
-    def __init__(self, n_channels: int):
+class EnforceNChannels(MapTransform):
+    def __init__(self, keys, n_channels: int):
+        MapTransform.__init__(self, keys)
         self.n_channels = n_channels
 
-    def __call__(self, img: np.ndarray) -> np.ndarray:
-        return _enforce_n_channels(img, self.n_channels)
+    def __call__(self, data):
+        d = dict(data)
+        for key in self.keys:
+            if not isinstance(d[key], np.ndarray):
+                d[key] = np.array(d[key])
+            d[key] = _enforce_n_channels(d[key], self.n_channels)
+        return d
 
 
 # ---------------------------------------------------------------------------
@@ -56,28 +82,48 @@ class EnforceNChannels(Transform):
 # ---------------------------------------------------------------------------
 
 
-class CustomFlip(Randomizable, Transform):
-    """Flip along a randomly chosen axis (H, W, or both). OME-TIFF axis order aware."""
-
+class CustomFlip(MapTransform, Randomizable):
     _FLIP_OPTIONS = [(-2,), (-1,), (-1, -2)]
 
-    def randomize(self, _=None):
+    def __init__(self, keys, prob=0.75):
+        MapTransform.__init__(self, keys)
+        self.prob = prob
+        self._do_transform = False
+        self._axes = None
+
+    def randomize(self, data=None):
+        self._do_transform = self.R.random() < self.prob
         self._axes = self._FLIP_OPTIONS[self.R.randint(3)]
 
-    def __call__(self, img: np.ndarray) -> np.ndarray:
+    def __call__(self, data):
         self.randomize()
-        return np.flip(img, axis=self._axes)
+        d = dict(data)
+        if not self._do_transform:
+            return d
+        for key in self.keys:
+            d[key] = np.flip(d[key], axis=self._axes)
+        return d
 
 
-class CustomRotate90(Randomizable, Transform):
-    """Rotate 90/180/270 degrees in the H-W plane."""
+class CustomRotate90(MapTransform, Randomizable):
+    def __init__(self, keys, prob=0.75):
+        MapTransform.__init__(self, keys)
+        self.prob = prob
+        self._do_transform = False
+        self._k = None
 
-    def randomize(self, _=None):
+    def randomize(self, data=None):
+        self._do_transform = self.R.random() < self.prob
         self._k = self.R.choice([1, 2, 3])
 
-    def __call__(self, img: np.ndarray) -> np.ndarray:
+    def __call__(self, data):
         self.randomize()
-        return np.rot90(img, k=self._k, axes=(-2, -1))
+        d = dict(data)
+        if not self._do_transform:
+            return d
+        for key in self.keys:
+            d[key] = np.rot90(d[key], k=self._k, axes=(-2, -1))
+        return d
 
 
 # ---------------------------------------------------------------------------
@@ -85,24 +131,28 @@ class CustomRotate90(Randomizable, Transform):
 # ---------------------------------------------------------------------------
 
 
-def _build_normalization(normalization_type: str, **kwargs) -> Transform:
+def _build_normalization(keys, normalization_type: str, **kwargs) -> Transform:
     if normalization_type == "data_range":
-        return NormalizeDataRange()
+        return NormalizeDataRange(keys)
     elif normalization_type == "mean_std":
-        return NormalizeMeanStd(kwargs["mean"], kwargs["std"])
+        return NormalizeMeanStd(keys, kwargs["mean"], kwargs["std"])
     elif normalization_type == "percentile":
-        return NormalizePercentile(kwargs["lo"], kwargs["hi"], kwargs.get("axis"))
+        return NormalizePercentile(keys, kwargs["lo"], kwargs["hi"], kwargs.get("axis"))
     else:
         raise ValueError(f"Unknown normalization type: {normalization_type}")
 
 
 def get_training_augmentation(normalization_type: str, **kwargs) -> Compose:
     transforms = [
-        RandLambda(func=CustomFlip(), prob=0.75),
-        RandLambda(func=CustomRotate90(), prob=0.75),
-        RandGaussianSmooth(prob=0.5, sigma_x=(0.5, 1.5), sigma_y=(0.5, 1.5)),
-        RandGaussianSharpen(prob=0.5, sigma=(0.5, 1.5), alpha=(0.5, 1.5)),
-        _build_normalization(normalization_type, **kwargs),
+        CustomFlip(keys=["image", "mask"], prob=0.75),
+        CustomRotate90(keys=["image", "mask"], prob=0.75),
+        RandGaussianSmoothd(
+            keys=["image"], prob=0.5, sigma_x=(0.5, 1.5), sigma_y=(0.5, 1.5)
+        ),
+        RandGaussianSharpend(keys=["image"], prob=0.5),
+        _build_normalization(
+            keys=["image"], normalization_type=normalization_type, **kwargs
+        ),
     ]
 
     if (n := kwargs.get("enforce_n_channels")) is not None:
@@ -113,8 +163,10 @@ def get_training_augmentation(normalization_type: str, **kwargs) -> Compose:
 
 def get_qc_training_augmentation(normalization_type: str, **kwargs) -> Compose:
     transforms = [
-        RandLambda(func=CustomFlip(), prob=0.75),
-        _build_normalization(normalization_type, **kwargs),
+        CustomFlip(keys=["image"], prob=0.75),
+        _build_normalization(
+            keys=["image"], normalization_type=normalization_type, **kwargs
+        ),
     ]
 
     if (n := kwargs.get("enforce_n_channels")) is not None:
@@ -124,7 +176,11 @@ def get_qc_training_augmentation(normalization_type: str, **kwargs) -> Compose:
 
 
 def get_prediction_augmentation(normalization_type: str, **kwargs) -> Compose:
-    transforms = [_build_normalization(normalization_type, **kwargs)]
+    transforms = [
+        _build_normalization(
+            keys=["image"], normalization_type=normalization_type, **kwargs
+        )
+    ]
 
     if (n := kwargs.get("enforce_n_channels")) is not None:
         transforms.append(EnforceNChannels(n))
