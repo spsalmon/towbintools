@@ -197,16 +197,21 @@ class SegmentationPredictionDataset(Dataset):
 
     def __getitem__(self, i):
         img_path = self.images[i]
-        img = image_handling.read_tiff_file(img_path, self.channels)
 
-        if self.transform is not None:
-            transformed = self.transform({"image": img})
-            img = transformed["image"]
+        try:
+            img = image_handling.read_tiff_file(img_path, self.channels)
 
-        if len(img.shape) == 2:
-            img = img[np.newaxis, ...]
+            if self.transform is not None:
+                transformed = self.transform({"image": img})
+                img = transformed["image"]
 
-        return img_path, img.astype(np.float32), img.shape
+            if len(img.shape) == 2:
+                img = img[np.newaxis, ...]
+
+            return img_path, img.astype(np.float32), img.shape
+        except Exception as e:
+            print(f"Error loading image {img_path}: {e}")
+            return img_path, None, None
 
     def collate_fn(self, batch):
         img_paths, imgs, original_shapes = zip(*batch)
@@ -496,26 +501,30 @@ class QualityControlPredictionDataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, i):
-        img = image_handling.read_tiff_file(self.images[i], self.channels)
-        mask = image_handling.read_tiff_file(self.masks[i])
+        try:
+            img = image_handling.read_tiff_file(self.images[i], self.channels)
+            mask = image_handling.read_tiff_file(self.masks[i])
 
-        if img.shape != mask.shape:
-            # pad the smaller one to match the larger one
-            img, mask = image_handling.pad_images_to_same_dim(img, mask)
+            if img.shape != mask.shape:
+                # pad the smaller one to match the larger one
+                img, mask = image_handling.pad_images_to_same_dim(img, mask)
 
-        if self.transform is not None:
-            transformed = self.transform({"image": img, "mask": mask})
-            img = transformed["image"]
-            mask = transformed["mask"]
+            if self.transform is not None:
+                transformed = self.transform({"image": img, "mask": mask})
+                img = transformed["image"]
+                mask = transformed["mask"]
 
-        if len(img.shape) == 2:
-            img = img[np.newaxis, ...]
+            if len(img.shape) == 2:
+                img = img[np.newaxis, ...]
 
-        if len(mask.shape) == 2:
-            mask = mask[np.newaxis, ...]
-        combined_imgs = np.concatenate([img, mask], axis=0)
+            if len(mask.shape) == 2:
+                mask = mask[np.newaxis, ...]
+            combined_imgs = np.concatenate([img, mask], axis=0)
 
-        return combined_imgs.astype(np.float32)
+            return combined_imgs.astype(np.float32)
+        except Exception as e:
+            print(f"Error loading image or mask {self.images[i]}, {self.masks[i]}: {e}")
+            return None
 
     def collate_fn(self, batch):
         # for prediction, we need to keep track of which masks have no foreground, to automatically mark them as unusable
