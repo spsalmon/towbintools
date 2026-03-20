@@ -58,13 +58,12 @@ class TiledSegmentationDataset(Dataset):
         # switch the axes to go from (C, H, W) to (H, W, C) if necessary
         if len(img.shape) == 3:
             img = np.transpose(img, (1, 2, 0))
+        else:
+            img = img[..., np.newaxis]
 
         slicer = self.image_slicers[img.shape]
 
         tiles = slicer.split(img)
-
-        if len(tiles[0].shape) == 2:
-            tiles = [tile[np.newaxis, ...] for tile in tiles]
 
         tiles_ground_truth = slicer.split(mask)
 
@@ -825,6 +824,10 @@ def get_unique_shapes_from_tiffs(
     )
 
     valid_shapes = [shape for shape in shapes if shape is not None]
+
+    if len(valid_shapes) == 0:
+        raise ValueError("No valid shapes found in the dataframe")
+
     all_shapes = set(valid_shapes)
     # because of potential rotation during augmentation, add the permutation
     for shape in valid_shapes:
@@ -832,10 +835,18 @@ def get_unique_shapes_from_tiffs(
             rotated = shape[:-2] + (shape[-1], shape[-2])
             all_shapes.add(rotated)
 
-    if len(valid_shapes) == 0:
-        raise ValueError("No valid shapes found in the dataframe")
+    all_shapes = list(all_shapes)
 
-    return np.array(list(all_shapes))
+    for i, shape in enumerate(all_shapes):
+        if len(shape) == 3:
+            # switch the axes to go from (C, H, W) to (H, W, C)
+            shape = (shape[1], shape[2], shape[0])
+            all_shapes[i] = shape
+        if len(shape) == 2:
+            shape = (shape[0], shape[1], 1)
+            all_shapes[i] = shape
+
+    return np.array(all_shapes)
 
 
 def create_segmentation_dataloaders(
@@ -886,11 +897,6 @@ def create_segmentation_dataloaders(
     image_paths = training_dataframe["image"].values.tolist()
 
     unique_shapes = get_unique_shapes_from_tiffs(image_paths, channels_to_keep=channels)
-    for i, shape in enumerate(unique_shapes):
-        if len(shape) == 3:
-            # switch the axes to go from (C, H, W) to (H, W, C)
-            shape = (shape[1], shape[2], shape[0])
-            unique_shapes[i] = shape
 
     image_slicers = {
         tuple(shape): inference.ImageSlicer(
