@@ -215,6 +215,16 @@ class SegmentationPredictionDataset(Dataset):
     def collate_fn(self, batch):
         img_paths, imgs, original_shapes = zip(*batch)
 
+        invalid_indices = [j for j, img in enumerate(imgs) if img is None]
+        if len(invalid_indices) == len(imgs):
+            return None, None, None, None
+
+        img_paths, imgs, original_shapes = (
+            [img_paths[j] for j in range(len(imgs)) if j not in invalid_indices],
+            [imgs[j] for j in range(len(imgs)) if j not in invalid_indices],
+            [original_shapes[j] for j in range(len(imgs)) if j not in invalid_indices],
+        )
+
         # find the maximum dimensions in the batch
         if self.pad_or_crop == "pad":
             dim_x = max([shape[-2] for shape in original_shapes])
@@ -232,7 +242,7 @@ class SegmentationPredictionDataset(Dataset):
         for img in imgs:
             resized_images.append(self.resize_function(img, new_dim_x, new_dim_y))
         resized_images = torch.tensor(np.array(resized_images), dtype=torch.float32)
-        return img_paths, resized_images, original_shapes
+        return img_paths, resized_images, original_shapes, invalid_indices
 
 
 class StackPredictionDataset(Dataset):
@@ -530,7 +540,9 @@ class QualityControlPredictionDataset(Dataset):
         combined_imgs = batch
 
         valid_indices = [
-            i for i, img in enumerate(combined_imgs) if np.sum(img[-1]) > 0
+            i
+            for i, img in enumerate(combined_imgs)
+            if (img is not None and np.sum(img[-1]) > 0)
         ]
         rejected_indices = [
             i for i in range(len(combined_imgs)) if i not in valid_indices
