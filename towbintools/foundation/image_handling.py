@@ -428,11 +428,15 @@ def check_if_stack(
             shape = read_tiff_file(file_path, channels_to_keep=channels_to_keep).shape
         if channels_to_keep is None:
             channels_to_keep = []  # ensure it's a list
-        if len(shape) == 3 and len(channels_to_keep) == 1:
+        if len(shape) == 3 and (
+            len(channels_to_keep) == 1 or len(channels_to_keep) == 0
+        ):
             # assume (z,y,x)
             is_stack = True
             t_dim, z_dim = 1, shape[0]
-        elif len(shape) == 4 and len(channels_to_keep) == 1:
+        elif len(shape) == 4 and (
+            len(channels_to_keep) == 1 or len(channels_to_keep) == 0
+        ):
             # assume (t,z,y,x)
             is_stack = True
             t_dim, z_dim = shape[0], shape[1]
