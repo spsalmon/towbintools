@@ -67,6 +67,10 @@ def fill_empty_timepoints(
     all_times = (
         filemap.select(pl.col("Time")).unique(maintain_order=True).to_numpy().squeeze()
     )
+
+    if all_times.ndim == 0:
+        all_times = np.array([all_times])
+
     missing_times = []
 
     for point in all_points:
