@@ -8,6 +8,7 @@ import torch
 from joblib import delayed
 from joblib import Parallel
 from pytorch_toolbelt import inference
+from skimage.transform import rescale
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
@@ -169,6 +170,7 @@ class SegmentationPredictionDataset(Dataset):
         channels,
         transform=None,
         enforce_divisibility_by=32,
+        scale_factor=1.0,
         pad_or_crop="pad",
     ):
         self.images = image_paths
@@ -191,6 +193,8 @@ class SegmentationPredictionDataset(Dataset):
             self.resize_function = image_handling.crop_to_dim_equally
             self.multiplier_function = get_closest_lower_multiple
 
+        self.scale_factor = scale_factor
+
     def __len__(self):
         return len(self.images)
 
@@ -206,6 +210,17 @@ class SegmentationPredictionDataset(Dataset):
 
             if len(img.shape) == 2:
                 img = img[np.newaxis, ...]
+
+            if self.scale_factor != 1.0:
+                scale = tuple([self.scale_factor] * 2 + [1] * (img.ndim - 2))
+                img = np.moveaxis(img, [-2, -1], [0, 1])
+                img = rescale(
+                    img,
+                    scale=scale,
+                    preserve_range=True,
+                    anti_aliasing=True,
+                )
+                img = np.moveaxis(img, [0, 1], [-2, -1])
 
             return img_path, img.astype(np.float32), img.shape
         except Exception as e:
@@ -253,6 +268,7 @@ class StackPredictionDataset(Dataset):
         transform=None,
         enforce_divisibility_by=32,
         pad_or_crop="pad",
+        scale_factor=1.0,
     ):
         if not isinstance(channels, list) and channels is not None:
             channels = [channels]
@@ -283,6 +299,20 @@ class StackPredictionDataset(Dataset):
         new_y_dim = self.multiplier_function(
             self.stack_shape[-1], self.enforce_divisibility_by
         )
+
+        self.scale_factor = scale_factor
+
+        if self.scale_factor != 1.0:
+            stack = np.moveaxis(stack, [-2, -1], [0, 1])
+            scale = tuple([self.scale_factor] * 2 + [1] * (stack.ndim - 2))
+            stack = rescale(
+                stack,
+                scale=scale,
+                preserve_range=True,
+                anti_aliasing=True,
+            )
+            stack = np.moveaxis(stack, [0, 1], [-2, -1])
+
         self.stack = self.resize_function(stack, new_x_dim, new_y_dim)
 
     def __len__(self):
