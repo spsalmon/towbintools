@@ -2,9 +2,11 @@ import datetime
 import os
 from typing import Optional
 
+import cv2
 import numpy as np
 import pandas as pd
 import torch
+from cv2 import resize
 from joblib import delayed
 from joblib import Parallel
 from pytorch_toolbelt import inference
@@ -272,47 +274,61 @@ class StackPredictionDataset(Dataset):
     ):
         if not isinstance(channels, list) and channels is not None:
             channels = [channels]
-
         if isinstance(stack, str):
             stack = image_handling.read_tiff_file(stack, channels_to_keep=channels)
-
-        self.stack_shape = stack.shape
 
         self.channels = channels
         self.transform = transform
         self.enforce_divisibility_by = enforce_divisibility_by
         if pad_or_crop not in ["pad", "crop"]:
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
-
         self.pad_or_crop = pad_or_crop
-
         if pad_or_crop == "pad":
             self.resize_function = image_handling.pad_to_dim_equally
             self.multiplier_function = get_closest_upper_multiple
         else:
             self.resize_function = image_handling.crop_to_dim_equally
             self.multiplier_function = get_closest_lower_multiple
+        self.scale_factor = scale_factor
 
+        if self.scale_factor != 1.0:
+            binned_stack = []
+            if stack.ndim == 3:
+                for plane in stack:
+                    binned_plane = resize(
+                        plane,
+                        (
+                            int(plane.shape[0] * self.scale_factor),
+                            int(plane.shape[1] * self.scale_factor),
+                        ),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                    binned_stack.append(binned_plane)
+            elif stack.ndim == 4:
+                for channel in stack:
+                    binned_channel = []
+                    for plane in channel:
+                        binned_plane = resize(
+                            plane,
+                            (
+                                int(plane.shape[0] * self.scale_factor),
+                                int(plane.shape[1] * self.scale_factor),
+                            ),
+                            interpolation=cv2.INTER_AREA,
+                        )
+                        binned_channel.append(binned_plane)
+                    binned_channel = np.stack(binned_channel, axis=0)
+                    binned_stack.append(binned_channel)
+
+            stack = np.stack(binned_stack, axis=0)
+
+        self.stack_shape = stack.shape
         new_x_dim = self.multiplier_function(
             self.stack_shape[-2], self.enforce_divisibility_by
         )
         new_y_dim = self.multiplier_function(
             self.stack_shape[-1], self.enforce_divisibility_by
         )
-
-        self.scale_factor = scale_factor
-
-        if self.scale_factor != 1.0:
-            stack = np.moveaxis(stack, [-2, -1], [0, 1])
-            scale = tuple([self.scale_factor] * 2 + [1] * (stack.ndim - 2))
-            stack = rescale(
-                stack,
-                scale=scale,
-                preserve_range=True,
-                anti_aliasing=True,
-            )
-            stack = np.moveaxis(stack, [0, 1], [-2, -1])
-
         self.stack = self.resize_function(stack, new_x_dim, new_y_dim)
 
     def __len__(self):
@@ -320,14 +336,11 @@ class StackPredictionDataset(Dataset):
 
     def __getitem__(self, i):
         plane = self.stack[i]
-
         if self.transform is not None:
             transformed = self.transform({"image": plane})
             plane = transformed["image"]
-
         if len(plane.shape) == 2:
             plane = plane[np.newaxis, ...]
-
         return plane.astype(np.float32)
 
 
