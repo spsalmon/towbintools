@@ -4,7 +4,7 @@ from scipy.interpolate import interp1d
 from scipy.signal import medfilt
 from whittaker_eilers import WhittakerSmoother
 
-from towbintools.foundation.utils import interpolate_nans
+from towbintools.foundation.utils import interpolate_nans_infs
 
 
 def resize_series_to_length(series, new_length, kind="linear"):
@@ -146,7 +146,7 @@ def correct_series_with_classification(series, qc):
 
     try:
         # Interpolate the NaNs
-        series_worms = interpolate_nans(series_worms)
+        series_worms = interpolate_nans_infs(series_worms)
     except ValueError:
         return np.full(series.shape, np.nan)
 
@@ -305,7 +305,7 @@ def smooth_series_classified(
     if np.all(np.isnan(series)):
         return np.full(series.shape, np.nan)
 
-    series = interpolate_nans(series)
+    series = interpolate_nans_infs(series)
 
     # Remove the points of non-worms from the time series and interpolate them back
     series = correct_series_with_classification(series, qc)
@@ -343,7 +343,7 @@ def smooth_series(
     if np.all(np.isnan(series)):
         return np.full(series.shape, np.nan)
 
-    series = interpolate_nans(series)
+    series = interpolate_nans_infs(series)
 
     smoothed_series = _smooth_series(
         series,
@@ -395,7 +395,7 @@ def _smooth_series(
     )
 
     # Interpolate the nans again
-    smoothed_series = interpolate_nans(smoothed_series)
+    smoothed_series = interpolate_nans_infs(smoothed_series)
 
     return smoothed_series
 
@@ -444,8 +444,11 @@ def compute_series_at_time_classified(
         series_time = np.arange(len(series))
 
     try:
+        valid_indices = ~np.isnan(series_time) & ~np.isnan(series)
+        filtered_time = series_time[valid_indices]
+        filtered_series = series[valid_indices]
         interpolated_series = interpolate.make_interp_spline(
-            series_time, series, k=bspline_order
+            filtered_time, filtered_series, k=bspline_order
         )
     except Exception as e:
         print(f"Caught an exception while interpolating series: {e}")
