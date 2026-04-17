@@ -2,18 +2,18 @@ import numpy as np
 
 
 def compute_fluorescence_in_mask(
-    image, mask, aggregation="sum", background_aggregation=None
+    image, mask, aggregations=["sum"], background_aggregation=None
 ):
     """Quantify fluorescence of an image in a mask.
 
     Parameters:
         image (np.ndarray): The image as a NumPy array.
         mask (np.ndarray): The binary mask as a NumPy array.
-        aggregation (str): The aggregation method to use to quantify the fluorescence.
-                             Can be one of 'sum', 'mean', 'median', 'max', 'min', or 'std'.
+        aggregations (list): The list of aggregation methods to use to quantify the fluorescence.
+                             Can be one or more of 'sum', 'mean', 'median', 'max', 'min', or 'std'.
 
     Returns:
-        float: Quantification of the fluorescence of the image in the mask.
+        dict: A dictionary with the aggregation methods as keys and the corresponding fluorescence values as values.
     """
 
     # compute on background substracted image if a way to compute background is provided
@@ -24,22 +24,25 @@ def compute_fluorescence_in_mask(
         image = image - background_value
         image = np.clip(image, a_min=0, a_max=None)
 
-    if aggregation == "sum":
-        return np.sum(image[mask > 0])
-    elif aggregation == "mean":
-        return np.mean(image[mask > 0])
-    elif aggregation == "median":
-        return np.median(image[mask > 0])
-    elif aggregation == "max":
-        return np.max(image[mask > 0])
-    elif aggregation == "min":
-        return np.min(image[mask > 0])
-    elif aggregation == "std":
-        return np.std(image[mask > 0])
-    else:
-        raise ValueError(
-            'Aggregation must be one of "sum", "mean", "median", "max", "min", or "std".'
-        )
+    results = {}
+    for agg in aggregations:
+        if agg == "sum":
+            results[agg] = np.sum(image[mask > 0])
+        elif agg == "mean":
+            results[agg] = np.mean(image[mask > 0])
+        elif agg == "median":
+            results[agg] = np.median(image[mask > 0])
+        elif agg == "max":
+            results[agg] = np.max(image[mask > 0])
+        elif agg == "min":
+            results[agg] = np.min(image[mask > 0])
+        elif agg == "std":
+            results[agg] = np.std(image[mask > 0])
+        else:
+            raise ValueError(
+                'Aggregation must be one of "sum", "mean", "median", "max", "min", or "std".'
+            )
+    return results
 
 
 def compute_background_fluorescence(image, foreground_mask, aggregation="mean"):

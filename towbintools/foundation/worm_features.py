@@ -694,7 +694,6 @@ def compute_bending_energy(
 
     # Generate points along the spline for analysis
     u_new = np.linspace(0, 1, 1000)
-    x_new, y_new = splev(u_new, tck)
     widths_new = width_interp(u_new)
 
     # Compute derivatives for curvature
@@ -772,7 +771,7 @@ def compute_bending_energy_mask(
             straightened_mask, pixelsize, savgol_window, savgol_order
         )
 
-        bending_energy = compute_bending_energy(midline, widths)
+        bending_energy = compute_bending_energy(midline, widths, E=E, smooth=smooth)
     except Exception as e:
         print(e)
         bending_energy = np.nan
