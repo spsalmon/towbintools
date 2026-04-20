@@ -49,8 +49,6 @@ def compute_qc_features(
         if isinstance(image, str):
             image = read_tiff_file(image, channels_to_keep=channels)
             # skimage expects the channel dimension last, in our case it's first if the image is not a stack
-            if image.ndim == 3:
-                image = np.transpose(image, (1, 2, 0))
             if image.ndim > 3:
                 raise ValueError(
                     "Input image has more than 3 dimensions, which is currently not supported."
@@ -71,8 +69,11 @@ def compute_qc_features(
             # normalize image
             image = normalize(image, 1, 99, axis=None)
 
-            if image.shape != mask.shape:
+            if image.shape[-2:] != mask.shape[-2:]:
                 image, mask = pad_images_to_same_dim(image, mask)
+
+            if image.ndim == 3:
+                image = np.transpose(image, (1, 2, 0))
 
             props = regionprops_table(
                 mask,
