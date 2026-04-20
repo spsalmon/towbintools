@@ -5,21 +5,55 @@ import numpy as np
 import polars as pl
 
 
+def extract_time_point(
+    path,
+    time_regex=r"Time(\d+)",
+    point_regex=r"Point(\d+)",
+):
+    r"""
+    Extract time and point information from a file name using regular expressions.
+
+    Parameters:
+        path (str): The file path or name to extract information from.
+        time_regex (str): Regular expression pattern to extract time information. (default: r"Time(\d+)")
+        point_regex (str): Regular expression pattern to extract point information. (default: r"Point(\d+)")
+
+    Returns:
+        tuple: A tuple containing the extracted time and point as integers.
+    """
+
+    time_pattern = re.compile(time_regex)
+    point_pattern = re.compile(point_regex)
+
+    time_match = time_pattern.search(path)
+    point_match = point_pattern.search(path)
+    if time_match and point_match:
+        time = int(time_match.group(1))
+        point = int(point_match.group(1))
+        return time, point
+    else:
+        raise ValueError("Could not extract time and point from file name.")
+
+
 def get_all_timepoints_from_dir(
     dir_path: str,
+    time_regex: str = r"Time(\d+)",
+    point_regex: str = r"Point(\d+)",
 ) -> list[dict]:
-    """
+    r"""
     Retrieve all time points and corresponding image paths from a directory.
 
     Parameters:
         dir_path (str): The path to the directory containing the images.
+        time_regex (str): Regular expression pattern to extract time information from file names. (default: r"Time(\d+)")
+        point_regex (str): Regular expression pattern to extract point information from file names. (default: r"Point(\d+)")
 
     Returns:
         list: A list of dictionaries, each containing the time, point, and image path.
     """
 
-    time_pattern = re.compile(r"Time(\d+)")
-    point_pattern = re.compile(r"Point(\d+)")
+    time_pattern = re.compile(time_regex)
+    point_pattern = re.compile(point_regex)
 
     timepoint_list = []
 
@@ -98,17 +132,21 @@ def fill_empty_timepoints(
 
 def get_dir_filemap(
     dir_path: str,
+    time_regex: str = r"Time(\d+)",
+    point_regex: str = r"Point(\d+)",
 ) -> pl.DataFrame:
-    """
+    r"""
     Get the filemap dataframe for a directory by retrieving all time points and filling in missing time points.
 
     Parameters:
         dir_path (str): The path to the directory containing the images.
+        time_regex (str): Regular expression pattern to extract time information from file names. (default: r"Time(\d+)")
+        point_regex (str): Regular expression pattern to extract point information from file names. (default: r"Point(\d+)")
 
     Returns:
         pl.DataFrame: The filemap dataframe with 'Time', 'Point', and 'ImagePath' columns.
     """
-    timepoint_list = get_all_timepoints_from_dir(dir_path)
+    timepoint_list = get_all_timepoints_from_dir(dir_path, time_regex, point_regex)
     filemap = pl.DataFrame(timepoint_list)
     filled_filemap = fill_empty_timepoints(filemap)
 
@@ -119,8 +157,10 @@ def get_experiment_dir_filemap(
     dir_path: str,
     raw_dir: str = "raw",
     analysis_dir: str = "analysis",
+    time_regex: str = r"Time(\d+)",
+    point_regex: str = r"Point(\d+)",
 ) -> pl.DataFrame:
-    """
+    r"""
     Get the filemap dataframe for an experiment directory.
 
     Retrieves time points from the 'raw' directory and fills in missing ones then adds paths
@@ -130,11 +170,15 @@ def get_experiment_dir_filemap(
         dir_path (str): Base directory path for the experiment.
         raw_dir (str): Subdirectory name for raw images. (default: "raw")
         analysis_dir (str): Subdirectory name for analysis output. (default: "analysis")
+        time_regex (str): Regular expression pattern to extract time information from file names. (default: r"Time(\d+)")
+        point_regex (str): Regular expression pattern to extract point information from file names. (default: r"Point(\d+)")
 
     Returns:
         pl.DataFrame: Extended filemap dataframe including both raw and analysis image paths.
     """
-    raw_timepoint_list = get_all_timepoints_from_dir(os.path.join(dir_path, raw_dir))
+    raw_timepoint_list = get_all_timepoints_from_dir(
+        os.path.join(dir_path, raw_dir), time_regex, point_regex
+    )
     raw_filemap = pl.DataFrame(raw_timepoint_list)
     experiment_filemap = fill_empty_timepoints(raw_filemap)
     experiment_filemap.rename({"ImagePath": raw_dir})
@@ -144,7 +188,9 @@ def get_experiment_dir_filemap(
         subdir_list = [x[0] for x in os.walk(analysis_dir)]
         for subdir in subdir_list:
             if subdir != analysis_dir:
-                timepoint_list = get_all_timepoints_from_dir(subdir)
+                timepoint_list = get_all_timepoints_from_dir(
+                    subdir, time_regex, point_regex
+                )
                 filemap = pl.DataFrame(timepoint_list)
                 filemap = fill_empty_timepoints(filemap)
                 filemap = filemap.rename(
@@ -161,6 +207,8 @@ def add_dir_to_experiment_filemap(
     experiment_filemap: pl.DataFrame,
     dir_path: str,
     subdir_name: str,
+    time_regex: str = r"Time(\d+)",
+    point_regex: str = r"Point(\d+)",
 ) -> pl.DataFrame:
     """
     Add a the images contained in a directory to an existing filemap as a new column.
@@ -173,7 +221,7 @@ def add_dir_to_experiment_filemap(
     Returns:
         pd.DataFrame: Updated filemap dataframe with the new column added.
     """
-    subdir_filemap = get_dir_filemap(dir_path)
+    subdir_filemap = get_dir_filemap(dir_path, time_regex, point_regex)
     subdir_filemap = subdir_filemap.rename({"ImagePath": subdir_name})
     # check if column already exists
     if subdir_name in experiment_filemap.columns:
