@@ -12,3 +12,4 @@ towbintools API documentation
    towbintools_quantification
    towbintools_data_analysis
    towbintools_deep_learning
+   towbintools_plotting
