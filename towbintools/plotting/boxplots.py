@@ -358,6 +358,7 @@ def _plot_violinplot(
             legend="full",
         )
 
+        plot_df = df.copy()
         if hide_outliers:
             data = df[df["Order"] == event_index]
             for condition in conditions_to_plot:
@@ -368,16 +369,7 @@ def _plot_violinplot(
                     (condition_data[column] < mean - 3 * std)
                     | (condition_data[column] > mean + 3 * std)
                 ]
-                # set outliers to NaN
-                df.loc[
-                    (df["Order"] == event_index)
-                    & (df["Condition"] == condition)
-                    & (df[column].isin(outliers[column])),
-                    "Outlier",
-                ] = True
 
-        plot_df = df.copy()
-        if hide_outliers:
             plot_df.loc[
                 (plot_df["Order"] == event_index)
                 & (plot_df["Condition"] == condition)
@@ -483,24 +475,24 @@ def _plot_boxplot(
             log_scale=log_scale,
         )
 
-        if hide_outliers:
-            for condition in conditions_to_plot:
-                mask = (df["Order"] == event_index) & (df["Condition"] == condition)
-                condition_data = df.loc[mask, column]
-
-                mean = condition_data.mean()
-                std = condition_data.std()
-
-                outlier_mask = mask & (
-                    (df[column] < mean - 3 * std) | (df[column] > mean + 3 * std)
-                )
-
-                df.loc[outlier_mask, "Outlier"] = True
-
         plot_df = df.copy()
-
         if hide_outliers:
-            plot_df.loc[df["Outlier"], column] = np.nan
+            data = df[df["Order"] == event_index]
+            for condition in conditions_to_plot:
+                condition_data = data[data["Condition"] == condition]
+                mean = condition_data[column].mean()
+                std = condition_data[column].std()
+                outliers = condition_data[
+                    (condition_data[column] < mean - 3 * std)
+                    | (condition_data[column] > mean + 3 * std)
+                ]
+
+            plot_df.loc[
+                (plot_df["Order"] == event_index)
+                & (plot_df["Condition"] == condition)
+                & (plot_df[column].isin(outliers[column])),
+                column,
+            ] = np.nan
 
         sns.swarmplot(
             data=plot_df[plot_df["Order"] == event_index],
