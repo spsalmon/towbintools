@@ -143,6 +143,7 @@ ENV/
 ehthumbs.db
 Thumbs.db
 
+CLAUDE.md
 # Pytorch Lightning checkpoints
 lightning_logs/
 *.ckpt
