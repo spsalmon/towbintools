@@ -38,6 +38,7 @@ dependencies = [
     "ome-types",
 
     "whittaker-eilers",
+    "bottleneck",
 ]
 
 [project.optional-dependencies]

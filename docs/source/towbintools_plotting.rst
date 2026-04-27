@@ -1,5 +1,5 @@
 plotting package
-=====================
+================
 
 plotting_structure
 ------------------

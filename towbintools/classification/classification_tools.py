@@ -17,18 +17,19 @@ def classify_image(
     **kwargs,
 ):
     """
-    Classify images based on extracted features using a provided classifier.
+    Classify an image based on features extracted by a provided function.
 
     Parameters:
-        images (np.ndarray): An array of images or a single image for feature extraction.
-        features_function (callable): A function to extract features from the images.
-        classifier (xgboost.XGBClassifier): The trained classifier object.
-        classes (list[str]): List of classes that can be predicted by the classifier.
-        return_proba (bool, optional): If True, return class probabilities instead of labels.
-        **kwargs: Additional keyword arguments to pass to the features_function.
+        image (np.ndarray): The image (or array of images) to classify.
+        features_function (callable): A function that extracts a feature vector from
+            ``image``; called as ``features_function(image, **kwargs)``.
+        classifier (xgboost.XGBClassifier): Trained XGBoost classifier.
+        classes (list): Ordered list of class labels matching the classifier's output
+            columns (e.g. ``["egg", "worm", "error"]``).
+        **kwargs: Additional keyword arguments forwarded to ``features_function``.
 
     Returns:
-        np.ndarray or str: The predicted class of the image(s) or class probabilities.
+        str: The predicted class label (element of ``classes``).
     """
 
     # feature extraction
@@ -361,6 +362,31 @@ def classify_labels_features_dict(
     is_zstack=False,
     confidence_threshold=None,
 ):
+    """
+    Classify all labels in a mask using a features dictionary.
+
+    Convenience wrapper around :func:`classify_labels` that unpacks feature
+    configuration from a dictionary rather than requiring individual arguments.
+
+    Parameters:
+        mask (np.ndarray): Labeled mask of all regions.
+        image (np.ndarray): Intensity image.
+        clf (xgboost.XGBClassifier): Trained XGBoost classifier.
+        features_dict (dict): Dictionary with keys ``"all_features"``,
+            ``"extra_properties"``, ``"intensity_features"``,
+            ``"extra_intensity_features"``, ``"num_closest"``, and ``"patches"``.
+        parallel (bool, optional): Whether to compute features in parallel.
+            (default: True)
+        n_jobs (int, optional): Number of parallel jobs (passed to joblib).
+            (default: -1)
+        is_zstack (bool, optional): Whether the image is a z-stack. (default: False)
+        confidence_threshold (float, optional): Minimum prediction confidence;
+            predictions below this threshold are set to -1. (default: None)
+
+    Returns:
+        list: Predicted class indices for all labels, structured as returned by
+            :func:`classify_labels`.
+    """
     return classify_labels(
         mask,
         image,
@@ -564,6 +590,28 @@ def classify_labels_and_convert_to_mask_features_dict(
     is_zstack=False,
     confidence_threshold=None,
 ):
+    """
+    Classify all labels using a features dictionary and return the result as a mask.
+
+    Combines :func:`classify_labels_features_dict` and
+    :func:`convert_classification_to_mask`.
+
+    Parameters:
+        mask (np.ndarray): Labeled mask of all regions.
+        image (np.ndarray): Intensity image.
+        clf (xgboost.XGBClassifier): Trained XGBoost classifier.
+        features_dict (dict): Feature configuration dictionary (see
+            :func:`classify_labels_features_dict`).
+        parallel (bool, optional): Whether to compute features in parallel.
+            (default: True)
+        n_jobs (int, optional): Number of parallel jobs. (default: -1)
+        is_zstack (bool, optional): Whether the image is a z-stack. (default: False)
+        confidence_threshold (float, optional): Minimum prediction confidence.
+            (default: None)
+
+    Returns:
+        np.ndarray: Mask with pixel values replaced by predicted class index + 1.
+    """
     classification = classify_labels_features_dict(
         mask,
         image,
@@ -587,6 +635,28 @@ def classify_labels_and_convert_to_dataframe_features_dict(
     is_zstack=False,
     confidence_threshold=None,
 ):
+    """
+    Classify all labels using a features dictionary and return the result as a DataFrame.
+
+    Combines :func:`classify_labels_features_dict` and
+    :func:`convert_classification_to_dataframe`.
+
+    Parameters:
+        mask (np.ndarray): Labeled mask of all regions.
+        image (np.ndarray): Intensity image.
+        clf (xgboost.XGBClassifier): Trained XGBoost classifier.
+        features_dict (dict): Feature configuration dictionary (see
+            :func:`classify_labels_features_dict`).
+        parallel (bool, optional): Whether to compute features in parallel.
+            (default: True)
+        n_jobs (int, optional): Number of parallel jobs. (default: -1)
+        is_zstack (bool, optional): Whether the image is a z-stack. (default: False)
+        confidence_threshold (float, optional): Minimum prediction confidence.
+            (default: None)
+
+    Returns:
+        pd.DataFrame: DataFrame with columns ``"Plane"``, ``"Label"``, and ``"Class"``.
+    """
     classification = classify_labels_features_dict(
         mask,
         image,

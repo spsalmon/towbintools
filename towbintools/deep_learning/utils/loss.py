@@ -7,6 +7,16 @@ from torch.nn import functional as F
 
 
 class FocalTverskyLoss(nn.Module):
+    """
+    Focal Tversky loss for binary segmentation with class-imbalance handling.
+
+    Combines the Tversky index (a generalization of Dice that independently
+    weights false positives and false negatives) with a focal exponent to
+    down-weight easy examples and focus training on hard ones.
+
+    Reference: Abraham & Khan (2019), arXiv:1810.07842.
+    """
+
     def __init__(
         self,
         ignore_index=-1,
@@ -16,6 +26,22 @@ class FocalTverskyLoss(nn.Module):
         gamma=4 / 3,
         activation=True,
     ):
+        """
+        Parameters:
+            ignore_index (int, optional): Target value to ignore in the loss
+                computation. (default: -1)
+            smooth (float, optional): Smoothing constant added to numerator and
+                denominator of the Tversky index to avoid division by zero.
+                (default: 100)
+            alpha (float, optional): Weight for false positives in the Tversky
+                index. (default: 0.3)
+            beta (float, optional): Weight for false negatives in the Tversky
+                index. (default: 0.7)
+            gamma (float, optional): Focal exponent applied to ``(1 - Tversky)``.
+                (default: 4/3)
+            activation (bool, optional): If ``True``, apply sigmoid to inputs
+                before computing the loss. (default: True)
+        """
         super().__init__()
         self.ignore_index = ignore_index
         self.smooth = smooth
@@ -52,8 +78,18 @@ class FocalTverskyLoss(nn.Module):
         return FocalTversky
 
 
-# addapted from https://github.com/AdeelH/pytorch-multi-class-focal-loss/blob/master/focal_loss.py
+# adapted from https://github.com/AdeelH/pytorch-multi-class-focal-loss/blob/master/focal_loss.py
 class MultiClassFocalLoss(nn.Module):
+    """
+    Focal loss for multi-class classification.
+
+    Extends cross-entropy with a modulating factor ``(1 - p_t)^gamma`` that
+    down-weights well-classified examples, focusing training on hard negatives.
+    Supports per-class weights and an ignore index.
+
+    Reference: Lin et al. (2017), arXiv:1708.02002.
+    """
+
     def __init__(
         self,
         alpha: Optional[Tensor] = None,
@@ -61,6 +97,19 @@ class MultiClassFocalLoss(nn.Module):
         reduction: str = "mean",
         ignore_index: int = -1,
     ):
+        """
+        Parameters:
+            alpha (Tensor, optional): Per-class weight tensor of shape
+                ``(n_classes,)``. (default: None)
+            gamma (float, optional): Focusing parameter; 0 recovers standard
+                cross-entropy. (default: 2.0)
+            reduction (str, optional): Reduction to apply: ``"mean"``, ``"sum"``,
+                or ``"none"``. (default: ``"mean"``)
+            ignore_index (int, optional): Target value to ignore. (default: -1)
+
+        Raises:
+            ValueError: If ``reduction`` is not one of the supported values.
+        """
         if reduction not in ("mean", "sum", "none"):
             raise ValueError('Reduction must be one of: "mean", "sum", "none".')
         super().__init__()
@@ -118,7 +167,19 @@ class MultiClassFocalLoss(nn.Module):
 
 
 class BCELossWithIgnore(nn.Module):
+    """
+    Binary cross-entropy loss that ignores a specified target value.
+
+    Computes element-wise BCE loss, zeroes out entries where
+    ``target == ignore_index``, and returns the mean over non-ignored elements.
+    """
+
     def __init__(self, ignore_index=-1):
+        """
+        Parameters:
+            ignore_index (int, optional): Target value to exclude from the loss.
+                (default: -1)
+        """
         super().__init__()
         self.bce_loss = nn.BCELoss(reduction="none")
         self.ignore_index = ignore_index
@@ -143,7 +204,22 @@ class BCELossWithIgnore(nn.Module):
 
 
 class PeakWeightedMSELoss(nn.Module):
+    """
+    MSE loss with additional weight on high-value (peak) target positions.
+
+    Assigns a per-element weight of ``1 + peak_weight * target`` so that
+    positions with larger target values (peaks in a heatmap) contribute more to
+    the loss. Designed for 1D keypoint heatmap regression.
+    """
+
     def __init__(self, ignore_index=-1, peak_weight=3.0):
+        """
+        Parameters:
+            ignore_index (int, optional): Reserved for API consistency; currently
+                unused in the forward pass. (default: -1)
+            peak_weight (float, optional): Additional weight multiplier for
+                high-value target positions. (default: 3.0)
+        """
         super().__init__()
         self.ignore_index = ignore_index
         self.peak_weight = peak_weight

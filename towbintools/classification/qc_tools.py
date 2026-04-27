@@ -13,6 +13,20 @@ from towbintools.foundation.image_quality import normalized_variance_measure
 
 
 def get_all_skimage_regionprops(mask_only: bool = False) -> list[str]:
+    """
+    Return all available scikit-image region-property names.
+
+    Excludes image-array and coordinates properties. When ``mask_only`` is
+    ``True``, intensity-based properties are also excluded so that the result
+    can be used on masks without an intensity image.
+
+    Parameters:
+        mask_only (bool, optional): If ``True``, omit intensity-based properties
+            (e.g. ``intensity_mean``, ``moments_weighted``). (default: False)
+
+    Returns:
+        list[str]: Names of the available region properties.
+    """
     features = [
         attr
         for attr in dir(RegionProperties)
@@ -45,6 +59,28 @@ def compute_qc_features(
     features: Optional[list[str]] = None,
     channels: Optional[list[int]] = None,
 ):
+    """
+    Compute quality-control features from a mask and an optional intensity image.
+
+    Accepts file paths or NumPy arrays for both ``mask`` and ``image``. Computes
+    scikit-image region properties for the largest foreground object, plus a
+    normalized-variance focus measure when an intensity image is provided.
+
+    Parameters:
+        mask (str or np.ndarray): Binary mask (path to TIFF or array). Pixels > 0
+            are treated as foreground.
+        image (str, np.ndarray, or None): Intensity image (path to TIFF, array, or
+            ``None`` for mask-only features).
+        features (list[str], optional): Region-property names to compute. If
+            ``None``, all properties returned by
+            :func:`get_all_skimage_regionprops` are used. (default: None)
+        channels (list[int], optional): Channel indices to load when ``image`` is a
+            file path. (default: None)
+
+    Returns:
+        pd.DataFrame or None: DataFrame of computed features, or ``None`` if the
+            mask is empty or an error occurs during extraction.
+    """
     try:
         if isinstance(image, str):
             image = read_tiff_file(image, channels_to_keep=channels)

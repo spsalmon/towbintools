@@ -38,14 +38,42 @@ class Warper:
     """
 
     def __init__(self, length: float, width: float, splines: list[BSpline | None]):
+        """
+        Store the warp geometry and per-plane splines.
+
+        Parameters:
+            length (float): Length of the straightened object (in pixels along the
+                midline axis).
+            width (float): Width of the straightened object (in pixels across the
+                midline axis).
+            splines (list[BSpline or None]): Fitted spline for each z-plane.
+                ``None`` entries correspond to empty or unprocessable planes.
+        """
         self.length = length
         self.width = width
         self.splines = splines
 
     @classmethod
     def from_img(cls, img: NDArray, mask: NDArray[np.bool_]) -> Warper:
-        """generates midlines for each mask plane and fits splines to them. image is used to align splines relative to each other
-        returns a Warper object"""
+        """
+        Construct a Warper by extracting midlines from a mask and fitting splines.
+
+        Extracts the midline for each plane of ``mask``, ensures consistent
+        head/tail orientation across planes, fits splines, and aligns splines
+        using image-based registration.
+
+        Parameters:
+            img (NDArray): Grayscale image (2D or 3D stack) used for spline
+                alignment across planes.
+            mask (NDArray[bool]): Binary mask with the same shape as ``img``.
+
+        Returns:
+            Warper: A Warper instance ready for image warping.
+
+        Raises:
+            ValueError: If ``img`` and ``mask`` shapes do not match, or if the
+                mask is invalid (see :func:`validate_mask`).
+        """
         if img.shape != mask.shape:
             raise ValueError(
                 f"Image and Mask shapes don't match: img.shape = {img.shape}, mask.shape = {mask.shape}"
@@ -838,6 +866,22 @@ def _align_splines(
 
 
 def _handle_flips(midlines):
+    """
+    Ensure consistent head/tail orientation across a list of midlines.
+
+    Iterates over the midlines in order, comparing each midline's endpoints to
+    the previous one. If the endpoints suggest a head/tail swap (i.e. the
+    flipped assignment has a smaller total Euclidean distance), the midline is
+    reversed before being added to the output.
+
+    Parameters:
+        midlines (list[np.ndarray or None]): Ordered list of midline coordinate
+            arrays (each of shape ``(N, 2)``). ``None`` entries for empty planes
+            are passed through unchanged.
+
+    Returns:
+        list[np.ndarray or None]: Midlines with consistent orientation.
+    """
     # initialise
     for ml in midlines:
         if ml is not None:
@@ -883,6 +927,32 @@ def _warp_2D_img(
     preserve_range: bool = False,
     preserve_dtype: bool = False,
 ) -> NDArray:
+    """
+    Warp a single 2D image plane using spline-based coordinate mapping.
+
+    Computes the inverse coordinate map via :func:`_warped_coords` and applies
+    ``skimage.transform.warp``. Returns a zero-filled array when ``spline`` is
+    ``None``.
+
+    Parameters:
+        img2D (NDArray): 2D input image plane.
+        spline (BSpline or None): Fitted spline defining the midline mapping.
+        width (float): Output image width (pixels across the midline).
+        length (float): Output image length (pixels along the midline).
+        scale_factor (float or tuple[float, float]): Scale factor(s) applied to
+            the output grid.
+        mirror (bool, optional): If ``True``, flip the midline direction.
+            (default: False)
+        interpolation_order (int, optional): Spline interpolation order for
+            ``skimage.transform.warp`` (0–5). (default: 1)
+        preserve_range (bool, optional): Passed to ``skimage.transform.warp``.
+            (default: False)
+        preserve_dtype (bool, optional): If ``True``, cast the output back to
+            ``img2D.dtype``. (default: False)
+
+    Returns:
+        NDArray: Warped 2D image of shape ``(width * scale, length * scale)``.
+    """
     if spline is None:
         shape = _warped_shape(width, length, scale_factor)
         return np.zeros(shape)
@@ -909,6 +979,29 @@ def _warp_3D_img(
     preserve_range: bool = False,
     preserve_dtype: bool = False,
 ) -> NDArray:
+    """
+    Apply :func:`_warp_2D_img` to each plane of a 3D image stack.
+
+    Parameters:
+        img3D (NDArray): 3D input image stack of shape ``(N, H, W)``.
+        splines (list[BSpline or None]): One spline per plane; must have the same
+            length as ``img3D``.
+        width (float): Output image width (pixels across the midline).
+        length (float): Output image length (pixels along the midline).
+        scale_factor (float or tuple[float, float], optional): Scale factor(s)
+            applied to the output grid. (default: 1)
+        mirror (bool, optional): If ``True``, flip the midline direction.
+            (default: False)
+        interpolation_order (int, optional): Spline interpolation order (0–5).
+            (default: 1)
+        preserve_range (bool, optional): Passed to ``skimage.transform.warp``.
+            (default: False)
+        preserve_dtype (bool, optional): If ``True``, cast each output plane back
+            to the input plane's dtype. (default: False)
+
+    Returns:
+        NDArray: Warped stack of shape ``(N, width * scale, length * scale)``.
+    """
     warped_img = [
         _warp_2D_img(
             plane,

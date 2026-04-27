@@ -17,14 +17,20 @@ from towbintools.deep_learning.utils.loss import PeakWeightedMSELoss
 
 
 class PretrainedClassificationModel(pl.LightningModule):
-    """Pytorch Lightning Module for training a classification model with a pretrained weights.
+    """
+    PyTorch Lightning module for image classification using a pretrained backbone.
+
+    Uses ``timm`` to load the specified architecture with ImageNet-pretrained weights.
+    Applies ``BCEWithLogitsLoss`` + ``BinaryF1Score`` for binary tasks, or
+    ``CrossEntropyLoss`` + ``MulticlassF1Score`` for multiclass tasks.
 
     Parameters:
-            architecture (str): The architecture of the classification model.
-            input_channels (int): The number of input channels.
-            classes (list[str]): The list of classes in the classification task.
-            learning_rate (float): The learning rate for the optimizer.
-            normalization (dict): Parameters for the normalization.
+        architecture (str): ``timm`` model name (e.g. ``"efficientnet_b0"``).
+        input_channels (int): Number of input image channels.
+        classes (list[str]): Class labels; ``len(classes)`` determines binary vs multiclass.
+        learning_rate (float): Learning rate for the Adam optimizer.
+        normalization (dict): Normalization config stored as a hyperparameter and
+            used at inference time to reconstruct the preprocessing pipeline.
     """
 
     def __init__(
@@ -155,19 +161,29 @@ class PretrainedClassificationModel(pl.LightningModule):
 
 
 class PretrainedSegmentationModel(pl.LightningModule):
-    """Pytorch Lightning Module for training a segmentation model with a pretrained encoder.
+    """
+    PyTorch Lightning module for image segmentation using a pretrained encoder.
+
+    Uses ``segmentation_models_pytorch`` to build an encoder–decoder model.
+    For binary tasks (``n_classes == 1``): sigmoid activation +
+    ``FocalTverskyLoss`` + ``BinaryF1Score``. For multiclass tasks:
+    softmax activation + ``MultiClassFocalLoss`` + ``MulticlassF1Score``.
 
     Parameters:
-            input_channels (int): The number of input channels.
-            n_classes (int): The number of classes in the segmentation task.
-            learning_rate (float): The learning rate for the optimizer.
-            architecture (str): The architecture of the segmentation model.
-            encoder (str): The encoder of the segmentation model.
-            pretrained_weights (str): Dataset the encoder was trained on.
-            normalization (dict): Parameters for the normalization.
-            criterion (torch.nn.Module): The loss function to use for training. (default: FocalTverskyLoss)
-            ignore_index (int): Index to ignore in the loss calculation and F1Score.
-
+        input_channels (int): Number of input image channels.
+        n_classes (int): Number of foreground segmentation classes.
+        learning_rate (float): Learning rate for the Adam optimizer.
+        architecture (str): ``smp`` architecture name (e.g. ``"Unet"``).
+        encoder (str): Encoder backbone name (e.g. ``"resnet34"``).
+        pretrained_weights (str): Dataset the encoder was pretrained on
+            (e.g. ``"imagenet"``).
+        normalization (dict): Normalization config stored as a hyperparameter
+            and used at inference time to reconstruct the preprocessing pipeline.
+        criterion (nn.Module, optional): Loss function. If ``None``,
+            ``FocalTverskyLoss`` is used for binary tasks and
+            ``MultiClassFocalLoss`` for multiclass. (default: None)
+        ignore_index (int, optional): Target value to ignore in the loss and
+            F1 score. (default: None)
     """
 
     def __init__(
@@ -306,6 +322,34 @@ class PretrainedSegmentationModel(pl.LightningModule):
 
 
 class SegmentationModel(pl.LightningModule):
+    """
+    PyTorch Lightning module for image segmentation using a custom architecture.
+
+    Supports ``"Unet"`` and ``"UnetPlusPlus"`` architectures from
+    :mod:`towbintools.deep_learning.architectures.archs`. For binary tasks
+    (``n_classes == 1``): sigmoid activation + ``FocalTverskyLoss`` +
+    ``BinaryF1Score``. For multiclass tasks: softmax activation +
+    ``MultiClassFocalLoss`` + ``MulticlassF1Score``.
+
+    Parameters:
+        architecture (str): Architecture name; one of ``"Unet"`` or ``"UnetPlusPlus"``.
+        input_channels (int): Number of input image channels.
+        n_classes (int): Number of foreground segmentation classes.
+        learning_rate (float): Learning rate for the Adam optimizer.
+        normalization (dict): Normalization config stored as a hyperparameter
+            and used at inference time to reconstruct the preprocessing pipeline.
+        deep_supervision (bool, optional): If ``True``, enable deep supervision
+            (only relevant for ``"UnetPlusPlus"``). (default: False)
+        criterion (nn.Module, optional): Loss function. If ``None``,
+            ``FocalTverskyLoss`` is used for binary tasks and
+            ``MultiClassFocalLoss`` for multiclass. (default: None)
+        ignore_index (int, optional): Target value to ignore in the loss and
+            F1 score. (default: None)
+
+    Raises:
+        ValueError: If ``architecture`` is not one of the supported values.
+    """
+
     def __init__(
         self,
         architecture,
@@ -317,20 +361,6 @@ class SegmentationModel(pl.LightningModule):
         criterion=None,
         ignore_index=None,
     ):
-        """Pytorch Lightning Module for training a segmentation model.
-
-        Parameters:
-            architecture (str): The architecture of the segmentation model.
-            input_channels (int): The number of input channels.
-            n_classes (int): The number of classes in the segmentation task.
-            learning_rate (float): The learning rate for the optimizer.
-            normalization (dict): Parameters for the normalization.
-            deep_supervision (bool): Whether to use deep supervision or not.
-            criterion (torch.nn.Module): The loss function to use for training. Default is FocalTverskyLoss.
-            ignore_index (int): Index to ignore in the loss calculation and F1Score.
-
-        """
-
         super().__init__()
 
         if n_classes == 1:
@@ -458,6 +488,28 @@ class SegmentationModel(pl.LightningModule):
 
 
 class KeypointDetection1DModel(pl.LightningModule):
+    """
+    PyTorch Lightning module for 1D keypoint detection using a U-Net architecture.
+
+    Operates on 1D sequences (e.g. straightened worm fluorescence profiles).
+    Supports ``"Unet"``, ``"AttentionUnet"``, and ``"UnetPlusPlus"`` 1D
+    architectures. Uses ``PeakWeightedMSELoss`` by default.
+
+    Parameters:
+        input_channels (int): Number of input sequence channels.
+        n_classes (int): Number of keypoint classes (output channels).
+        learning_rate (float): Learning rate for the Adam optimizer.
+        architecture (str, optional): Architecture name; one of ``"Unet"``,
+            ``"AttentionUnet"``, or ``"UnetPlusPlus"``. (default: ``"UnetPlusPlus"``)
+        activation (str, optional): Output activation; one of ``"relu"``,
+            ``"leaky_relu"``, ``"sigmoid"``, or ``"none"``. (default: ``"sigmoid"``)
+        criterion (nn.Module, optional): Loss function. If ``None``,
+            ``PeakWeightedMSELoss`` is used. (default: None)
+
+    Raises:
+        ValueError: If ``architecture`` or ``activation`` is not supported.
+    """
+
     def __init__(
         self,
         input_channels,
@@ -467,17 +519,6 @@ class KeypointDetection1DModel(pl.LightningModule):
         activation="sigmoid",
         criterion=None,
     ):
-        """Pytorch Lightning Module for 1D Keypoint Detection using a U-Net architecture.
-
-        Parameters:
-            input_channels (int): The number of input channels.
-            n_classes (int): The number of classes in the segmentation task.
-            learning_rate (float): The learning rate for the optimizer.
-            architecture (str): The architecture of the segmentation model. (default: "Unet")
-            criterion (torch.nn.Module): The loss function to use for training. (default: nn.MSELoss)
-            activation (str): The activation function to use at the end of the model. (default: "sigmoid")
-        """
-
         super().__init__()
 
         if architecture == "Unet":

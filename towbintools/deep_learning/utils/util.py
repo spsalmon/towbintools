@@ -10,19 +10,59 @@ from torch.serialization import safe_globals
 
 
 def divide_batch(batch, n):
+    """
+    Yield successive mini-batches of size ``n`` from ``batch``.
+
+    Parameters:
+        batch (Tensor): Input batch tensor with the batch dimension as axis 0.
+        n (int): Mini-batch size.
+
+    Yields:
+        Tensor: Slice of ``batch`` along axis 0 of at most ``n`` samples.
+    """
     for i in range(0, batch.shape[0], n):
         yield batch[i : i + n, ::]  # noqa: E203
 
 
 def get_closest_upper_multiple(dim, multiple):
+    """
+    Round ``dim`` up to the nearest multiple of ``multiple``.
+
+    Parameters:
+        dim (int or float): Value to round up.
+        multiple (int): The multiple to round to.
+
+    Returns:
+        int: Smallest multiple of ``multiple`` that is >= ``dim``.
+    """
     return int(multiple * ceil(dim / multiple))
 
 
 def get_closest_lower_multiple(dim, multiple):
+    """
+    Round ``dim`` down to the nearest multiple of ``multiple``.
+
+    Parameters:
+        dim (int or float): Value to round down.
+        multiple (int): The multiple to round to.
+
+    Returns:
+        int: Largest multiple of ``multiple`` that is <= ``dim``.
+    """
     return int(multiple * floor(dim / multiple))
 
 
 def adjust_tensor_dimensions(source_tensor, target_tensor_shape):
+    """
+    Squeeze ``source_tensor`` then unsqueeze it to match ``target_tensor_shape``.
+
+    Parameters:
+        source_tensor (Tensor): Tensor to reshape.
+        target_tensor_shape (tuple[int, ...]): Desired shape of the output tensor.
+
+    Returns:
+        Tensor: Reshaped tensor compatible with ``target_tensor_shape``.
+    """
     # Squeeze out unnecessary dimensions from source tensor
     adjusted_tensor = source_tensor.squeeze()
     # Add necessary dimensions to match the target tensor shape
@@ -33,7 +73,25 @@ def adjust_tensor_dimensions(source_tensor, target_tensor_shape):
 
 
 def rename_keys_and_adjust_dimensions(model, pretrained_model):
-    """Util function to easily load a pretrained model's weights into a model with the same architecture but different module names, etc."""
+    """
+    Map pretrained weights into a model with differently named or shaped parameters.
+
+    Pairs keys from ``model.state_dict()`` with keys from ``pretrained_model`` by
+    position, adjusting tensor shapes via :func:`adjust_tensor_dimensions` when
+    they differ.
+
+    Parameters:
+        model (nn.Module): Target model whose state dict keys define the mapping.
+        pretrained_model (dict): Source state dict (e.g. from
+            ``torch.load(...)["state_dict"]``).
+
+    Returns:
+        dict: New state dict compatible with ``model.load_state_dict()``.
+
+    Raises:
+        AssertionError: If the number of keys in ``model`` and ``pretrained_model``
+            do not match.
+    """
     assert len(model.state_dict().keys()) == len(
         pretrained_model.keys()
     ), f"The number of keys in the model ({len(model.state_dict().keys())}) and the pretrained model ({len(pretrained_model.keys())}) do not match."
@@ -49,6 +107,18 @@ def rename_keys_and_adjust_dimensions(model, pretrained_model):
 
 
 def get_input_channels_from_checkpoint(checkpoint_path):
+    """
+    Infer the number of input channels from a PyTorch Lightning checkpoint.
+
+    Searches the state dict for the first convolutional weight tensor and returns
+    its ``in_channels`` dimension (``weight.shape[1]``).
+
+    Parameters:
+        checkpoint_path (str): Path to the ``.ckpt`` checkpoint file.
+
+    Returns:
+        int: Number of input channels, or 0 if no convolutional layer was found.
+    """
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     state_dict = checkpoint["state_dict"]
 
@@ -62,7 +132,19 @@ def get_input_channels_from_checkpoint(checkpoint_path):
 
 def create_lightweight_checkpoint(input_path, output_path):
     """
-    Load existing PyTorch Lightning checkpoint and save a lightweight version
+    Load a PyTorch Lightning checkpoint and save a lightweight version.
+
+    Keeps only ``state_dict``, ``hyper_parameters``, and a small set of optional
+    metadata keys (``epoch``, ``global_step``, ``pytorch-lightning_version``),
+    discarding optimizer state and other large tensors.
+
+    Parameters:
+        input_path (str): Path to the full ``.ckpt`` checkpoint file.
+        output_path (str): Destination path for the lightweight checkpoint.
+
+    Returns:
+        dict: The lightweight checkpoint dictionary that was saved to
+            ``output_path``.
     """
     print(f"Loading checkpoint from: {input_path}")
 

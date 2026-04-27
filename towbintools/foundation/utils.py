@@ -7,20 +7,20 @@ import numpy as np
 def nan_helper(
     y,
 ):
-    """Helper to handle indices and logical indices of NaNs.
+    """
+    Return logical indices of NaNs and a conversion function for use with np.interp.
 
     Parameters:
-        - y (np.ndarray): 1d numpy array with possible NaNs
+        y (np.ndarray): 1D array with possible NaN values.
 
     Returns:
-        - nans, logical indices of NaNs
-        - index, a function, with signature indices= index(logical_indices),
-          to convert logical indices of NaNs to 'equivalent' indices
+        tuple: ``(nans, index)`` where ``nans`` is a boolean array marking NaN
+            positions and ``index`` is a callable that converts a boolean index
+            array to integer indices (e.g. ``index(nans)`` returns positions of NaNs).
 
     Example:
-        >>> # linear interpolation of NaNs
-        >>> nans, x= nan_helper(y)
-        >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+        >>> nans, x = nan_helper(y)
+        >>> y[nans] = np.interp(x(nans), x(~nans), y[~nans])
     """
 
     return np.isnan(y), lambda z: z.nonzero()[0]
@@ -29,20 +29,20 @@ def nan_helper(
 def inf_helper(
     y,
 ):
-    """Helper to handle indices and logical indices of infinities.
+    """
+    Return logical indices of infinities and a conversion function for use with np.interp.
 
     Parameters:
-        - y (np.ndarray): 1d numpy array with possible infinities
+        y (np.ndarray): 1D array with possible infinity values.
 
     Returns:
-        - infs, logical indices of infinities
-        - index, a function, with signature indices= index(logical_indices),
-          to convert logical indices of infinities to 'equivalent' indices
+        tuple: ``(infs, index)`` where ``infs`` is a boolean array marking infinity
+            positions and ``index`` is a callable that converts a boolean index
+            array to integer indices (e.g. ``index(infs)`` returns positions of infinities).
 
     Example:
-        >>> # linear interpolation of infinities
-        >>> infs, x= inf_helper(y)
-        >>> y[infs]= np.interp(x(infs), x(~infs), y[~infs])
+        >>> infs, x = inf_helper(y)
+        >>> y[infs] = np.interp(x(infs), x(~infs), y[~infs])
     """
 
     return np.isinf(y), lambda z: z.nonzero()[0]
@@ -125,21 +125,33 @@ class NotImplementedError(Exception):
 
 
 def _extract_column_components(col_name):
-    """Extract meaningful components from column name."""
+    """
+    Split a column name into lowercase components on ``_``, ``-``, and ``.`` separators.
+
+    Parameters:
+        col_name (str): The column name to split.
+
+    Returns:
+        list[str]: List of lowercase string components.
+    """
     parts = re.split(r"[_\-\.]", col_name.lower())
     return parts
 
 
 def find_best_string_match(reference: str, candidates: list[str]) -> str:
     """
-    Find the best matching candidate string to the reference string based on component similarity
-    and string similarity (usefull for matching QC columns to data columns).
+    Find the best matching candidate string to a reference using component and string similarity.
+
+    Scores each candidate by a weighted combination of component overlap (60 %) and
+    sequence similarity (40 %), returning the candidate with the highest score.
+    Useful for matching QC column names to data column names.
 
     Parameters:
         reference (str): The reference string to match against.
-        candidates (List[str]): List of candidate strings to evaluate.
+        candidates (list[str]): List of candidate strings to evaluate.
+
     Returns:
-        (str): The best matching candidate string.
+        str: The best matching candidate string.
     """
     data_parts = _extract_column_components(reference)
 

@@ -29,6 +29,26 @@ from towbintools.foundation import image_handling
 
 
 class TiledSegmentationDataset(Dataset):
+    """
+    PyTorch Dataset for tiled segmentation training.
+
+    Loads image and mask pairs from file paths stored in a DataFrame and returns a
+    randomly selected tile from each sample. Tile boundaries are pre-computed using
+    ``pytorch_toolbelt.inference.ImageSlicer``.
+
+    Parameters:
+        dataset (pd.DataFrame): DataFrame with at least ``image_column`` and
+            ``mask_column`` columns containing file paths.
+        image_slicers (dict): Mapping from image shape to ``ImageSlicer`` instance.
+        channels (int or list[int]): Channel indices to load from the image.
+        mask_column (str, optional): DataFrame column name for mask paths.
+            (default: ``"mask"``)
+        image_column (str, optional): DataFrame column name for image paths.
+            (default: ``"image"``)
+        transform (callable, optional): MONAI Compose transform applied to the
+            ``{"image": ..., "mask": ...}`` dictionary. (default: None)
+    """
+
     def __init__(
         self,
         dataset,
@@ -81,6 +101,28 @@ class TiledSegmentationDataset(Dataset):
 
 
 class SegmentationDataset(Dataset):
+    """
+    PyTorch Dataset for full-image segmentation training.
+
+    Loads image and mask pairs from file paths stored in a DataFrame. Images are
+    resized (padded or cropped) in the collate function to a divisibility-enforced
+    common size within each batch.
+
+    Parameters:
+        dataset (pd.DataFrame): DataFrame with ``image_column`` and ``mask_column``
+            columns containing file paths.
+        channels (int or list[int]): Channel indices to load from the image.
+        mask_column (str, optional): Column name for mask paths. (default: ``"mask"``)
+        image_column (str, optional): Column name for image paths. (default: ``"image"``)
+        transform (callable, optional): MONAI Compose transform. (default: None)
+        enforce_divisibility_by (int, optional): Batch images are resized so their
+            spatial dimensions are multiples of this value. (default: 32)
+        pad_or_crop (str, optional): Whether to pad (``"pad"``) or crop (``"crop"``)
+            images to the common batch size. (default: ``"pad"``)
+        mask_pad_value (int, optional): Fill value used when padding masks.
+            (default: -1)
+    """
+
     def __init__(
         self,
         dataset,
@@ -166,6 +208,25 @@ class SegmentationDataset(Dataset):
 
 
 class SegmentationPredictionDataset(Dataset):
+    """
+    PyTorch Dataset for segmentation inference.
+
+    Loads images from a list of file paths, optionally rescales them, and pads or
+    crops batches to a common size that is a multiple of ``enforce_divisibility_by``.
+    The collate function returns image paths, resized tensors, original shapes, and
+    indices of images that failed to load.
+
+    Parameters:
+        image_paths (list[str]): Paths to the image files.
+        channels (int or list[int]): Channel indices to load.
+        transform (callable, optional): MONAI Compose transform. (default: None)
+        enforce_divisibility_by (int, optional): Images are resized so their spatial
+            dimensions are multiples of this value. (default: 32)
+        scale_factor (float, optional): Isotropic rescaling factor applied to each
+            image before batching. (default: 1.0)
+        pad_or_crop (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
+    """
+
     def __init__(
         self,
         image_paths,
@@ -263,6 +324,27 @@ class SegmentationPredictionDataset(Dataset):
 
 
 class StackPredictionDataset(Dataset):
+    """
+    PyTorch Dataset for plane-by-plane inference on a z-stack.
+
+    Accepts a z-stack as a NumPy array or a file path. Optionally downscales
+    planes before loading. Each ``__getitem__`` call returns a single plane,
+    ready for inference.
+
+    Parameters:
+        stack (str or np.ndarray): z-stack as an array of shape ``(N, H, W)`` or
+            ``(N, C, H, W)``, or a path to a TIFF file.
+        channels (int, list[int], or None): Channel indices to load when ``stack``
+            is a file path.
+        transform (callable, optional): MONAI Compose transform applied per plane.
+            (default: None)
+        enforce_divisibility_by (int, optional): Spatial dimensions are resized to
+            multiples of this value. (default: 32)
+        pad_or_crop (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
+        scale_factor (float, optional): Isotropic rescaling factor applied to each
+            plane via ``cv2.resize``. (default: 1.0)
+    """
+
     def __init__(
         self,
         stack,
@@ -345,6 +427,26 @@ class StackPredictionDataset(Dataset):
 
 
 class ClassificationDataset(Dataset):
+    """
+    PyTorch Dataset for image classification training.
+
+    Loads images from file paths and their corresponding class labels. For
+    multi-class problems (n_classes > 2) labels are one-hot encoded.
+
+    Parameters:
+        dataset (pd.DataFrame): DataFrame with ``image_column`` and
+            ``class_column`` columns.
+        channels (int or list[int]): Channel index (or indices) to load.
+        n_classes (int): Total number of classes. Labels are one-hot encoded
+            when n_classes > 2.
+        class_column (str, optional): Column name for class labels.
+            (default: ``"class"``)
+        image_column (str, optional): Column name for image paths.
+            (default: ``"image"``)
+        transform (callable, optional): MONAI Compose transform applied to
+            ``{"image": ...}``. (default: None)
+    """
+
     def __init__(
         self,
         dataset,
@@ -381,6 +483,26 @@ class ClassificationDataset(Dataset):
 
 
 class QualityControlDataset(Dataset):
+    """
+    PyTorch Dataset for quality-control classification training.
+
+    Loads image + mask pairs and their quality labels. When ``mask_paths`` is
+    provided, image and mask are concatenated along the channel axis before the
+    transform. The collate function discards samples whose mask has no foreground.
+
+    Parameters:
+        image_paths (list[str]): Paths to image files.
+        mask_paths (list[str] or None): Paths to mask files. Pass ``None`` or an
+            empty list for image-only mode.
+        channels (int or list[int]): Channel indices to load from images.
+        labels (list): Class labels (integers or strings matching ``classes``).
+        classes (list): Ordered list of class names.
+        enforce_divisibility_by (int, optional): Batch spatial dimensions are
+            resized to multiples of this value. (default: 32)
+        resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
+        transform (callable, optional): MONAI Compose transform. (default: None)
+    """
+
     def __init__(
         self,
         image_paths,
@@ -521,6 +643,23 @@ class QualityControlDataset(Dataset):
 
 
 class QualityControlPredictionDataset(Dataset):
+    """
+    PyTorch Dataset for quality-control classification inference.
+
+    Loads image + mask pairs and concatenates them along the channel axis.
+    The collate function tracks samples rejected due to empty or failed masks
+    and returns their indices alongside valid batches.
+
+    Parameters:
+        image_paths (list[str]): Paths to image files.
+        mask_paths (list[str]): Paths to mask files.
+        channels (int or list[int]): Channel indices to load from images.
+        enforce_divisibility_by (int, optional): Batch spatial dimensions are
+            resized to multiples of this value. (default: 32)
+        resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
+        transform (callable, optional): MONAI Compose transform. (default: None)
+    """
+
     def __init__(
         self,
         image_paths,
@@ -618,6 +757,22 @@ class QualityControlPredictionDataset(Dataset):
 
 
 class KeypointDetection1DTrainingDataset(Dataset):
+    """
+    PyTorch Dataset for 1D keypoint detection training.
+
+    Stores pairs of input time-series and target heatmaps. The collate function
+    pads or crops all series in a batch to the same length (a multiple of
+    ``enforce_divisibility_by``) and drops samples containing NaN values.
+
+    Parameters:
+        inputs (array-like): Sequence of 1D (or 2D) input series arrays.
+        targets (array-like): Sequence of target heatmap arrays aligned with
+            ``inputs``.
+        enforce_divisibility_by (int, optional): Target batch length is rounded
+            to a multiple of this value. (default: 32)
+        resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
+    """
+
     def __init__(
         self,
         inputs,
@@ -701,6 +856,20 @@ class KeypointDetection1DTrainingDataset(Dataset):
 
 
 class KeypointDetection1DPredictionDataset(Dataset):
+    """
+    PyTorch Dataset for 1D keypoint detection inference.
+
+    Stores input time-series for prediction. The collate function pads or crops
+    all series to the same length and replaces NaN-containing series with zeros,
+    returning their indices as ``invalid_series_index``.
+
+    Parameters:
+        inputs (array-like): Sequence of 1D (or 2D) input series arrays.
+        enforce_divisibility_by (int, optional): Target batch length is rounded
+            to a multiple of this value. (default: 32)
+        resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
+    """
+
     def __init__(
         self,
         inputs,
@@ -766,6 +935,21 @@ class KeypointDetection1DPredictionDataset(Dataset):
 
 
 def split_dataset(dataframe, validation_size, test_size):
+    """
+    Split a DataFrame (or CSV path) into training, validation, and test sets.
+
+    Parameters:
+        dataframe (pd.DataFrame or str): DataFrame or path to a CSV file.
+        validation_size (float): Fraction of the total data for validation.
+        test_size (float): Fraction of the total data for testing.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+            ``(train_dataframe, validation_dataframe, test_dataframe)``.
+
+    Raises:
+        ValueError: If ``validation_size + test_size >= 1.0``.
+    """
     # Load the dataset
     if isinstance(dataframe, str):
         dataframe = pd.read_csv(dataframe)
@@ -802,6 +986,29 @@ def create_segmentation_training_dataframes(
     validation_set_ratio=0.25,
     test_set_ratio=0.1,
 ):
+    """
+    Build training and validation DataFrames from image and mask directories.
+
+    Pairs files by sorted order within each directory pair. Saves date-stamped
+    CSV backups of all three splits to ``save_dir/database_backup/``.
+
+    Parameters:
+        image_directories (str or list[str]): Directories containing image files.
+        mask_directories (str or list[str]): Directories containing mask files,
+            paired with ``image_directories``.
+        save_dir (str): Directory where backup CSVs are written.
+        validation_set_ratio (float, optional): Fraction of data for validation.
+            (default: 0.25)
+        test_set_ratio (float, optional): Fraction of data for testing.
+            (default: 0.1)
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: ``(training_dataframe, validation_dataframe)``.
+
+    Raises:
+        AssertionError: If the number of images and masks in a directory pair
+            does not match.
+    """
     if not isinstance(image_directories, list):
         image_directories = [image_directories]
     if not isinstance(mask_directories, list):
@@ -916,6 +1123,36 @@ def create_segmentation_dataloaders(
     training_transform=None,
     validation_transform=None,
 ):
+    """
+    Create training and validation DataLoaders for segmentation.
+
+    When ``train_on_tiles`` is ``True``, uses :class:`TiledSegmentationDataset`
+    with per-shape ``ImageSlicer`` objects; otherwise uses
+    :class:`SegmentationDataset` with full images. Default transforms (percentile
+    normalization) are applied if no transform is supplied.
+
+    Parameters:
+        training_dataframe (pd.DataFrame): DataFrame with ``"image"`` and
+            ``"mask"`` columns for training data.
+        validation_dataframe (pd.DataFrame): DataFrame with ``"image"`` and
+            ``"mask"`` columns for validation data.
+        channels (int or list[int]): Channel indices to load.
+        batch_size (int, optional): Batch size. (default: 5)
+        num_workers (int, optional): DataLoader worker processes. (default: 32)
+        pin_memory (bool, optional): Whether to pin memory. (default: True)
+        train_on_tiles (bool, optional): If ``True``, sample random tiles;
+            otherwise use full images. (default: True)
+        tiler_params (dict, optional): Required when ``train_on_tiles`` is
+            ``True``; must contain ``"tile_size"`` and ``"tile_step"`` keys.
+            (default: None)
+        training_transform (callable, optional): Override transform for training.
+            (default: None)
+        validation_transform (callable, optional): Override transform for
+            validation. (default: None)
+
+    Returns:
+        tuple[DataLoader, DataLoader]: ``(train_loader, val_loader)``.
+    """
     if not train_on_tiles:
         train_loader = DataLoader(
             SegmentationDataset(
@@ -1011,6 +1248,34 @@ def create_segmentation_training_dataframes_and_dataloaders(
     training_transform=None,
     validation_transform=None,
 ):
+    """
+    Build training DataFrames and DataLoaders for segmentation in one step.
+
+    Combines :func:`create_segmentation_training_dataframes` and
+    :func:`create_segmentation_dataloaders`.
+
+    Parameters:
+        image_directories (str or list[str]): Directories containing image files.
+        mask_directories (str or list[str]): Directories containing mask files.
+        save_dir (str): Directory where backup CSVs are written.
+        channels (int or list[int]): Channel indices to load.
+        validation_set_ratio (float, optional): Fraction for validation.
+            (default: 0.25)
+        test_set_ratio (float, optional): Fraction for testing. (default: 0.1)
+        batch_size (int, optional): Batch size. (default: 5)
+        num_workers (int, optional): DataLoader worker processes. (default: 32)
+        pin_memory (bool, optional): Whether to pin memory. (default: True)
+        train_on_tiles (bool, optional): Whether to train on tiles. (default: True)
+        tiler_params (dict, optional): Tile parameters; see
+            :func:`create_segmentation_dataloaders`. (default: None)
+        training_transform (callable, optional): Override training transform.
+            (default: None)
+        validation_transform (callable, optional): Override validation transform.
+            (default: None)
+
+    Returns:
+        tuple: ``(training_dataframe, validation_dataframe, train_loader, val_loader)``.
+    """
     (
         training_dataframe,
         validation_dataframe,
@@ -1052,6 +1317,38 @@ def create_segmentation_dataloaders_from_filemap(
     training_transform=None,
     validation_transform=None,
 ):
+    """
+    Build segmentation DataLoaders from a CSV filemap.
+
+    Reads a CSV at ``filemap_path``, renames the specified columns to
+    ``"image"`` and ``"mask"``, splits into train/val/test sets, saves
+    date-stamped backups, and returns DataLoaders.
+
+    Parameters:
+        filemap_path (str): Path to the CSV filemap.
+        save_dir (str): Directory where backup CSVs are written.
+        channels (int or list[int]): Channel indices to load.
+        image_column (str, optional): CSV column name for image paths.
+            (default: ``"image"``)
+        mask_column (str, optional): CSV column name for mask paths.
+            (default: ``"mask"``)
+        validation_set_ratio (float, optional): Fraction for validation.
+            (default: 0.25)
+        test_set_ratio (float, optional): Fraction for testing. (default: 0.1)
+        batch_size (int, optional): Batch size. (default: 5)
+        num_workers (int, optional): DataLoader worker processes. (default: 32)
+        pin_memory (bool, optional): Whether to pin memory. (default: True)
+        train_on_tiles (bool, optional): Whether to train on tiles. (default: True)
+        tiler_params (dict, optional): Tile parameters; see
+            :func:`create_segmentation_dataloaders`. (default: None)
+        training_transform (callable, optional): Override training transform.
+            (default: None)
+        validation_transform (callable, optional): Override validation transform.
+            (default: None)
+
+    Returns:
+        tuple: ``(training_dataframe, validation_dataframe, train_loader, val_loader)``.
+    """
     dataframe = pd.read_csv(filemap_path)
     # rename image column to "image" and mask column to "mask"
     dataframe = dataframe.rename(columns={image_column: "image", mask_column: "mask"})
@@ -1101,6 +1398,26 @@ def create_classification_training_dataframes(
     validation_set_ratio=0.25,
     test_set_ratio=0.1,
 ):
+    """
+    Build training and validation DataFrames for classification from CSV ground-truth files.
+
+    Reads one or more CSV files, extracts image path and class label columns,
+    concatenates them, splits into train/val/test sets, and saves date-stamped
+    CSV backups.
+
+    Parameters:
+        ground_truth_csv_paths (str or list[str]): Paths to ground-truth CSV files.
+        image_columns (str or list[str]): Column name(s) for image paths. A single
+            string is broadcast to all CSVs.
+        class_columns (str or list[str]): Column name(s) for class labels.
+        save_dir (str): Directory where backup CSVs are written.
+        validation_set_ratio (float, optional): Fraction for validation.
+            (default: 0.25)
+        test_set_ratio (float, optional): Fraction for testing. (default: 0.1)
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: ``(training_dataframe, validation_dataframe)``.
+    """
     if not isinstance(ground_truth_csv_paths, list):
         ground_truth_csv_paths = [ground_truth_csv_paths]
     if isinstance(image_columns, str):
@@ -1157,6 +1474,27 @@ def create_classification_dataloaders(
     training_transform=None,
     validation_transform=None,
 ):
+    """
+    Create training and validation DataLoaders for image classification.
+
+    Parameters:
+        training_dataframe (pd.DataFrame): DataFrame with ``"image"`` and
+            ``"class"`` columns for training data.
+        validation_dataframe (pd.DataFrame): DataFrame with ``"image"`` and
+            ``"class"`` columns for validation data.
+        channels (int or list[int]): Channel indices to load.
+        n_classes (int): Number of classes (labels are one-hot encoded when > 2).
+        batch_size (int, optional): Batch size. (default: 64)
+        num_workers (int, optional): DataLoader worker processes. (default: 32)
+        pin_memory (bool, optional): Whether to pin memory. (default: True)
+        training_transform (callable, optional): Override training transform.
+            (default: None)
+        validation_transform (callable, optional): Override validation transform.
+            (default: None)
+
+    Returns:
+        tuple[DataLoader, DataLoader]: ``(train_loader, val_loader)``.
+    """
     train_loader = DataLoader(
         ClassificationDataset(
             training_dataframe,

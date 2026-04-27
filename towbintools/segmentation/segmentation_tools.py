@@ -107,18 +107,30 @@ def edge_based_segmentation(
     **kwargs,
 ) -> np.ndarray:
     """
-    Optimized and improved version of the original matlab edge-based segmentation method.
+    Optimized edge-based segmentation using Scharr edge detection and intensity thresholding.
+
+    Computes Scharr edges, closes edge contours with a morphological ellipse kernel,
+    then thresholds by a percentile of pixels along the closed contour boundary.
 
     Parameters:
-            image (np.ndarray): The input 2D grayscale image as a NumPy array.
-            pixelsize (float): Pixel size to consider when removing small objects.
-            gaussian_filter_sigma (float, optional): Standard deviation for the Gaussian filter used in Canny edge detection. Default is 1.
+        image (np.ndarray): 2D grayscale input image.
+        pixelsize (float): Physical pixel size (µm/px), used to convert
+            ``minimal_object_area_um2`` to pixels.
+        gaussian_filter_sigma (float, optional): Sigma for the Gaussian pre-smoothing
+            applied before Scharr edge detection. (default: 1)
+        kernel_size (int, optional): Diameter of the elliptical structuring element
+            used for morphological closing of edge contours. (default: 30)
+        final_threshold_percentile (float, optional): Percentile of contour-boundary
+            pixel intensities used as the final threshold. (default: 87.5)
+        minimal_object_area_um2 (float, optional): Minimum object area in µm² below
+            which objects are removed. (default: 422.5)
+        **kwargs: Ignored (accepted for API compatibility).
 
     Returns:
-            np.ndarray: The segmented image as a binary mask (NumPy array).
+        np.ndarray: Binary mask of shape ``(H, W)`` with dtype ``np.uint8``.
 
     Raises:
-            ValueError: If the input image is not 2D.
+        ValueError: If the input image is not 2D.
     """
 
     if image.ndim > 2:
@@ -170,6 +182,23 @@ def double_threshold_segmentation(
     pixelsize: float,
     minimal_object_area_um2: float = 422.5,
 ) -> np.ndarray:
+    """
+    Segment an image using the custom iterative Otsu threshold.
+
+    Computes a threshold with :func:`_custom_threshold_otsu` (which iteratively
+    refines the Otsu threshold using Mode-Limited Mean histogram cropping) and
+    removes small objects.
+
+    Parameters:
+        image (np.ndarray): 2D grayscale input image.
+        pixelsize (float): Physical pixel size (µm/px), used to convert
+            ``minimal_object_area_um2`` to pixels.
+        minimal_object_area_um2 (float, optional): Minimum object area in µm² below
+            which objects are removed. (default: 422.5)
+
+    Returns:
+        np.ndarray: Binary mask of shape ``(H, W)`` with dtype ``uint8``.
+    """
     # keep bins 2**8 even though our images are 2**16 because none of the images cover the whole dynamic range of 2**16. This will bin lower abundance signal pixels into fewer histogram bins
     mask = image > _custom_threshold_otsu(image, nbins=2**8)
 
@@ -187,6 +216,27 @@ def threshold_segmentation(
     minimal_object_area_um2: float = 422.5,
     **kwargs,
 ) -> np.ndarray:
+    """
+    Segment an image using a global threshold computed by a standard algorithm.
+
+    Supported thresholding algorithms: ``"otsu"``, ``"li"``, ``"yen"``,
+    ``"triangle"``.
+
+    Parameters:
+        image (np.ndarray): 2D grayscale input image.
+        pixelsize (float): Physical pixel size (µm/px), used to convert
+            ``minimal_object_area_um2`` to pixels.
+        method (str, optional): Thresholding algorithm to use. (default: ``"otsu"``)
+        minimal_object_area_um2 (float, optional): Minimum object area in µm² below
+            which objects are removed. (default: 422.5)
+        **kwargs: Ignored (accepted for API compatibility).
+
+    Returns:
+        np.ndarray: Binary mask of shape ``(H, W)`` with dtype ``uint8``.
+
+    Raises:
+        ValueError: If ``method`` is not one of the supported algorithms.
+    """
     if method == "otsu":
         thresh = threshold_otsu(image)
     elif method == "li":
@@ -213,19 +263,24 @@ def get_segmentation_function(
     **kwargs,
 ) -> callable:
     """
-    Get the segmentation function based on the specified method.
+    Return a segmentation callable configured for the specified method.
 
     Parameters:
-            method (str): Segmentation method to use. Currently supported: "edge_based", "double_threshold".
-            pixelsize (Optional[float], optional): Physical pixel size to consider for edge-based segmentation. Must be specified if method is "edge_based".
-
-            **kwargs: Additional keyword arguments to pass to the segmentation function.
+        method (str): Segmentation method. Supported values: ``"edge_based"``,
+            ``"double_threshold"``, ``"threshold"``.
+        pixelsize (float, optional): Physical pixel size (µm/px). Required for
+            ``"edge_based"`` and ``"double_threshold"``; optional for
+            ``"threshold"``. (default: None)
+        **kwargs: Additional keyword arguments forwarded to the segmentation
+            function (e.g. ``gaussian_filter_sigma`` for ``"edge_based"``).
 
     Returns:
-            callable: The segmentation function.
+        callable: A function ``segment_fn(image) -> np.ndarray`` that applies the
+            configured segmentation method to a 2D image.
 
     Raises:
-            ValueError: If method is not recognized or if pixelsize is not specified when required.
+        ValueError: If ``method`` is not recognized or ``pixelsize`` is ``None``
+            for ``"edge_based"``.
     """
     if method == "edge_based":
         if pixelsize is None:
@@ -261,24 +316,29 @@ def segment_image(
     """
     Segment an image using the specified method.
 
+    Accepts either a file path (TIFF) or a NumPy array. When ``is_stack`` is
+    ``True``, the segmentation function is applied plane-by-plane along axis 0.
+
     Parameters:
-            image (Union[str, np.ndarray]): Input image. If string, it's interpreted as the path to a TIFF file. If ndarray, it's the image data directly.
-            method (str): Segmentation method to use. Currently supported: "edge_based", "double_threshold".
-            channels (List[int], optional): List of channel indices to keep if reading a multi-channel TIFF file. Default is empty, meaning all channels are kept.
-            pixelsize (Optional[float], optional): Physical pixel size to consider for edge-based segmentation. Must be specified if method is "edge_based".
-            is_zstack (bool, optional): Whether the input image is a z-stack. Default is True.
-
-            **kwargs: Additional keyword arguments to pass to the segmentation function.
-                gaussian_filter_sigma (float, optional): Standard deviation for the Gaussian filter used in edge-based methods. Default is 1.
-                final_threshold_percentile (float, optional): Percentile to use for the final thresholding step in edge-based methods. Default is 87.5.
-                kernel_size (int, optional): Size of the kernel to use for morphological operations in edge-based methods. Default is 30.
-
+        image (str or np.ndarray): Input image path or array. A string is
+            interpreted as a path to a TIFF file.
+        method (str): Segmentation method. Supported: ``"edge_based"``,
+            ``"double_threshold"``, ``"threshold"``.
+        channels (list[int], optional): Channel indices to keep when reading a
+            multi-channel TIFF. (default: None)
+        pixelsize (float, optional): Physical pixel size (µm/px). Required for
+            ``"edge_based"`` and ``"double_threshold"``. (default: None)
+        is_stack (bool, optional): If ``True``, iterate over planes along axis 0.
+            (default: True)
+        **kwargs: Additional keyword arguments forwarded to the segmentation function.
 
     Returns:
-            np.ndarray: The segmented image as a binary mask (NumPy array).
+        np.ndarray: Binary mask as ``uint8`` array. When ``is_stack`` is ``True``,
+            shape is ``(N, H, W)``; otherwise ``(H, W)``.
 
     Raises:
-            ValueError: If method is not recognized or if pixelsize is not specified when required.
+        ValueError: If ``method`` is not recognized or ``pixelsize`` is ``None``
+            for ``"edge_based"``.
     """
     if isinstance(image, str):
         image = image_handling.read_tiff_file(image, channels_to_keep=channels)
@@ -316,9 +376,23 @@ def segment_image(
 
 def _mode_limited_mean(image, nbins=2**8, histogram=None):
     """
-    Brocher, Jan. (2014). Qualitative and Quantitative Evaluation of Two New Histogram Limiting Binarization Algorithms.
-    International Journal of Image Processing (IJIP). 8. 30-48.
-    Section 2.2 - Mode Limited Mean (MoLiM)
+    Compute the Mode-Limited Mean (MoLiM) of an image.
+
+    Returns the mean of all pixels whose intensity is strictly above the histogram
+    mode. This limits the influence of the dominant background peak and is used
+    as an intermediate threshold in :func:`_custom_threshold_otsu`.
+
+    Reference: Brocher (2014), IJIP 8, 30-48, Section 2.2.
+
+    Parameters:
+        image (np.ndarray): Input image (float in [0, 1] expected).
+        nbins (int, optional): Number of histogram bins. (default: 256)
+        histogram (tuple, optional): Pre-computed ``(hist, bin_centers)`` tuple as
+            returned by ``skimage.exposure.histogram``; computed from ``image``
+            when ``None``. (default: None)
+
+    Returns:
+        float: Mean intensity of pixels above the histogram mode.
     """
     # basic idea of the paper and MoLiM is that most thresholding algorithms work on histograms
     # if most of the image is 'background', then the histogram will be dominated by a single background peak, which will affect how the threshold is calculated
@@ -335,6 +409,22 @@ def _mode_limited_mean(image, nbins=2**8, histogram=None):
 
 
 def _custom_threshold_otsu(image, nbins=2**8):
+    """
+    Compute an Otsu threshold with iterative histogram cropping guided by Mode-Limited Mean.
+
+    Rescales the image to [0, 1], uses :func:`_mode_limited_mean` to find an
+    approximate background boundary, then iteratively crops the histogram from below
+    (using Triangle thresholding) until the lower bound exceeds the MoLiM. A final
+    Otsu threshold is computed on the cropped histogram and rescaled back to the
+    original image dtype and value range.
+
+    Parameters:
+        image (np.ndarray): Input image (any dtype; internally rescaled to float).
+        nbins (int, optional): Number of histogram bins. (default: 256)
+
+    Returns:
+        scalar: Threshold value in the original image dtype and value range.
+    """
     # for consistent behaviour with regards to dtype and nbins, explicitly convert image to float
     # this is because skimage.filters.threshold_... and skimage.exposure.histogram ignore nbins in case of integer dtype
     # additionally, I think skimage trims histogram values below image.min() and above image.max() since they are zero

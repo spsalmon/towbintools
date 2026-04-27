@@ -51,23 +51,33 @@ def normalized_variance_measure(
 
 
 def LAPV(img):
-    """Implements the Variance of Laplacian (LAP4) focus measure
-    operator. Measures the amount of edges present in the image.
+    """
+    Compute the Variance of Laplacian (LAP4) focus measure.
 
-    :param img: the image the measure is applied to
-    :type img: np.ndarray
-    :returns: np.float32 -- the degree of focus
+    Measures the variance of the Laplacian of the image, which reflects the
+    amount of edges present. Higher values indicate a sharper image.
+
+    Parameters:
+        img (np.ndarray): The input grayscale image.
+
+    Returns:
+        float: Variance of the Laplacian; higher values indicate better focus.
     """
     return np.std(cv2.Laplacian(img, cv2.CV_64F)) ** 2  # type: ignore
 
 
 def LAPM(img):
-    """Implements the Modified Laplacian (LAP2) focus measure
-    operator. Measures the amount of edges present in the image.
+    """
+    Compute the Modified Laplacian (LAP2) focus measure.
 
-    :param img: the image the measure is applied to
-    :type img: np.ndarray
-    :returns: np.float32 -- the degree of focus
+    Applies separate 1D Laplacian kernels along the X and Y axes and returns
+    the mean of their absolute sum. Higher values indicate a sharper image.
+
+    Parameters:
+        img (np.ndarray): The input grayscale image.
+
+    Returns:
+        float: Mean Modified Laplacian; higher values indicate better focus.
     """
     kernel = np.array([-1, 2, -1])
     laplacianX = np.abs(cv2.filter2D(img, -1, kernel))
@@ -76,12 +86,17 @@ def LAPM(img):
 
 
 def TENG(img):
-    """Implements the Tenengrad (TENG) focus measure operator.
-    Based on the gradient of the image.
+    """
+    Compute the Tenengrad (TENG) focus measure.
 
-    :param img: the image the measure is applied to
-    :type img: np.ndarray
-    :returns: np.float32 -- the degree of focus
+    Calculates the mean of the squared Sobel gradient magnitudes along both
+    axes. Higher values indicate a sharper image.
+
+    Parameters:
+        img (np.ndarray): The input grayscale image.
+
+    Returns:
+        float: Mean squared Sobel gradient; higher values indicate better focus.
     """
     gaussianX = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
     gaussianY = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
@@ -89,21 +104,33 @@ def TENG(img):
 
 
 def MLOG(img):
-    """Implements the MLOG focus measure algorithm.
+    """
+    Compute the MLOG focus measure.
 
-    :param img: the image the measure is applied to
-    :type img: np.ndarray
-    :returns: np.float32 -- the degree of focus
+    Returns the maximum absolute value of the Laplacian of the image.
+    Higher values indicate a sharper image.
+
+    Parameters:
+        img (np.ndarray): The input grayscale image.
+
+    Returns:
+        float: Maximum absolute Laplacian; higher values indicate better focus.
     """
     return np.max(cv2.convertScaleAbs(cv2.Laplacian(img, cv2.CV_64F)))  # type: ignore
 
 
 def TENG_VARIANCE(img):
-    """Implements the Tenengrad Variance focus measure operator.
+    """
+    Compute the Tenengrad Variance focus measure.
 
-    :param img: the image the measure is applied to
-    :type img: np.ndarray
-    :returns: np.float32 -- the degree of focus
+    Calculates the variance of the gradient magnitude (computed via Sobel
+    operators). Higher values indicate a sharper image.
+
+    Parameters:
+        img (np.ndarray): The input grayscale image.
+
+    Returns:
+        float: Variance of the gradient magnitude; higher values indicate better focus.
     """
 
     gaussianX = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore

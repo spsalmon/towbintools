@@ -22,10 +22,14 @@ def compute_growth_rate_linear(
     Parameters:
         series (np.ndarray): The series of values to compute the growth rate of.
         time (np.ndarray): The time data corresponding to the series.
-        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
-        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
-        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
-        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+        ignore_start_fraction (float, optional): Fraction of points to ignore at
+            the start. (default: 0.0)
+        ignore_end_fraction (float, optional): Fraction of points to ignore at
+            the end. (default: 0.0)
+        savgol_filter_window (int, optional): Window size of the Savitzky-Golay
+            filter. (default: 5)
+        savgol_filter_order (int, optional): Polynomial order of the
+            Savitzky-Golay filter. (default: 3)
 
     Returns:
         float: The linear growth rate of the time series.
@@ -76,10 +80,14 @@ def compute_growth_rate_exponential(
     Parameters:
         series (np.ndarray): The series of values to compute the growth rate of.
         time (np.ndarray): The time data corresponding to the series.
-        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
-        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
-        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
-        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+        ignore_start_fraction (float, optional): Fraction of points to ignore at
+            the start. (default: 0.0)
+        ignore_end_fraction (float, optional): Fraction of points to ignore at
+            the end. (default: 0.0)
+        savgol_filter_window (int, optional): Window size of the Savitzky-Golay
+            filter. (default: 5)
+        savgol_filter_order (int, optional): Polynomial order of the
+            Savitzky-Golay filter. (default: 3)
 
     Returns:
         float: The exponential growth rate of the time series.
@@ -127,17 +135,26 @@ def compute_growth_rate_classified(
     savgol_filter_order=3,
 ):
     """
-    Compute the growth rate of a time series after correcting the non-worm points by removing them and interpolating them back.
+    Compute the growth rate of a time series after correcting non-worm timepoints.
+
+    Non-worm points (classified as ``"egg"`` or ``"error"``) are removed and
+    interpolated before fitting.
 
     Parameters:
         series (np.ndarray): The time series of values.
         time (np.ndarray): The time data corresponding to the series.
-        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-        method (str): The method to use for computing the growth rate. Can be either 'exponential' or 'linear'.
-        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
-        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
-        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
-        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+        qc (np.ndarray): Per-point classification (``"worm"``, ``"egg"``, or
+            ``"error"``).
+        method (str, optional): Regression method; ``"exponential"`` or
+            ``"linear"``. (default: ``"exponential"``)
+        ignore_start_fraction (float, optional): Fraction of points to ignore at
+            the start. (default: 0.0)
+        ignore_end_fraction (float, optional): Fraction of points to ignore at
+            the end. (default: 0.0)
+        savgol_filter_window (int, optional): Window size of the Savitzky-Golay
+            filter. (default: 5)
+        savgol_filter_order (int, optional): Polynomial order of the
+            Savitzky-Golay filter. (default: 3)
 
     Returns:
         float: The growth rate of the time series.
@@ -249,21 +266,32 @@ def compute_growth_rate_per_larval_stage(
     savgol_filter_order=3,
 ):
     """
-    Compute the growth rate of a time series per larval stage.
+    Compute the growth rate of a time series for each larval stage.
+
+    Non-worm timepoints are removed and interpolated before fitting. Growth
+    rates are computed for L1–L4 using the ecdysis boundary indices.
 
     Parameters:
         series (np.ndarray): The time series of values.
         time (np.ndarray): The time data corresponding to the series.
-        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-        ecdysis (dict): The ecdysis events of the worm.
-        method (str): The method to use for computing the growth rate. Can be either 'exponential' or 'linear'.
-        ignore_start_fraction (float): The fraction of points to ignore at the beginning of the series.
-        ignore_end_fraction (float): The fraction of points to ignore at the end of the series.
-        savgol_filter_window (int): The window size of the Savitzky-Golay filter.
-        savgol_filter_order (int): The order of the Savitzky-Golay filter.
+        qc (np.ndarray): Per-point classification (``"worm"``, ``"egg"``, or
+            ``"error"``).
+        ecdysis (dict): Ecdysis boundary dict with keys ``"HatchTime"``,
+            ``"M1"``, ``"M2"``, ``"M3"``, ``"M4"`` as integer indices.
+        method (str, optional): Regression method; ``"exponential"`` or
+            ``"linear"``. (default: ``"exponential"``)
+        ignore_start_fraction (float, optional): Fraction of points to ignore
+            at the start of each stage. (default: 0.0)
+        ignore_end_fraction (float, optional): Fraction of points to ignore at
+            the end of each stage. (default: 0.0)
+        savgol_filter_window (int, optional): Window size of the Savitzky-Golay
+            filter. (default: 5)
+        savgol_filter_order (int, optional): Polynomial order of the
+            Savitzky-Golay filter. (default: 3)
 
     Returns:
-        dict: The growth rate per larval stage.
+        dict: Growth rate for each larval stage, keyed ``"L1"``–``"L4"``.
+            Stages with NaN ecdysis boundaries return ``np.nan``.
     """
 
     assert (

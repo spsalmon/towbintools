@@ -112,6 +112,9 @@ def crop_to_dim_equally(image: np.ndarray, xdim: int, ydim: int) -> np.ndarray:
 
     Returns:
         np.ndarray: Cropped image of shape (... , xdim, ydim).
+
+    Raises:
+        ValueError: If target dimensions are larger than input dimensions.
     """
     if xdim > image.shape[-2] or ydim > image.shape[-1]:
         raise ValueError("Target dimensions cannot be larger than image dimensions")
@@ -414,9 +417,13 @@ def check_if_stack(
 
     Parameters:
         file_path (str): Path to the OME-TIFF image file.
+        channels_to_keep (list[int], optional): Channel indices used to infer stack
+            status when OME-TIFF metadata is unavailable. (default: None)
+
     Returns:
-        bool: True if the image is a stack (z_dim > 1 or t_dim > 1), False otherwise.
-        tuple[int, int]: A tuple containing the z-dimension and t-dimension sizes (z_dim, t_dim).
+        tuple: ``(is_stack, (z_dim, t_dim))`` where ``is_stack`` is ``True`` when
+            either z_dim > 1 or t_dim > 1, and ``(z_dim, t_dim)`` are the
+            corresponding dimension sizes.
     """
 
     dimensions = get_image_size_metadata(file_path)
@@ -487,7 +494,7 @@ def check_if_time_series(file_path: str) -> bool:
     """
     Determine whether the given OME-TIFF file represents a time series.
 
-    Checks the z-dimension size in the OME-TIFF metadata to determine
+    Checks the t-dimension size in the OME-TIFF metadata to determine
     if the image is a time series (more than one time point).
 
     Returns False if the file is not a valid OME-TIFF or the metadata cannot be read.

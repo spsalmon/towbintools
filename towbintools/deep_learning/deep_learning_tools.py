@@ -19,16 +19,19 @@ def create_classification_model(
     Create a classification model.
 
     Parameters:
-        architecture (str): The architecture of the classification model.
-        input_channels (int): The number of input channels.
-        classes (list[str]): The list of class names.
-        learning_rate (float): The learning rate for the optimizer.
-        checkpoint_path (str): Path to a checkpoint file.
-        criterion (torch.nn.Module): The loss function.
-        activation (str): The activation function to use.
+        architecture (str): ``timm`` model name (e.g. ``"efficientnet_b0"``).
+        input_channels (int): Number of input image channels.
+        classes (list[str]): List of class label strings.
+        learning_rate (float, optional): Learning rate for the Adam optimizer.
+            (default: 1e-4)
+        checkpoint_path (str, optional): Path to a ``.ckpt`` checkpoint; if
+            provided, the model is loaded from the checkpoint and all other
+            arguments are ignored. (default: None)
+        normalization (dict, optional): Normalization config stored as a
+            hyperparameter for inference. (default: percentile 1–99)
 
     Returns:
-        PretrainedClassificationModel: The classification model.
+        PretrainedClassificationModel: Constructed or loaded classification model.
     """
 
     if checkpoint_path is not None:
@@ -63,17 +66,30 @@ def create_pretrained_segmentation_model(
     Create a segmentation model with a pretrained encoder.
 
     Parameters:
-        n_classes (int): The number of classes in the segmentation task.
-        learning_rate (float): The learning rate for the optimizer.
-        architecture (str): The architecture of the segmentation model.
-        encoder (str): The encoder of the segmentation model.
-        pretrained_weights (str): Dataset the encoder was trained on.
-        normalization (dict): Parameters for the normalization.
-        checkpoint_path (str): Path to a checkpoint file.
-        criterion (torch.nn.Module): The loss function.
+        input_channels (int, optional): Number of input image channels. (default: 1)
+        n_classes (int, optional): Number of foreground segmentation classes.
+            (default: 1)
+        architecture (str, optional): ``smp`` architecture name. (default: ``"UnetPlusPlus"``)
+        encoder (str, optional): Encoder backbone name. (default: ``"efficientnet-b4"``)
+        pretrained_weights (str, optional): Dataset the encoder was pretrained on.
+            (default: ``"image-micronet"``)
+        normalization (dict, optional): Normalization config. (default: percentile 1–99)
+        learning_rate (float, optional): Learning rate for the Adam optimizer.
+            (default: 1e-5)
+        checkpoint_path (str, optional): Path to a ``.ckpt`` checkpoint. If
+            provided, the model is loaded from the checkpoint, then
+            ``learning_rate`` and ``normalization`` are updated. (default: None)
+        reset_optimizer (bool, optional): If ``True``, discard the optimizer
+            state from the checkpoint. (default: True)
+        criterion (nn.Module, optional): Loss function. If ``None``, a default
+            is chosen based on ``n_classes``. (default: None)
 
     Returns:
-        PretrainedSegmentationModel: The segmentation model with a pretrained encoder.
+        PretrainedSegmentationModel: Constructed or loaded segmentation model.
+
+    Raises:
+        ValueError: If the checkpoint architecture or encoder does not match
+            the requested one.
     """
     model = PretrainedSegmentationModel(
         input_channels=input_channels,
@@ -132,20 +148,29 @@ def create_segmentation_model(
     criterion=None,
 ):
     """
-    Create a segmentation model.
+    Create a segmentation model using a custom (non-pretrained) architecture.
 
     Parameters:
-        architecture (str): The architecture of the segmentation model.
-        input_channels (int): The number of input channels.
-        n_classes (int): The number of classes in the segmentation task.
-        learning_rate (float): The learning rate for the optimizer.
-        normalization (dict): Parameters for the normalization.
-        deep_supervision (bool): Whether to use deep supervision or not.
-        checkpoint_path (str): Path to a checkpoint file.
-        criterion (torch.nn.Module): The loss function.
+        architecture (str): Architecture name; one of ``"Unet"`` or
+            ``"UnetPlusPlus"``.
+        input_channels (int): Number of input image channels.
+        n_classes (int): Number of foreground segmentation classes.
+        normalization (dict, optional): Normalization config. (default: percentile 1–99)
+        learning_rate (float, optional): Learning rate for the Adam optimizer.
+            (default: 1e-5)
+        deep_supervision (bool, optional): Enable deep supervision (only relevant
+            for ``"UnetPlusPlus"``). (default: False)
+        checkpoint_path (str, optional): Path to a ``.ckpt`` checkpoint. If
+            provided, the model is loaded from the checkpoint, then
+            ``learning_rate``, ``normalization``, and ``deep_supervision`` are
+            updated. (default: None)
+        reset_optimizer (bool, optional): If ``True``, discard the optimizer
+            state from the checkpoint. (default: True)
+        criterion (nn.Module, optional): Loss function. If ``None``, a default
+            is chosen based on ``n_classes``. (default: None)
 
     Returns:
-        SegmentationModel: The segmentation model.
+        SegmentationModel: Constructed or loaded segmentation model.
     """
 
     if checkpoint_path is not None:
@@ -184,19 +209,25 @@ def create_keypoint_detection_model(
     activation="relu",
 ):
     """
-    Create a keypoint detection model.
+    Create a 1D keypoint detection model.
 
     Parameters:
-        architecture (str): The architecture of the keypoint detection model.
-        input_channels (int): The number of input channels.
-        n_classes (int): The number of classes in the keypoint detection task.
-        learning_rate (float): The learning rate for the optimizer.
-        checkpoint_path (str): Path to a checkpoint file.
-        criterion (torch.nn.Module): The loss function.
-        activation (str): The activation function to use.
+        architecture (str): Architecture name; one of ``"Unet"``,
+            ``"AttentionUnet"``, or ``"UnetPlusPlus"``.
+        input_channels (int): Number of input sequence channels.
+        n_classes (int): Number of keypoint classes (output channels).
+        learning_rate (float, optional): Learning rate for the Adam optimizer.
+            (default: 1e-4)
+        checkpoint_path (str, optional): Path to a ``.ckpt`` checkpoint; if
+            provided, the model is loaded from the checkpoint and all other
+            arguments are ignored. (default: None)
+        criterion (nn.Module, optional): Loss function. If ``None``,
+            ``PeakWeightedMSELoss`` is used. (default: None)
+        activation (str, optional): Output activation; one of ``"relu"``,
+            ``"leaky_relu"``, ``"sigmoid"``, or ``"none"``. (default: ``"relu"``)
 
     Returns:
-        KeypointDetection1DModel: The keypoint detection model.
+        KeypointDetection1DModel: Constructed or loaded keypoint detection model.
     """
 
     if checkpoint_path is not None:
@@ -217,17 +248,21 @@ def create_keypoint_detection_model(
 
 
 def load_pretrained_segmentation_model_from_checkpoint(checkpoint_path):
-    """Load a pretrained segmentation model from a checkpoint. If the model cannot be loaded
-    tries to load it with the default number of input channels.
+    """
+    Load a pretrained segmentation model from a checkpoint.
+
+    First tries a direct load; if that fails (e.g. mismatched ``input_channels``
+    in the checkpoint metadata), infers the channel count from the checkpoint
+    weights and retries with ``pretrained_weights=None``.
 
     Parameters:
-        checkpoint_path (str): Path to a checkpoint file.
+        checkpoint_path (str): Path to a ``.ckpt`` checkpoint file.
 
     Returns:
-        PretrainedSegmentationModel: The pretrained segmentation model.
+        PretrainedSegmentationModel: Loaded segmentation model.
 
     Raises:
-        ValueError: If the model cannot be loaded from the checkpoint.
+        ValueError: If both loading attempts fail.
     """
     try:
         return PretrainedSegmentationModel.load_from_checkpoint(
@@ -250,20 +285,22 @@ def load_pretrained_segmentation_model_from_checkpoint(checkpoint_path):
 def load_scratch_segmentation_model_from_checkpoint(
     checkpoint_path, default_deep_supervision=False
 ):
-    """Load a segmentation model from a checkpoint. If the model cannot be loaded
-    tries to load it with the default number of input channels and deep supervision turned off.
+    """
+    Load a :class:`SegmentationModel` from a checkpoint.
 
-    This function first tries to load the model as a PretrainedSegmentationModel. If that fails,
-    it tries to load it as a SegmentationModel. If both attempts fail, it raises an error.
+    First tries a direct load; if that fails, infers the channel count from
+    the checkpoint weights and retries with ``deep_supervision=default_deep_supervision``.
 
     Parameters:
-        checkpoint_path (str): Path to a checkpoint file.
+        checkpoint_path (str): Path to a ``.ckpt`` checkpoint file.
+        default_deep_supervision (bool, optional): Deep supervision value used
+            on the fallback load attempt. (default: False)
 
     Returns:
-        SegmentationModel or PretrainedSegmentationModel: The segmentation model.
+        SegmentationModel: Loaded segmentation model.
 
     Raises:
-        ValueError: If the model cannot be loaded from the checkpoint.
+        ValueError: If both loading attempts fail.
     """
     try:
         return SegmentationModel.load_from_checkpoint(
@@ -284,19 +321,20 @@ def load_scratch_segmentation_model_from_checkpoint(
 
 
 def load_segmentation_model_from_checkpoint(checkpoint_path):
-    """Load a segmentation model from a checkpoint.
+    """
+    Load a segmentation model from a checkpoint, trying both model types.
 
-    This function first tries to load the model as a PretrainedSegmentationModel. If that fails,
-    it tries to load it as a SegmentationModel. If both attempts fail, it raises an error.
+    First tries to load as :class:`PretrainedSegmentationModel`; if that fails,
+    tries :class:`SegmentationModel`. Raises if both fail.
 
     Parameters:
-        checkpoint_path (str): Path to a checkpoint file.
+        checkpoint_path (str): Path to a ``.ckpt`` checkpoint file.
 
     Returns:
-        SegmentationModel or PretrainedSegmentationModel: The segmentation model.
+        PretrainedSegmentationModel or SegmentationModel: Loaded segmentation model.
 
     Raises:
-        ValueError: If the model cannot be loaded from the checkpoint.
+        ValueError: If both loading attempts fail.
     """
 
     try:
@@ -311,13 +349,14 @@ def load_segmentation_model_from_checkpoint(checkpoint_path):
 
 
 def load_keypoint_detection_model_from_checkpoint(checkpoint_path):
-    """Load a keypoint detection model from a checkpoint.
+    """
+    Load a 1D keypoint detection model from a checkpoint.
 
     Parameters:
-        checkpoint_path (str): Path to a checkpoint file.
+        checkpoint_path (str): Path to a ``.ckpt`` checkpoint file.
 
     Returns:
-        KeypointDetection1DModel: The keypoint detection model.
+        KeypointDetection1DModel: Loaded keypoint detection model.
 
     Raises:
         ValueError: If the model cannot be loaded from the checkpoint.

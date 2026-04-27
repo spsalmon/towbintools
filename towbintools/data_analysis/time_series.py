@@ -174,6 +174,33 @@ def filter_series_with_classification(series, qc):
 def interpolate_larval_stage(
     series, time, ecdysis, larval_stage, qc=None, n_points=100
 ):
+    """
+    Interpolate a time series over a single larval stage to a fixed number of points.
+
+    Uses a linear b-spline to resample the series between the ecdysis events bounding
+    the requested larval stage. Non-worm time points are excluded when ``qc`` is
+    provided.
+
+    Parameters:
+        series (np.ndarray): 1D array of measured values.
+        time (np.ndarray): 1D array of time points corresponding to ``series``.
+        ecdysis (array-like): 5-element sequence
+            ``[hatch_time, M1, M2, M3, M4]`` of ecdysis indices.
+        larval_stage (int): Larval stage to interpolate (1–4).
+        qc (np.ndarray, optional): Classification array with values ``"worm"``,
+            ``"egg"``, or ``"error"``; non-worm points are masked before
+            interpolation. (default: None)
+        n_points (int, optional): Number of evenly-spaced output points.
+            (default: 100)
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: ``(interpolated_time, interpolated_series)``
+            each of length ``n_points``. Both arrays are filled with NaN when the
+            bounding ecdysis events are invalid.
+
+    Raises:
+        ValueError: If ``larval_stage`` is not in the range [1, 4].
+    """
     if larval_stage < 1 or larval_stage > 4:
         raise ValueError("The larval stage must be between 1 and 4.")
 
@@ -210,6 +237,27 @@ def interpolate_larval_stage(
 
 
 def interpolate_entire_development(series, time, ecdysis, qc=None, n_points=100):
+    """
+    Interpolate a time series over all four larval stages.
+
+    Calls :func:`interpolate_larval_stage` for each stage and stacks the results.
+
+    Parameters:
+        series (np.ndarray): 1D array of measured values.
+        time (np.ndarray): 1D array of time points corresponding to ``series``.
+        ecdysis (array-like): 5-element sequence
+            ``[hatch_time, M1, M2, M3, M4]`` of ecdysis indices.
+        qc (np.ndarray, optional): Classification array with values ``"worm"``,
+            ``"egg"``, or ``"error"``; non-worm points are masked before
+            interpolation. (default: None)
+        n_points (int, optional): Number of evenly-spaced output points per stage.
+            (default: 100)
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: ``(interpolated_time, interpolated_series)``
+            both of shape ``(4, n_points)``. Rows correspond to larval stages L1–L4;
+            stages with invalid ecdysis events are filled with NaN.
+    """
     interpolated_time = np.full((4, n_points), np.nan)
     interpolated_series = np.full((4, n_points), np.nan)
     for larval_stage in range(1, 5):
@@ -233,20 +281,26 @@ def compute_exponential_series_at_time_classified(
     fit_width: int = 10,
 ) -> float:
     """
-    Compute the value of a time series at a given time(s) using linear regression on a logarithmic transformation of the data.
+    """
+    Evaluate a time series at given time indices using exponential (log-linear) regression.
 
-    This function uses linear regression on a logarithmic transformation of the volume data to predict
-    the volume at the specified hatch time and end-molts. Only data points where `qc` is "worm"
-    are used for fitting. The function returns the volume at desired time.
+    For each requested time index, fits a linear regression to the log-transformed
+    series within a window of ``fit_width`` points on each side, using only
+    points classified as ``"worm"``. Returns the back-transformed (exponential)
+    predicted value at each requested time.
 
     Parameters:
-        volume (np.ndarray): A time series representing volume.
-        time (np.ndarray): The time(s) at which the volume is to be computed.
-        qc (np.ndarray): An array indicating the type of each entry in the volume time series. Expected values are "worm", "egg", etc.
-        fit_width (int, optional): Width for the linear regression fit used in computing the volume. (default: 10)
+        series (np.ndarray): 1D array of measured values (e.g. volume).
+        time (np.ndarray): 1D array of time indices at which to evaluate the series.
+        qc (np.ndarray): Classification array with values ``"worm"``, ``"egg"``, or
+            ``"error"``; only ``"worm"`` points are used for fitting.
+        fit_width (int, optional): Half-width of the fitting window around each
+            requested time index. (default: 10)
 
     Returns:
-        np.ndarray: Volume at desired time(s).
+        np.ndarray: Predicted series values at each element of ``time``. NaN is
+            returned for time indices that are non-finite or where no ``"worm"``
+            points fall within the fitting window.
     """
 
     def compute_single_time(time: float) -> float:
@@ -289,17 +343,27 @@ def smooth_series_classified(
     medfilt_window=5,
 ) -> np.ndarray:
     """
-    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using Whittaker-Eilers smoothing.
+    Smooth a time series after masking non-worm points.
+
+    Non-worm points (according to ``qc``) are replaced by interpolated values,
+    then a median filter is applied followed by Whittaker-Eilers smoothing.
 
     Parameters:
-        series (np.ndarray): The time series.
-        series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
-        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
-        order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
-        medfilt_window (int, optional): The window size for the median filter. (default: 5)
+        series (np.ndarray): 1D array of measured values.
+        series_time (np.ndarray): 1D array of time points corresponding to
+            ``series``. Pass ``None`` to use integer indices.
+        qc (np.ndarray): Classification array with values ``"worm"``, ``"egg"``,
+            or ``"error"``; non-worm points are interpolated before smoothing.
+        lmbda (float, optional): Smoothing parameter for the Whittaker-Eilers
+            smoother. (default: 0.0075)
+        order (int, optional): Penalty order for the Whittaker-Eilers smoother.
+            (default: 2)
+        medfilt_window (int, optional): Kernel size for the median filter applied
+            before Whittaker-Eilers smoothing. (default: 5)
+
     Returns:
-        np.ndarray: The series at the given time(s).
+        np.ndarray: Smoothed series of the same length as ``series``. Returns an
+            all-NaN array when all input values are NaN.
     """
 
     if np.all(np.isnan(series)):
@@ -328,16 +392,25 @@ def smooth_series(
     medfilt_window=5,
 ) -> np.ndarray:
     """
-    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using Whittaker-Eilers smoothing.
+    Smooth a time series without classification-based masking.
+
+    Applies a median filter followed by Whittaker-Eilers smoothing. Unlike
+    :func:`smooth_series_classified`, non-worm points are not masked first.
 
     Parameters:
-        series (np.ndarray): The time series.
-        series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
-        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
-        order (int, optional): The order of the penalty of the Whittaker-Eilers smoother. (default: 2)
-        medfilt_window (int, optional): The window size for the median filter. (default: 5)
+        series (np.ndarray): 1D array of measured values.
+        series_time (np.ndarray): 1D array of time points corresponding to
+            ``series``. Pass ``None`` to use integer indices.
+        lmbda (float, optional): Smoothing parameter for the Whittaker-Eilers
+            smoother. (default: 0.0075)
+        order (int, optional): Penalty order for the Whittaker-Eilers smoother.
+            (default: 2)
+        medfilt_window (int, optional): Kernel size for the median filter applied
+            before Whittaker-Eilers smoothing. (default: 5)
+
     Returns:
-        np.ndarray: The series at the given time(s).
+        np.ndarray: Smoothed series of the same length as ``series``. Returns an
+            all-NaN array when all input values are NaN.
     """
 
     if np.all(np.isnan(series)):
@@ -362,6 +435,23 @@ def _smooth_series(
     order: int = 2,
     medfilt_window: int = 5,
 ) -> np.ndarray:
+    """
+    Apply median filter then Whittaker-Eilers smoothing to a series.
+
+    Parameters:
+        series (np.ndarray): 1D array of measured values (NaN-free expected).
+        series_time (np.ndarray): 1D array of time points. Pass ``None`` to use
+            integer indices.
+        lmbda (float, optional): Smoothing parameter for the Whittaker-Eilers
+            smoother. (default: 0.0075)
+        order (int, optional): Penalty order for the Whittaker-Eilers smoother.
+            (default: 2)
+        medfilt_window (int, optional): Kernel size for the median filter.
+            (default: 5)
+
+    Returns:
+        np.ndarray: Smoothed series of the same length as ``series``.
+    """
     # Median filter to remove outliers
     series = medfilt(series, medfilt_window)
 
@@ -410,15 +500,22 @@ def compute_series_at_time_classified(
     bspline_order=3,
 ) -> np.ndarray:
     """
-    Compute the series at the given time points using the worm types to classify the points. The series is first corrected for incorrect segmentation, then median filtered to remove outliers, then smoothed using a Savitzky-Golay filter, and finally interpolated using b-splines.
+    Evaluate a time series at arbitrary time points after smoothing and classification-based masking.
+
+    Non-worm points are masked and interpolated, then the series is smoothed with a
+    median filter and Whittaker-Eilers smoothing, and finally evaluated at the
+    requested ``time`` values using a b-spline interpolant.
 
     Parameters:
-        series (np.ndarray): The time series.
-        time (np.ndarray): The time points at which the series is to be computed.
-        series_time (np.ndarray): The time points of the original series. If None, the time points are assumed to be the indices of the series.
-        qc (np.ndarray): The classification of the points as either 'worm' or 'egg' or 'error'.
-        lmbda (float, optional): The smoothing parameter for the Whittaker-Eilers smoothing. Default provides good results for our volume curves when series_time is in hours. (default: 0.0075)
-        medfilt_window (int, optional): The window size for the median filter. (default: 5)
+        series (np.ndarray): 1D array of measured values.
+        time (np.ndarray): Time points at which the smoothed series is to be evaluated.
+        series_time (np.ndarray): 1D array of time points corresponding to ``series``.
+            Pass ``None`` to use integer indices.
+        qc (np.ndarray): Classification array with values ``"worm"``, ``"egg"``,
+            or ``"error"``; non-worm points are masked before smoothing.
+        lmbda (float, optional): Smoothing parameter for the Whittaker-Eilers
+            smoother. (default: 0.0075)
+        medfilt_window (int, optional): Kernel size for the median filter. (default: 5)
         bspline_order (int, optional): The order of the b-spline interpolation. (default: 3)
 
     Returns:

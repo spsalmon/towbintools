@@ -210,16 +210,22 @@ def add_dir_to_experiment_filemap(
     time_regex: str = r"Time(\d+)",
     point_regex: str = r"Point(\d+)",
 ) -> pl.DataFrame:
-    """
-    Add a the images contained in a directory to an existing filemap as a new column.
+    r"""
+    Add the images contained in a directory to an existing filemap as a new column.
 
     Parameters:
-        experiment_filemap (pl.DataFrame): Filemap dataframe.
+        experiment_filemap (pl.DataFrame): Existing filemap dataframe with at least
+            ``"Time"`` and ``"Point"`` columns.
         dir_path (str): The path to the directory containing the images.
-        subdir_name (str): The name of the new column to be added.
+        subdir_name (str): The name of the new column to be added to the filemap.
+        time_regex (str): Regular expression pattern to extract time information from
+            file names. (default: r"Time(\d+)")
+        point_regex (str): Regular expression pattern to extract point information from
+            file names. (default: r"Point(\d+)")
 
     Returns:
-        pd.DataFrame: Updated filemap dataframe with the new column added.
+        pl.DataFrame: Updated filemap dataframe with the new column added, missing
+            entries filled with empty strings.
     """
     subdir_filemap = get_dir_filemap(dir_path, time_regex, point_regex)
     subdir_filemap = subdir_filemap.rename({"ImagePath": subdir_name})
@@ -234,7 +240,22 @@ def add_dir_to_experiment_filemap(
 
 
 def read_filemap(filemap_path: str, lazy_loading: bool = False) -> pl.DataFrame:
-    """Read a filemap from a CSV or Parquet file using Polars."""
+    """
+    Read a filemap from a CSV or Parquet file using Polars.
+
+    Detects the file format from the ``.parquet`` extension; otherwise treats the
+    file as CSV. When ``lazy_loading`` is ``True`` a ``LazyFrame`` is returned
+    instead of an eager ``DataFrame``.
+
+    Parameters:
+        filemap_path (str): Path to the filemap file (``.csv`` or ``.parquet``).
+        lazy_loading (bool, optional): If ``True``, return a Polars ``LazyFrame``
+            instead of a ``DataFrame``. (default: False)
+
+    Returns:
+        pl.DataFrame: The filemap as a Polars DataFrame (or LazyFrame when
+            ``lazy_loading`` is ``True``).
+    """
     if filemap_path.endswith(".parquet"):
         if lazy_loading:
             filemap = pl.scan_parquet(filemap_path)
@@ -257,7 +278,18 @@ def read_filemap(filemap_path: str, lazy_loading: bool = False) -> pl.DataFrame:
 
 
 def write_filemap(filemap: pl.DataFrame, filemap_path: str) -> None:
-    """Write a filemap to a CSV or Parquet file using Polars."""
+    """
+    Write a filemap to a CSV or Parquet file using Polars.
+
+    Detects the output format from the ``.parquet`` extension; otherwise writes CSV.
+
+    Parameters:
+        filemap (pl.DataFrame): The filemap dataframe to write.
+        filemap_path (str): Destination path for the filemap file (``.csv`` or ``.parquet``).
+
+    Returns:
+        None
+    """
     if filemap_path.endswith(".parquet"):
         filemap.write_parquet(filemap_path)
     else:

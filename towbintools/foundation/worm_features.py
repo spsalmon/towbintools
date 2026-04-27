@@ -124,7 +124,7 @@ def compute_mask_area(
         pixelsize (float): The size of a pixel, used for area calculation.
 
     Returns:
-        float: The computed are of the worm.
+        float: The computed area of the worm.
     """
 
     return np.sum(worm_mask) * (pixelsize**2)
@@ -163,6 +163,9 @@ def compute_mask_average_width(
 
     Returns:
         float: The computed average width of the worm.
+
+    Raises:
+        ValueError: If ``aggregation`` is not ``"mean"`` or ``"median"``.
     """
 
     worm_widths = np.sum(straightened_mask, axis=0) * pixelsize
@@ -450,7 +453,8 @@ def intensity_skew(
         intensity_image (np.ndarray): The intensity image.
 
     Returns:
-        float: The skewness of the intensity values within the region."""
+        float: The skewness of the intensity values within the region.
+    """
 
     return skew(intensity_image[regionmask])
 
@@ -467,7 +471,8 @@ def intensity_kurtosis(
         intensity_image (np.ndarray): The intensity image.
 
     Returns:
-        float: The kurtosis of the intensity values within the region."""
+        float: The kurtosis of the intensity values within the region.
+    """
 
     return kurtosis(intensity_image[regionmask])
 

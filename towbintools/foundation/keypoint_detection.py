@@ -4,7 +4,21 @@ from scipy.signal import find_peaks
 
 def heatmap_to_keypoints_1D(heatmap, height_threshold=0.5):
     """
-    Convert a heatmap to keypoints by finding the peaks.
+    Convert a 1D heatmap to keypoints by finding the highest peak per class.
+
+    For each class (row of the heatmap), finds all peaks above ``height_threshold``
+    and retains the single highest peak. If no peak is found for a class, NaN is
+    returned for that class.
+
+    Parameters:
+        heatmap (np.ndarray): 2D array of shape ``(n_classes, length)`` where each
+            row is a 1D signal for one class.
+        height_threshold (float, optional): Minimum peak height to consider.
+            (default: 0.5)
+
+    Returns:
+        np.ndarray: 1D array of shape ``(n_classes,)`` containing the index of the
+            highest peak for each class, or NaN if no peak was found.
     """
     peaks = []
     for i in range(heatmap.shape[0]):

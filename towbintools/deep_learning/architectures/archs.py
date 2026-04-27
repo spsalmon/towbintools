@@ -5,6 +5,18 @@ from torch import nn
 
 
 class VGGBlock(nn.Module):
+    """
+    Two-layer convolutional block with BatchNorm and ReLU (VGG-style).
+
+    Applies Conv2d → BN → ReLU twice in sequence. Used as the basic building
+    block in :class:`Unet` and :class:`UnetPlusPlus`.
+
+    Parameters:
+        in_channels (int): Number of input channels.
+        middle_channels (int): Number of channels after the first convolution.
+        out_channels (int): Number of output channels.
+    """
+
     def __init__(self, in_channels, middle_channels, out_channels):
         super().__init__()
         self.relu = nn.ReLU(inplace=True)
@@ -26,6 +38,19 @@ class VGGBlock(nn.Module):
 
 
 class Unet(nn.Module):
+    """
+    2D U-Net for image segmentation.
+
+    Encoder–decoder architecture with skip connections at 5 resolution levels.
+    Filter counts follow [64, 128, 256, 512, 1024]. Uses bilinear upsampling
+    and :class:`VGGBlock` at each stage.
+
+    Parameters:
+        num_classes (int): Number of output segmentation classes.
+        input_channels (int, optional): Number of input image channels. (default: 1)
+        **kwargs: Ignored; accepted for API compatibility with other architectures.
+    """
+
     def __init__(self, num_classes, input_channels=1, **kwargs):
         super().__init__()
 
@@ -64,6 +89,23 @@ class Unet(nn.Module):
 
 
 class UnetPlusPlus(nn.Module):
+    """
+    2D UNet++ for image segmentation with optional deep supervision.
+
+    Extends U-Net with dense nested skip connections between all encoder and
+    decoder nodes at the same resolution level. Filter counts follow
+    [64, 128, 256, 512, 1024]. When ``deep_supervision=True``, returns a list
+    of four outputs from intermediate decoder nodes; otherwise returns a single
+    output from the finest level.
+
+    Parameters:
+        num_classes (int): Number of output segmentation classes.
+        input_channels (int, optional): Number of input image channels. (default: 1)
+        deep_supervision (bool, optional): If ``True``, return outputs from all
+            intermediate decoder stages for deep supervision. (default: False)
+        **kwargs: Ignored; accepted for API compatibility.
+    """
+
     def __init__(self, num_classes, input_channels=1, deep_supervision=False, **kwargs):
         super().__init__()
 
@@ -150,6 +192,19 @@ class UnetPlusPlus(nn.Module):
 
 
 class VGGBlock1D(nn.Module):
+    """
+    One-dimensional two-layer convolutional block with BatchNorm and ReLU.
+
+    The 1D analogue of :class:`VGGBlock`, using Conv1d. Used as the basic
+    building block in :class:`Unet1D`, :class:`AttentionUnet1D`, and
+    :class:`UnetPlusPlus1D`.
+
+    Parameters:
+        in_channels (int): Number of input channels.
+        middle_channels (int): Number of channels after the first convolution.
+        out_channels (int): Number of output channels.
+    """
+
     def __init__(self, in_channels, middle_channels, out_channels):
         super().__init__()
         self.relu = nn.ReLU(inplace=True)
@@ -171,6 +226,20 @@ class VGGBlock1D(nn.Module):
 
 
 class AttentionBlock1D(nn.Module):
+    """
+    1D attention gate for use in :class:`AttentionUnet1D`.
+
+    Computes a soft attention map from a gating signal ``g`` (from the decoder)
+    and a skip-connection feature map ``x`` (from the encoder). The output is
+    ``x`` weighted element-wise by the attention coefficients.
+
+    Parameters:
+        F_g (int): Number of channels in the gating signal ``g``.
+        F_l (int): Number of channels in the skip-connection feature map ``x``.
+        F_int (int): Number of intermediate channels used to compute the
+            attention map.
+    """
+
     def __init__(self, F_g, F_l, F_int):
         super().__init__()
         self.W_g = nn.Sequential(
@@ -201,6 +270,19 @@ class AttentionBlock1D(nn.Module):
 
 
 class Unet1D(nn.Module):
+    """
+    1D U-Net for sequence segmentation and keypoint detection.
+
+    The 1D analogue of :class:`Unet`, operating on 1D sequences with
+    MaxPool1d downsampling and linear upsampling. Filter counts follow
+    [64, 128, 256, 512, 1024].
+
+    Parameters:
+        num_classes (int): Number of output classes (output channels).
+        input_channels (int, optional): Number of input sequence channels. (default: 1)
+        **kwargs: Ignored; accepted for API compatibility.
+    """
+
     def __init__(self, num_classes, input_channels=1, **kwargs):
         super().__init__()
 
@@ -247,6 +329,20 @@ class Unet1D(nn.Module):
 
 
 class AttentionUnet1D(nn.Module):
+    """
+    1D U-Net with attention gates for sequence segmentation and keypoint detection.
+
+    Extends :class:`Unet1D` by inserting an :class:`AttentionBlock1D` at each
+    decoder stage. The attention gates suppress irrelevant activations in the
+    encoder skip connections before concatenation. Filter counts follow
+    [64, 128, 256, 512, 1024].
+
+    Parameters:
+        num_classes (int): Number of output classes (output channels).
+        input_channels (int, optional): Number of input sequence channels. (default: 1)
+        **kwargs: Ignored; accepted for API compatibility.
+    """
+
     def __init__(self, num_classes, input_channels=1, **kwargs):
         super().__init__()
 
@@ -311,6 +407,23 @@ class AttentionUnet1D(nn.Module):
 
 
 class UnetPlusPlus1D(nn.Module):
+    """
+    1D UNet++ for sequence segmentation with optional deep supervision.
+
+    The 1D analogue of :class:`UnetPlusPlus`, with dense nested skip connections
+    between all encoder and decoder nodes at the same resolution. Uses Conv1d,
+    MaxPool1d, and linear upsampling. Filter counts follow [64, 128, 256, 512,
+    1024]. When ``deep_supervision=True``, returns a list of four outputs from
+    intermediate decoder nodes; otherwise returns a single output.
+
+    Parameters:
+        num_classes (int): Number of output classes (output channels).
+        input_channels (int, optional): Number of input sequence channels. (default: 1)
+        deep_supervision (bool, optional): If ``True``, return outputs from all
+            intermediate decoder stages. (default: False)
+        **kwargs: Ignored; accepted for API compatibility.
+    """
+
     def __init__(self, num_classes, input_channels=1, deep_supervision=False, **kwargs):
         super().__init__()
 
