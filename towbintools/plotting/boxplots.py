@@ -24,6 +24,21 @@ def _setup_figure(
     titles,
     # log_scale,
 ):
+    """
+    Create a figure and axes grid sized to the number of unique ordering groups.
+
+    Parameters:
+        df (pandas.DataFrame) : Data DataFrame containing an ``"Order"`` column
+            whose unique values determine the number of subplots.
+        figsize (tuple[float, float] or None) : Explicit figure size.
+            Defaults to ``(6 * n_groups, 10)`` when ``None``.
+        titles (list[str] or None) : Subplot titles; set to ``None`` internally
+            if the length does not match the number of groups.
+
+    Returns:
+        tuple[matplotlib.figure.Figure, matplotlib.axes.Axes or np.ndarray] :
+            The created figure and axes (scalar or array depending on group count).
+    """
     # Determine figure size
     if figsize is None:
         figsize = (6 * df["Order"].nunique(), 10)
@@ -47,6 +62,13 @@ def feltz_miller_asymptotic_cv_test(sample1, sample2):
     Perform the Feltz-Miller asymptotic test for equality of CV on two samples.
 
     Adapted from: https://github.com/benmarwick/cvequality/blob/master/R/functions.R
+
+    Parameters:
+        sample1 (array-like) : First sample values.
+        sample2 (array-like) : Second sample values.
+
+    Returns:
+        tuple[float, float] : Test statistic ``D_AD`` and two-sided p-value.
     """
     k = 2
     n_j = [len(sample1), len(sample2)]
@@ -69,16 +91,19 @@ def feltz_miller_asymptotic_cv_test(sample1, sample2):
 
 def _LRT_STAT(n, x, s):
     """
-    LRT_STAT function required by mslr_test
+    Compute the likelihood-ratio test statistic required by ``mslr_test``.
+
+    Adapted from: https://github.com/benmarwick/cvequality/blob/master/R/functions.R
 
     Parameters:
-    n : array-like
-        Sample sizes for each group
-    x : array-like
-        Means for each group
-    s : array-like
-        Standard deviations for each group
+        n (array-like) : Sample sizes for each group.
+        x (array-like) : Sample means for each group.
+        s (array-like) : Sample standard deviations for each group.
 
+    Returns:
+        np.ndarray : Concatenated array ``[uh_0, ..., uh_{k-1}, tauh, stat]`` where
+            ``uh`` are the MLE group means, ``tauh`` is the MLE CV, and ``stat`` is
+            the log-likelihood-ratio statistic.
     """
     n = np.asarray(n)
     x = np.asarray(x)
@@ -120,9 +145,18 @@ def _LRT_STAT(n, x, s):
 
 def mslr_test(sample1, sample2, nr=1000):
     """
-    Modified signed-likelihood ratio test (SLRT) for equality of CVs
+    Perform the Modified Signed-Likelihood Ratio Test (MSLR) for equality of CVs.
 
     Adapted from: https://github.com/benmarwick/cvequality/blob/master/R/functions.R
+
+    Parameters:
+        sample1 (array-like) : First sample values.
+        sample2 (array-like) : Second sample values.
+        nr (int) : Number of parametric bootstrap replicates used to calibrate the
+            test statistic.  Defaults to ``1000``.
+
+    Returns:
+        tuple[float, float] : Modified test statistic ``statm`` and two-sided p-value.
     """
     k = 2
 
@@ -169,6 +203,28 @@ def _annotate_significance(
     test="Mann-Whitney",
     verbose=True,
 ):
+    """
+    Add significance annotations to a single subplot using statannotations.
+
+    Parameters:
+        df (pandas.DataFrame) : Full data DataFrame with ``"Order"`` and
+            ``"Condition"`` columns.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        column (str) : Column name of the y-variable.
+        boxplot (matplotlib.axes.Axes) : Axes object of the target subplot.
+        significance_pairs (list[tuple] or None) : Explicit pairs to annotate;
+            all pairwise combinations are used when ``None``.
+        event_index (int) : The ``"Order"`` value identifying the current subplot.
+        plot_type (str) : ``"boxplot"`` or ``"violinplot"``.  Defaults to ``"boxplot"``.
+        test (str) : Statistical test name.  Statannotations built-in tests are
+            supported as well as ``"Feltz-Miller"`` and ``"MSLR"``.
+            Defaults to ``"Mann-Whitney"``.
+        verbose (bool) : If ``True``, print sample sizes and test details.
+            Defaults to ``True``.
+
+    Returns:
+        None
+    """
     # Filter data for the current event
     df_filtered = df[df["Order"] == event_index]
 
@@ -248,6 +304,34 @@ def _add_metric_text(
     y_offset_pct=0.1,
     significant_digits=3,
 ):
+    """
+    Annotate each condition with its relevant summary statistic below the plot area.
+
+    The statistic displayed depends on the test: median (Mann-Whitney, Kruskal-Wallis,
+    Wilcoxon), mean (t-test, Welch), std (Levene), or CV % (Feltz-Miller, MSLR).
+
+    Parameters:
+        df (pandas.DataFrame) : Full data DataFrame with ``"Order"`` and
+            ``"Condition"`` columns.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        column (str) : Column name of the y-variable.
+        ax (matplotlib.axes.Axes) : Axes object of the target subplot.
+        event_index (int) : The ``"Order"`` value identifying the current subplot.
+        log_scale (bool) : If ``True``, back-transform values from log10 before
+            computing statistics.
+        test (str) : Statistical test name; determines which statistic to display.
+            Defaults to ``"Mann-Whitney"``.
+        y_offset_pct (float) : Downward offset of the text box as a fraction of the
+            y-axis range.  Defaults to ``0.1``.
+        significant_digits (int) : Number of significant digits in the displayed value.
+            Defaults to ``3``.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError : If ``test`` is not in the supported list.
+    """
     test_metrics = {
         "Mann-Whitney": ("median", "M"),
         "Levene": ("std", "σ"),
@@ -330,6 +414,32 @@ def _plot_violinplot(
     test="Mann-Whitney",
     hide_outliers=False,
 ):
+    """
+    Draw violin + swarm subplots for each ordering group.
+
+    Parameters:
+        df (pandas.DataFrame) : Data with ``"Order"``, ``"Condition"``, and
+            ``column`` columns.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        column (str) : Y-variable column name.
+        color_palette (list) : Colors in the same order as ``conditions_to_plot``.
+        ax (np.ndarray or matplotlib.axes.Axes) : Axes array (or scalar) produced
+            by ``_setup_figure``.
+        titles (list[str] or None) : Subplot titles.
+        share_y_axis (bool) : If ``True``, hide y-axis ticks on all but the first subplot.
+        plot_significance (bool) : If ``True``, add significance brackets.
+        significance_pairs (list[tuple] or None) : Pairs to annotate; all pairs when ``None``.
+        log_scale (bool) : Passed to ``_add_metric_text`` for back-transformation.
+        show_metric (bool) : If ``True``, display summary statistics below the plot.
+            Defaults to ``False``.
+        test (str) : Statistical test for significance annotation.
+            Defaults to ``"Mann-Whitney"``.
+        hide_outliers (bool) : If ``True``, remove data points beyond ±3 std in the
+            swarm plot (violin retains them).  Defaults to ``False``.
+
+    Returns:
+        tuple[list[float], list[float]] : Per-subplot y-axis minima and maxima.
+    """
     y_min, y_max = [], []
     for event_index in range(df["Order"].nunique()):
         if share_y_axis:
@@ -445,6 +555,33 @@ def _plot_boxplot(
     test="Mann-Whitney",
     return_data=False,
 ):
+    """
+    Draw box + swarm subplots for each ordering group.
+
+    Parameters:
+        df (pandas.DataFrame) : Data with ``"Order"``, ``"Condition"``, and
+            ``column`` columns.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        column (str) : Y-variable column name.
+        color_palette (list) : Colors in the same order as ``conditions_to_plot``.
+        ax (np.ndarray or matplotlib.axes.Axes) : Axes array (or scalar) produced
+            by ``_setup_figure``.
+        titles (list[str] or None) : Subplot titles.
+        share_y_axis (bool) : If ``True``, hide y-axis ticks on all but the first subplot.
+        plot_significance (bool) : If ``True``, add significance brackets.
+        significance_pairs (list[tuple] or None) : Pairs to annotate; all pairs when ``None``.
+        log_scale (bool) : Passed to seaborn and ``_add_metric_text`` for log-scale handling.
+        show_metric (bool) : If ``True``, display summary statistics below the plot.
+            Defaults to ``False``.
+        hide_outliers (bool) : If ``True``, remove data points beyond ±3 std in the
+            swarm plot.  Defaults to ``False``.
+        test (str) : Statistical test for significance annotation.
+            Defaults to ``"Mann-Whitney"``.
+        return_data (bool) : Unused; reserved for future use.  Defaults to ``False``.
+
+    Returns:
+        tuple[list[float], list[float]] : Per-subplot y-axis minima and maxima.
+    """
     y_min, y_max = [], []
     for event_index in range(df["Order"].nunique()):
         if share_y_axis:
@@ -549,6 +686,17 @@ def _plot_boxplot(
 
 
 def _set_all_y_limits(ax, y_min, y_max):
+    """
+    Synchronise y-axis limits across all subplots with 10% padding.
+
+    Parameters:
+        ax (np.ndarray) : Array of Axes objects.
+        y_min (list[float]) : Per-subplot y-axis minima.
+        y_max (list[float]) : Per-subplot y-axis maxima.
+
+    Returns:
+        None
+    """
     global_min = min(y_min)
     global_max = max(y_max)
     range_padding = (global_max - global_min) * 0.1  # 5% padding
@@ -567,6 +715,23 @@ def _set_labels_and_legend(
     y_axis_label,
     legend,
 ):
+    """
+    Set the y-axis label and place a shared figure legend to the right of the subplots.
+
+    Individual subplot legends are removed; a single legend is added to the figure.
+
+    Parameters:
+        ax (np.ndarray or matplotlib.axes.Axes) : Axes array or scalar.
+        fig (matplotlib.figure.Figure) : Parent figure.
+        conditions_struct (list) : List of condition dicts (used to build legend labels).
+        conditions_to_plot (list) : Ordered condition identifiers.
+        column (str) : Column name; used as the y-axis label fallback.
+        y_axis_label (str or None) : Explicit y-axis label; falls back to ``column``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+
+    Returns:
+        None
+    """
     if not isinstance(ax, np.ndarray):
         ax = [ax]
 
@@ -618,6 +783,50 @@ def violinplot(
     hide_outliers: bool = True,
     return_data: bool = False,
 ):
+    """
+    Create violin plots for a per-molt measurement across conditions.
+
+    Values are log10-transformed when ``log_scale=True`` before plotting.
+    Each column in ``column`` (axis 1) corresponds to one molt event subplot.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the per-molt measurement array
+            (shape ``(n_worms, n_molts)``).
+        conditions_to_plot (list) : Ordered condition identifiers.
+        events_to_plot (list[int] or None) : Column indices (molt events) to include.
+            All events are plotted when ``None``.  Defaults to ``None``.
+        log_scale (bool) : If ``True``, apply log10 to values before plotting.
+            Defaults to ``True``.
+        figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        plot_significance (bool) : If ``True``, add significance brackets.
+            Defaults to ``False``.
+        show_metric (bool) : If ``True``, display summary statistics below the plot.
+            Defaults to ``False``.
+        significance_pairs (list[tuple] or None) : Pairs to annotate; all pairs when ``None``.
+            Defaults to ``None``.
+        significance_test (str) : Statistical test for annotation.
+            Defaults to ``"Mann-Whitney"``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column``.
+            Defaults to ``None``.
+        titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
+        share_y_axis (bool) : If ``True``, synchronise y-axis limits.
+            Defaults to ``False``.
+        hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
+            Defaults to ``True``.
+        return_data (bool) : If ``True``, also return the intermediate DataFrame.
+            Defaults to ``False``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+        tuple[matplotlib.figure.Figure, pandas.DataFrame] : Figure and DataFrame if
+            ``return_data=True``.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -711,6 +920,51 @@ def boxplot(
     hide_outliers: bool = True,
     return_data: bool = False,
 ):
+    """
+    Create box plots for a per-molt measurement across conditions.
+
+    Log scaling is handled natively by seaborn (unlike ``violinplot`` which
+    pre-transforms values).  Each column in ``column`` (axis 1) corresponds to
+    one molt event subplot.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the per-molt measurement array
+            (shape ``(n_worms, n_molts)``).
+        conditions_to_plot (list) : Ordered condition identifiers.
+        events_to_plot (list[int] or None) : Column indices (molt events) to include.
+            All events are plotted when ``None``.  Defaults to ``None``.
+        log_scale (bool) : If ``True``, render axes in log scale via seaborn.
+            Defaults to ``True``.
+        figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        plot_significance (bool) : If ``True``, add significance brackets.
+            Defaults to ``False``.
+        show_metric (bool) : If ``True``, display summary statistics below the plot.
+            Defaults to ``False``.
+        significance_pairs (list[tuple] or None) : Pairs to annotate; all pairs when ``None``.
+            Defaults to ``None``.
+        significance_test (str) : Statistical test for annotation.
+            Defaults to ``"Mann-Whitney"``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column``.
+            Defaults to ``None``.
+        titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
+        share_y_axis (bool) : If ``True``, synchronise y-axis limits.
+            Defaults to ``False``.
+        hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
+            Defaults to ``True``.
+        return_data (bool) : If ``True``, also return the intermediate DataFrame.
+            Defaults to ``False``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+        tuple[matplotlib.figure.Figure, pandas.DataFrame] : Figure and DataFrame if
+            ``return_data=True``.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -805,6 +1059,49 @@ def violinplot_larval_stage(
     share_y_axis: bool = False,
     hide_outliers: bool = True,
 ):
+    """
+    Create violin plots with per-worm values aggregated within a fraction of each larval stage.
+
+    If ``column`` does not contain ``"rescaled"``, the series is first rescaled via
+    ``rescale_without_flattening`` to shape ``(n_worms, 4, n_points)``.  The middle
+    fraction of each stage (controlled by ``fraction``) is averaged per worm before
+    plotting.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the measurement series.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        aggregation (str) : Per-worm aggregation within the stage fraction;
+            ``"mean"`` or ``"median"``.  Defaults to ``"mean"``.
+        n_points (int) : Number of resampled points per larval stage.
+            Defaults to ``100``.
+        fraction (tuple[float, float]) : Start and end fractions of each stage
+            to include in the aggregation.  Defaults to ``(0.2, 0.8)``.
+        log_scale (bool) : If ``True``, apply natural log before aggregation and
+            render axes in log scale.  Defaults to ``True``.
+        figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        plot_significance (bool) : If ``True``, add significance brackets.
+            Defaults to ``False``.
+        significance_pairs (list[tuple] or None) : Pairs to annotate; all pairs when ``None``.
+            Defaults to ``None``.
+        significance_test (str) : Statistical test for annotation.
+            Defaults to ``"Mann-Whitney"``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column``.
+            Defaults to ``None``.
+        titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
+        share_y_axis (bool) : If ``True``, synchronise y-axis limits.
+            Defaults to ``False``.
+        hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
+            Defaults to ``True``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -907,6 +1204,48 @@ def boxplot_larval_stage(
     share_y_axis: bool = False,
     hide_outliers: bool = True,
 ):
+    """
+    Create box plots with per-worm values aggregated within a fraction of each larval stage.
+
+    Equivalent to ``violinplot_larval_stage`` but renders box plots instead of violin plots.
+    If ``column`` does not contain ``"rescaled"``, the series is first rescaled via
+    ``rescale_without_flattening``.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the measurement series.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        aggregation (str) : Per-worm aggregation within the stage fraction;
+            ``"mean"`` or ``"median"``.  Defaults to ``"mean"``.
+        n_points (int) : Number of resampled points per larval stage.
+            Defaults to ``100``.
+        fraction (tuple[float, float]) : Start and end fractions of each stage
+            to include in the aggregation.  Defaults to ``(0.2, 0.8)``.
+        log_scale (bool) : If ``True``, apply natural log before aggregation and
+            render axes in log scale.  Defaults to ``True``.
+        figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        plot_significance (bool) : If ``True``, add significance brackets.
+            Defaults to ``False``.
+        significance_pairs (list[tuple] or None) : Pairs to annotate; all pairs when ``None``.
+            Defaults to ``None``.
+        significance_test (str) : Statistical test for annotation.
+            Defaults to ``"Mann-Whitney"``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column``.
+            Defaults to ``None``.
+        titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
+        share_y_axis (bool) : If ``True``, synchronise y-axis limits.
+            Defaults to ``False``.
+        hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
+            Defaults to ``True``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,

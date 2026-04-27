@@ -30,6 +30,31 @@ def _get_continuous_proportion_model(
     plot_model=True,
     remove_outliers=True,
 ):
+    """
+    Fit a LOWESS + linear-spline model to the log-log relationship between two series.
+
+    Duplicate x values are averaged before fitting.  The resulting interpolant spans
+    the observed x range.
+
+    Parameters:
+        rescaled_series_one (array-like) : X values (first measurement).
+        rescaled_series_two (array-like) : Y values (second measurement).
+        x_axis_label (str or None) : X-axis label for the diagnostic scatter plot.
+            Defaults to ``"column one"``.
+        y_axis_label (str or None) : Y-axis label for the diagnostic scatter plot.
+            Defaults to ``"column two"``.
+        plot_model (bool) : If ``True``, display a scatter + LOWESS plot.
+            Defaults to ``True``.
+        remove_outliers (bool) : Unused; reserved for future use.
+            Defaults to ``True``.
+
+    Returns:
+        scipy.interpolate.BSpline : Fitted interpolant in log-log space.
+
+    Raises:
+        AssertionError : If ``rescaled_series_one`` and ``rescaled_series_two`` differ
+            in length.
+    """
     assert len(rescaled_series_one) == len(
         rescaled_series_two
     ), "The two series must have the same length."
@@ -95,6 +120,36 @@ def _get_proportion_model(
     plot_model=True,
     remove_outliers=True,
 ):
+    """
+    Fit a polynomial OLS model to the log-log relationship between two series.
+
+    Data from all molt events (axis 1) are pooled for fitting.  IsolationForest
+    is used to remove outliers per event when ``remove_outliers=True``.  After
+    fitting, a ``get_confidence_intervals`` method is attached to the returned
+    pipeline for downstream use.
+
+    Parameters:
+        series_one_values (np.ndarray) : X values of shape ``(n_worms, n_molts)``.
+        series_two_values (np.ndarray) : Y values of shape ``(n_worms, n_molts)``.
+        x_axis_label (str or None) : X-axis label for the diagnostic plot.
+            Defaults to ``"column one"``.
+        y_axis_label (str or None) : Y-axis label for the diagnostic plot.
+            Defaults to ``"column two"``.
+        poly_degree (int) : Degree of the polynomial features.  Defaults to ``2``.
+        plot_model (bool) : If ``True``, display a scatter + fitted model plot with
+            confidence bands.  Defaults to ``True``.
+        remove_outliers (bool) : If ``True``, use IsolationForest to remove outliers
+            before fitting.  Defaults to ``True``.
+
+    Returns:
+        sklearn.pipeline.Pipeline : Fitted pipeline with an additional
+            ``get_confidence_intervals(x_pred)`` method returning
+            ``(y_pred, ci_lower, ci_upper)``.
+
+    Raises:
+        AssertionError : If ``series_one_values`` and ``series_two_values`` differ
+            in length.
+    """
     assert len(series_one_values) == len(
         series_two_values
     ), "The two series must have the same length."
@@ -240,6 +295,38 @@ def plot_model_comparison_at_ecdysis(
     y_axis_label=None,
     single_plot=True,
 ):
+    """
+    Scatter-plot the log-log relationship between two columns at molt events with fitted models.
+
+    One polynomial model is fitted per condition.  A shared R² annotation is added to
+    the legend.  Outliers are shown as open circles; inliers as filled markers.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the X measurement (per-molt array).
+        column_two (str) : Key of the Y measurement (per-molt array).
+        conditions_to_plot (list) : Ordered condition identifiers.
+        remove_hatch (bool) : If ``True``, drop the hatch column (index 0).
+            Defaults to ``True``.
+        poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
+        remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
+            outliers before fitting.  Defaults to ``True``.
+        log_scale (tuple[bool, bool] or bool) : Scale spec passed to ``set_scale``.
+            Defaults to ``(True, False)``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; falls back to ``column_one``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column_two``.
+            Defaults to ``None``.
+        single_plot (bool) : If ``True``, overlay all conditions on one axes;
+            otherwise create one subplot per condition.  Defaults to ``True``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -414,6 +501,25 @@ def plot_model_comparison_at_ecdysis(
 def get_deviation_from_model(
     series_one_values, series_two_values, model, percentage=True
 ):
+    """
+    Compute per-worm deviations from a proportion model at each molt event.
+
+    For each event (axis 1), the model is evaluated on log(series_one) to predict
+    log(series_two).  The deviation is ``exp(log(actual) - log(predicted)) - 1``,
+    optionally multiplied by 100 for percentages.
+
+    Parameters:
+        series_one_values (np.ndarray) : X values of shape ``(n_worms, n_molts)``.
+        series_two_values (np.ndarray) : Y values of shape ``(n_worms, n_molts)``.
+        model : Fitted model with a ``predict`` method (sklearn Pipeline) or a
+            callable (LOWESS spline) accepting log-transformed X values.
+        percentage (bool) : If ``True``, express deviations as percentages.
+            Defaults to ``True``.
+
+    Returns:
+        np.ndarray : Deviations of shape ``(n_worms, n_molts)``; NaN where either
+            input value is NaN.
+    """
     deviations = []
     for i in range(series_two_values.shape[-1]):
         values_one = series_one_values[:, i].flatten()
@@ -465,6 +571,31 @@ def plot_correlation(
     x_axis_label=None,
     y_axis_label=None,
 ):
+    """
+    Plot the correlation between two measurements as aggregated rescaled series.
+
+    Each condition is first rescaled and aggregated via ``rescale_and_aggregate``;
+    the resulting mean traces are plotted against each other sorted by the x value.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the X measurement series.
+        column_two (str) : Key of the Y measurement series.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        log_scale (bool or tuple or list) : Scale spec passed to ``set_scale``.
+            Defaults to ``True``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; falls back to ``column_one``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column_two``.
+            Defaults to ``None``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -545,6 +676,33 @@ def plot_correlation_at_ecdysis(
     x_axis_label=None,
     y_axis_label=None,
 ):
+    """
+    Plot the mean ± std of two measurements at each molt event as error-bar scatter.
+
+    Each point on the plot represents one molt event; x and y error bars show the
+    cross-worm standard deviation.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the X measurement (per-molt array).
+        column_two (str) : Key of the Y measurement (per-molt array).
+        conditions_to_plot (list) : Ordered condition identifiers.
+        remove_hatch (bool) : If ``True``, drop the hatch column (index 0).
+            Defaults to ``True``.
+        log_scale (bool or tuple or list) : Scale spec passed to ``set_scale``.
+            Defaults to ``True``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; falls back to ``column_one``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column_two``.
+            Defaults to ``None``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -613,6 +771,37 @@ def plot_continuous_deviation_from_model(
     y_axis_label=None,
     sort_values=False,
 ):
+    """
+    Plot the deviation from a LOWESS model as a continuous line across the rescaled axis.
+
+    A LOWESS model is fitted on the control condition's log-log data; all conditions
+    (including the control) are then plotted as mean ± 95% CI of their per-worm
+    deviations from that model.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        rescaled_column_one (str) : Key of the rescaled X series.
+        rescaled_column_two (str) : Key of the rescaled Y series.
+        control_condition_id (int) : Index of the control condition used to fit the model.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        deviation_as_percentage (bool) : If ``True``, express deviations as percentages.
+            Defaults to ``True``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        log_scale (tuple[bool, bool] or bool) : Scale spec passed to ``set_scale``.
+            Defaults to ``(True, False)``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; falls back to ``rescaled_column_one``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; auto-generated when ``None``.
+            Defaults to ``None``.
+        sort_values (bool) : If ``True``, sort both the x and residual arrays by x
+            before averaging.  Defaults to ``False``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -708,6 +897,40 @@ def plot_deviation_from_model_at_ecdysis(
     poly_degree=2,
     remove_outliers_fitting=True,
 ):
+    """
+    Plot the per-condition deviation from a polynomial model at each molt event.
+
+    A polynomial OLS model is fitted on the control condition; for each other
+    condition, the mean deviation and its standard error are plotted as a line with
+    error bars over the mean X values at each molt.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the X measurement (per-molt array).
+        column_two (str) : Key of the Y measurement (per-molt array).
+        control_condition_id (int) : Index of the control condition used to fit the model.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        remove_hatch (bool) : If ``True``, drop the hatch column (index 0).
+            Defaults to ``False``.
+        deviation_as_percentage (bool) : If ``True``, express deviations as percentages.
+            Defaults to ``True``.
+        log_scale (tuple[bool, bool] or bool) : Scale spec passed to ``set_scale``.
+            Defaults to ``(True, False)``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; falls back to ``column_one``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; auto-generated when ``None``.
+            Defaults to ``None``.
+        poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
+        remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
+            outliers before fitting.  Defaults to ``True``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -812,20 +1035,38 @@ def plot_deviation_from_model_development_percentage(
     remove_outliers_fitting=True,
 ):
     """
-    Plot the percentage deviation from a model at specified development percentages for multiple conditions.
+    Plot the deviation from a polynomial model at specified development percentages.
 
-    Args:
-        conditions_struct (dict): Dictionary of condition data.
-        column_one (str): Key for the first variable.
-        column_two (str): Key for the second variable.
-        control_condition_id (str): Key for the control condition.
-        conditions_to_plot (list): List of condition keys to plot.
-        percentages (np.ndarray): Array of percentages (0-1) at which to sample.
-        colors (list, optional): List of colors for plotting.
-        legend (list, optional): Legend labels.
-        x_axis_label (str, optional): Label for x-axis.
-        y_axis_label (str, optional): Label for y-axis.
-        poly_degree (int, optional): Degree of polynomial for model fitting.
+    A polynomial OLS model is fitted on the control condition at the sampled
+    percentages; for each other condition, the mean deviation and its standard error
+    are plotted with error bars over the mean X values at those percentages.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the rescaled X measurement series.
+        column_two (str) : Key of the rescaled Y measurement series.
+        control_condition_id (int) : Index of the control condition used to fit the model.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        percentages (np.ndarray) : Fractional development positions (0–1) at which
+            to sample and fit the model.
+        deviation_as_percentage (bool) : If ``True``, express deviations as percentages.
+            Defaults to ``True``.
+        log_scale (tuple[bool, bool] or bool) : Scale spec passed to ``set_scale``.
+            Defaults to ``(True, False)``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; falls back to ``column_one``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; auto-generated when ``None``.
+            Defaults to ``None``.
+        poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
+        remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
+            outliers before fitting.  Defaults to ``True``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
     """
     color_palette = get_colors(conditions_to_plot, colors)
 
@@ -1008,6 +1249,34 @@ def plot_normalized_proportions_at_ecdysis(
     x_axis_label=None,
     y_axis_label=None,
 ):
+    """
+    Plot the column_two/column_one ratio normalised to the control at each molt event.
+
+    The control proportion (mean ratio across worms) is computed first; each condition's
+    ratio is divided by the control proportion before averaging.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the denominator measurement (per-molt array).
+        column_two (str) : Key of the numerator measurement (per-molt array).
+        control_condition_id (int) : Index of the control condition used for normalisation.
+        conditions_to_plot (list) : Ordered condition identifiers.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        aggregation (str) : Aggregation function; currently only ``"mean"`` is used.
+            Defaults to ``"mean"``.
+        log_scale (tuple[bool, bool] or bool) : Scale spec passed to ``set_scale``.
+            Defaults to ``(True, False)``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; falls back to ``column_one``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; auto-generated when ``None``.
+            Defaults to ``None``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -1074,6 +1343,29 @@ def compute_deviation_from_model_at_ecdysis(
     poly_degree=2,
     remove_outliers_fitting=True,
 ):
+    """
+    Compute per-worm deviations from a control-fitted model and store them in conditions_struct.
+
+    A polynomial model is fitted on the control condition; deviations for all
+    conditions (including control) are stored under ``output_column_name``.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the X measurement (per-molt array).
+        column_two (str) : Key of the Y measurement (per-molt array).
+        control_condition (int) : Index of the control condition used to fit the model.
+        output_column_name (str) : Key under which deviations are stored.
+        remove_hatch (bool) : If ``True``, drop the hatch column (index 0) before
+            fitting and computing deviations.  Defaults to ``True``.
+        deviations_as_percentage (bool) : If ``True``, express deviations as percentages.
+            Defaults to ``True``.
+        poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
+        remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
+            outliers before fitting.  Defaults to ``True``.
+
+    Returns:
+        list : The modified ``conditions_struct`` with deviations added in place.
+    """
     control_condition = conditions_struct[control_condition]
     control_column_one_values = control_condition[column_one]
     control_column_two_values = control_condition[column_two]
@@ -1120,6 +1412,28 @@ def compute_deviation_from_each_model_at_ecdysis(
     poly_degree=2,
     remove_outliers_fitting=True,
 ):
+    """
+    Fit a separate model per condition and store each condition's self-deviation.
+
+    Unlike ``compute_deviation_from_model_at_ecdysis``, the model is refitted
+    independently for each condition using that condition's own data.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the X measurement (per-molt array).
+        column_two (str) : Key of the Y measurement (per-molt array).
+        output_column_name (str) : Key under which deviations are stored.
+        remove_hatch (bool) : If ``True``, drop the hatch column (index 0) before
+            fitting.  Defaults to ``True``.
+        deviations_as_percentage (bool) : If ``True``, express deviations as percentages.
+            Defaults to ``True``.
+        poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
+        remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
+            outliers before fitting.  Defaults to ``True``.
+
+    Returns:
+        list : The modified ``conditions_struct`` with deviations added in place.
+    """
     for condition in conditions_struct:
         column_one_values, column_two_values = (
             condition[column_one],
@@ -1159,6 +1473,29 @@ def compute_deviation_from_model_development_percentage(
     poly_degree=2,
     remove_outliers_fitting=True,
 ):
+    """
+    Compute per-worm deviations from a control model sampled at development percentages.
+
+    The model is fitted on the control condition at the sampled indices; deviations
+    for all conditions are stored under ``output_column_name``.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column_one (str) : Key of the rescaled X measurement series.
+        column_two (str) : Key of the rescaled Y measurement series.
+        control_condition (int) : Index of the control condition used to fit the model.
+        percentages (np.ndarray) : Fractional development positions (0–1) at which
+            to sample and fit the model.
+        output_column_name (str) : Key under which deviations are stored.
+        deviations_as_percentage (bool) : If ``True``, express deviations as percentages.
+            Defaults to ``True``.
+        poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
+        remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
+            outliers before fitting.  Defaults to ``True``.
+
+    Returns:
+        list : The modified ``conditions_struct`` with deviations added in place.
+    """
     control_condition = conditions_struct[control_condition]
     control_column_one_values = control_condition[column_one]
     control_column_two_values = control_condition[column_two]

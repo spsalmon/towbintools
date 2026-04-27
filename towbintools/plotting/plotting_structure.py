@@ -63,7 +63,22 @@ def build_conditions(conditions_yaml):
 
 
 def _add_conditions_to_filemap(experiment_filemap, conditions):
-    """Add conditions to experiment filemap based on point ranges or pad values."""
+    """
+    Add condition metadata columns to the experiment filemap.
+
+    Rows are matched to conditions via ``"point_range"`` (inclusive integer range)
+    or ``"pad"`` (exact pad string) keys in each condition dict.  Unmatched rows
+    receive ``None`` for the added columns.
+
+    Parameters:
+        experiment_filemap (polars.DataFrame) : Filemap with at least ``"Point"``
+            and optionally ``"Pad"`` columns.
+        conditions (list[dict]) : List of condition dicts as returned by
+            ``build_conditions``; each must contain ``"point_range"`` or ``"pad"``.
+
+    Returns:
+        polars.DataFrame : Filemap with one new column per condition metadata key.
+    """
     if "Pad" in experiment_filemap.columns:
         new_columns = experiment_filemap.select(pl.col("Point"), pl.col("Pad"))
     else:
@@ -133,6 +148,18 @@ def _add_conditions_to_filemap(experiment_filemap, conditions):
 
 
 def _get_custom_columns(filemap):
+    """
+    Identify non-standard columns in the filemap for pass-through to the plotting structure.
+
+    Standard columns (time, ecdysis events, QC, analysis, and known worm features)
+    are excluded; anything else is considered a custom column.
+
+    Parameters:
+        filemap (polars.DataFrame) : Experiment filemap.
+
+    Returns:
+        list[str] : Names of custom columns not covered by the standard schema.
+    """
     usual_columns = [
         "Time",
         "ExperimentTime",
@@ -187,6 +214,32 @@ def _process_condition_id_plotting_structure(
     recompute_values_at_molt=False,
     rescale_n_points=100,
 ):
+    """
+    Build the condition dict for a single condition ID.
+
+    Extracts time series, ecdysis events, QC classifications, worm feature arrays,
+    and optional custom columns for all points belonging to ``condition_id``.
+
+    Parameters:
+        experiment_dir (str) : Path to the experiment directory.
+        experiment_filemap (polars.DataFrame) : Full filemap with condition metadata
+            already merged in.
+        filemap_path (str) : Path to the CSV filemap file (stored in the output dict).
+        organ_channels (dict[str, str]) : Mapping of organ name → filemap channel prefix
+            (e.g. ``{"body": "ch2", "pharynx": "ch1"}``).
+        conditions_keys (list[str]) : Metadata keys from the conditions YAML to copy
+            into the condition dict.
+        condition_id (int) : Condition identifier to process.
+        custom_columns (list[str] or None) : Additional filemap columns to include.
+            Defaults to ``None``.
+        recompute_values_at_molt (bool) : If ``True``, recompute at-molt values even
+            when they are already present in the filemap.  Defaults to ``False``.
+        rescale_n_points (int) : Unused; reserved for future use.  Defaults to ``100``.
+
+    Returns:
+        dict : Condition dict containing time arrays, ecdysis indices, QC, feature
+            series, and all metadata keys.
+    """
     condition_df = experiment_filemap.filter(pl.col("condition_id") == condition_id)
     condition_dict = {}
 
@@ -315,6 +368,29 @@ def build_plotting_struct(
     recompute_values_at_molt=False,
     rescale_n_points=100,
 ):
+    """
+    Build the plotting structure for a single experiment.
+
+    Reads the filemap CSV and the conditions YAML, merges condition metadata into
+    the filemap, and produces a list of condition dicts ready for plotting.
+
+    Parameters:
+        experiment_dir (str) : Path to the experiment directory.
+        filemap_path (str) : Path to the CSV filemap file.
+        conditions_yaml_path (str or dict) : Path to the conditions YAML file or
+            an already-parsed conditions dict.
+        organ_channels (dict[str, str]) : Mapping of organ name → filemap channel
+            prefix.  Defaults to ``{"body": "ch2", "pharynx": "ch1"}``.
+        recompute_values_at_molt (bool) : If ``True``, recompute at-molt values even
+            when they are already stored in the filemap.  Defaults to ``False``.
+        rescale_n_points (int) : Unused; reserved for future use.  Defaults to ``100``.
+
+    Returns:
+        tuple[list[dict], list[dict]] : ``(conditions_struct, conditions_info)`` where
+            ``conditions_struct`` is the full list of condition dicts sorted by
+            ``condition_id``, and ``conditions_info`` contains only the metadata keys
+            from the YAML, also sorted by ``condition_id``.
+    """
     experiment_filemap = read_filemap(filemap_path)
 
     custom_columns = _get_custom_columns(experiment_filemap)
@@ -388,6 +464,17 @@ def build_plotting_struct(
 
 
 def _compute_larval_stage_duration(ecdysis_array):
+    """
+    Compute the duration of each larval stage from consecutive ecdysis times.
+
+    Parameters:
+        ecdysis_array (array-like) : Ecdysis time values for one worm
+            (length 5: Hatch, M1, M2, M3, M4).
+
+    Returns:
+        np.ndarray : Durations of shape ``(4,)`` (L1–L4); NaN where either
+            boundary event is NaN.
+    """
     durations = np.full(len(ecdysis_array) - 1, np.nan)
     for i, (start, end) in enumerate(zip(ecdysis_array[:-1], ecdysis_array[1:])):
         # check if start or end is NaN
@@ -399,6 +486,30 @@ def _compute_larval_stage_duration(ecdysis_array):
 
 
 def _get_time_ecdysis_and_durations(filemap):
+    """
+    Extract per-point time arrays, ecdysis indices, and larval stage durations.
+
+    Parameters:
+        filemap (polars.DataFrame) : Condition filemap containing ``"Point"``,
+            ``"Time"``, ``"ExperimentTime"``, and the five ecdysis columns
+            (``"HatchTime"``, ``"M1"``–``"M4"``).
+
+    Returns:
+        tuple :
+            - time (np.ndarray) : Shape ``(n_points, n_frames)`` time-step values.
+            - experiment_time (np.ndarray) : Shape ``(n_points, n_frames)`` experiment
+              time in seconds.
+            - ecdysis_index (np.ndarray) : Shape ``(n_points, 5)`` frame indices of
+              ecdysis events.
+            - ecdysis_time_step (np.ndarray) : Shape ``(n_points, 5)`` ecdysis times
+              in raw time steps.
+            - ecdysis_experiment_time (np.ndarray) : Shape ``(n_points, 5)`` ecdysis
+              times in seconds.
+            - larval_stage_durations_time_step (np.ndarray) : Shape ``(n_points, 4)``
+              stage durations in raw time steps.
+            - larval_stage_durations_experiment_time (np.ndarray) : Shape
+              ``(n_points, 4)`` stage durations in seconds.
+    """
     all_ecdysis_time_step = []
     all_ecdysis_index = []
     all_durations_time_step = []
@@ -458,6 +569,22 @@ def _get_time_ecdysis_and_durations(filemap):
 
 
 def _get_values_at_molt(filemap, column, ecdysis_time_step):
+    """
+    Retrieve precomputed at-ecdysis values for a column from the filemap.
+
+    Reads the ``{column}_at_{event}`` columns for each of the five ecdysis events.
+    Entries corresponding to NaN ecdysis times are set to NaN.
+
+    Parameters:
+        filemap (polars.DataFrame) : Condition filemap with the at-ecdysis columns.
+        column (str) : Base column name (without the ``_at_*`` suffix).
+        ecdysis_time_step (np.ndarray) : Ecdysis time array of shape
+            ``(n_points, 5)`` used to mask NaN events.
+
+    Returns:
+        np.ndarray : At-ecdysis values of shape ``(n_points, 5)``; NaN where
+            the corresponding ecdysis event is NaN.
+    """
     ecdysis = ["HatchTime", "M1", "M2", "M3", "M4"]
     columns_at_ecdysis = [f"{column}_at_{e}" for e in ecdysis]
     column_list = ["Point"] + columns_at_ecdysis
@@ -494,6 +621,20 @@ def _get_values_at_molt(filemap, column, ecdysis_time_step):
 
 
 def _get_death_and_arrest(filemap):
+    """
+    Extract per-point death time and arrest flag from the filemap.
+
+    If ``"Death"`` or ``"Arrest"`` columns are absent, they are filled with NaN
+    and False respectively.
+
+    Parameters:
+        filemap (polars.DataFrame) : Condition filemap.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray] :
+            - death (np.ndarray) : Shape ``(n_points, 1)`` death times (float, NaN if alive).
+            - arrest (np.ndarray) : Shape ``(n_points, 1)`` arrest flags (bool).
+    """
     column_list = ["Point", "Death", "Arrest"]
     if "Death" not in filemap.columns:
         filemap = filemap.with_columns(
@@ -531,6 +672,25 @@ def _compute_values_at_molt(
     worm_types,
     recompute_values_at_molt=False,
 ):
+    """
+    Fill missing (or recompute all) at-molt values for a column using the time series.
+
+    Missing values are identified as NaN entries in ``{column}_at_ecdysis`` where the
+    corresponding ecdysis time is not NaN.  ``compute_series_at_time_classified`` is
+    called to interpolate the value from the raw time series.
+
+    Parameters:
+        condition_dict (dict) : Condition dict containing the column, its at-ecdysis
+            counterpart, time arrays, and ecdysis times.
+        column (str) : Base column name.
+        worm_types (np.ndarray) : QC classification array of shape
+            ``(n_points, n_frames)`` used by the interpolation.
+        recompute_values_at_molt (bool) : If ``True``, recompute all at-molt values
+            regardless of existing values.  Defaults to ``False``.
+
+    Returns:
+        dict : The updated ``condition_dict`` with ``{column}_at_ecdysis`` filled in.
+    """
     column_at_molt = f"{column}_at_ecdysis"
 
     values_at_molt = condition_dict[column_at_molt]
@@ -578,6 +738,21 @@ def _compute_values_at_molt(
 
 
 def separate_column_by_point(filemap, column):
+    """
+    Pivot a long-format filemap column into a 2-D array indexed by point.
+
+    Each row of the output corresponds to one imaging point; columns correspond to
+    time frames.  Shorter points are right-padded with NaN (numeric) or ``"error"``
+    (string) to the length of the longest point.
+
+    Parameters:
+        filemap (polars.DataFrame) : Filemap with at least ``"Point"`` and
+            ``column`` columns.
+        column (str) : Column to pivot.
+
+    Returns:
+        np.ndarray : Array of shape ``(n_points, max_n_frames)`` sorted by point.
+    """
     points = (
         filemap.select(pl.col("Point").unique(maintain_order=True).sort())
         .to_numpy()
@@ -605,6 +780,19 @@ def separate_column_by_point(filemap, column):
 
 
 def remove_ignored_molts(filemap):
+    """
+    Set molt-time columns to null for time points flagged with ``Ignore=True``.
+
+    For each ecdysis column, any molt time that coincides with an ignored
+    ``(Point, Time)`` pair is replaced with ``None``.
+
+    Parameters:
+        filemap (polars.DataFrame) : Filemap with ecdysis columns and an optional
+            ``"Ignore"`` column.
+
+    Returns:
+        polars.DataFrame : Updated filemap; unchanged if ``"Ignore"`` is absent.
+    """
     molt_columns = ["HatchTime", "M1", "M2", "M3", "M4"]
 
     # Only process if "Ignore" column exists
@@ -640,6 +828,15 @@ def remove_ignored_molts(filemap):
 
 
 def remove_unwanted_info(conditions_info):
+    """
+    Remove ``"description"`` and ``"condition_id"`` from each entry in conditions_info.
+
+    Parameters:
+        conditions_info (list[dict]) : List of condition metadata dicts.
+
+    Returns:
+        list[dict] : The modified list with the two keys removed in place.
+    """
     for condition in conditions_info:
         if "description" in condition.keys():
             condition.pop("description")
@@ -656,6 +853,34 @@ def combine_experiments(
     recompute_values_at_molt=False,
     rescale_n_points=100,
 ):
+    """
+    Build and merge the plotting structure from multiple experiments.
+
+    Each experiment is processed independently via ``build_plotting_struct``.
+    Conditions with identical metadata (after removing ``description`` and
+    ``condition_id``) are merged by concatenating their numpy arrays along axis 0.
+    Condition IDs in the merged structure are reassigned sequentially.
+
+    Parameters:
+        filemap_paths (list[str]) : Paths to the CSV filemap files, one per experiment.
+        config_paths (list[str]) : Paths to the conditions YAML files, one per experiment.
+        experiment_dirs (list[str] or None) : Experiment directories; defaults to the
+            parent directory of each filemap when ``None``.
+        organ_channels (list[dict] or dict) : Organ-to-channel mapping(s).  A single
+            dict is broadcast to all experiments; otherwise one dict per experiment is
+            expected.  Defaults to ``[{"body": "ch2", "pharynx": "ch1"}]``.
+        recompute_values_at_molt (bool) : Passed to ``build_plotting_struct``.
+            Defaults to ``False``.
+        rescale_n_points (int) : Passed to ``build_plotting_struct``.
+            Defaults to ``100``.
+
+    Returns:
+        list[dict] : Merged conditions_struct with sequential condition IDs.
+
+    Raises:
+        ValueError : If the length of ``organ_channels`` is neither 1 nor equal to
+            the number of experiments.
+    """
     all_conditions_struct = []
     condition_info_merge_list = []
     conditions_info_keys = set()

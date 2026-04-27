@@ -13,6 +13,20 @@ from towbintools.foundation.image_handling import read_tiff_file
 def get_condition_filemaps_images(
     condition_dict: dict,
 ) -> dict[str, Any]:
+    """
+    Load the CSV filemaps for a condition, retaining only image-related columns.
+
+    Reads each unique filemap CSV referenced by ``condition_dict["filemap_path"]``
+    and keeps the ``"Time"``, ``"Point"``, and any column starting with ``"raw"``
+    or containing ``"analysis"``.
+
+    Parameters:
+        condition_dict (dict) : A single condition dict containing a
+            ``"filemap_path"`` key with an array of CSV file paths.
+
+    Returns:
+        dict[str, polars.DataFrame] : Mapping of filemap path → filtered DataFrame.
+    """
     filemap_paths = condition_dict["filemap_path"]
     unique_filemap_paths = np.unique(filemap_paths)
     filemaps = {}
@@ -36,8 +50,14 @@ def filter_non_worm_data(
     qc: np.ndarray,
 ) -> np.ndarray:
     """
-    Set data points to np.nan where qc is not 'worm'.
-    Assumes data and qc have the same shape.
+    Set data points to NaN where the quality-control label is not ``"worm"``.
+
+    Parameters:
+        data (np.ndarray) : Measurement array; any shape.
+        qc (np.ndarray) : Quality-control string array; same shape as ``data``.
+
+    Returns:
+        np.ndarray : Copy of ``data`` with non-worm entries replaced by ``np.nan``.
     """
     mask = (qc != "worm") & ~np.isnan(data)
     filtered_data = data.copy()
@@ -46,6 +66,22 @@ def filter_non_worm_data(
 
 
 def get_indices_from_percentages(percentages, ecdysis):
+    """
+    Convert fractional development percentages to raw time-step indices.
+
+    Development is divided into four equal segments (L1–L4).  For each percentage,
+    the stage is determined and the index is interpolated linearly between the
+    bounding ecdysis events.  Edge cases 0 and 1 map to the first and last ecdysis
+    columns, respectively.
+
+    Parameters:
+        percentages (array-like) : Fractional positions in development (0–1).
+        ecdysis (np.ndarray) : Ecdysis time-step array of shape ``(n_worms, 5)``
+            (columns: Hatch, M1, M2, M3, M4).
+
+    Returns:
+        np.ndarray : Index array of shape ``(n_worms, len(percentages))``.
+    """
     indices = []
 
     for p in percentages:
@@ -74,6 +110,19 @@ def get_indices_from_percentages(percentages, ecdysis):
 
 
 def get_image_paths_of_time_point(point, time, filemap, image_columns):
+    """
+    Retrieve image file paths for a specific imaging point and time step.
+
+    Parameters:
+        point (int) : Microscope point identifier.
+        time (int) : Time-step index.
+        filemap (polars.DataFrame) : Filemap DataFrame containing ``"Point"``,
+            ``"Time"``, and the requested image columns.
+        image_columns (list[str] or str) : Column name(s) to retrieve.
+
+    Returns:
+        list : Image path(s) for the requested point/time, squeezed to a flat list.
+    """
     image_paths = (
         (
             filemap.filter(pl.col("Point") == point)
@@ -108,6 +157,45 @@ def get_images_ecdysis(
     scalebar_location: str = "lower right",
     projection_type: str = "max",
 ):
+    """
+    Select representative worms at each molt event and display their images.
+
+    For each condition and molt, the worm(s) whose measurement is closest to the
+    population-level ``criterion`` statistic are selected and their TIFF images are
+    loaded and rendered with a scale bar via microfilm.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the per-molt measurement used for worm selection
+            (shape ``(n_worms, n_molts)``).
+        img_dir (str) : Filemap column name pointing to the raw image files.
+        criterion (str) : Statistic used to pick representative worms.
+            Supported values: ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
+        conditions_to_plot (list[int]) : Indices of conditions to include.
+        nb_per_condition (int) : Number of worms to display per condition per molt.
+            Defaults to ``1``.
+        molts_to_plot (list[str]) : Molt event labels to display.
+            Defaults to ``["M1", "M2", "M3", "M4"]``.
+        channels (list[int] or None) : Image channels to load.  ``None`` loads all
+            channels.  Defaults to ``None``.
+        dpi (int) : Figure DPI.  Defaults to ``100``.
+        scale (float) : Scaling factor applied to the figure size.  Defaults to ``1.0``.
+        pixelsize (float) : Physical pixel size in µm for the scale bar.
+            Defaults to ``0.65``.
+        cmaps (list[str] or None) : Colormaps for each channel.  ``None`` uses the
+            microfilm defaults.  Defaults to ``None``.
+        show_scalebar (bool) : Whether to overlay a scale bar.  Defaults to ``True``.
+        scalebar_size (float) : Scale bar length in µm.  Defaults to ``100``.
+        scalebar_thickness (float) : Scale bar thickness as a fraction of image height.
+            Defaults to ``0.02``.
+        scalebar_font_size (int) : Font size for the scale bar label.  Defaults to ``12``.
+        scalebar_location (str) : Location of the scale bar (matplotlib legend loc string).
+            Defaults to ``"lower right"``.
+        projection_type (str) : Z-projection type passed to microfilm.  Defaults to ``"max"``.
+
+    Returns:
+        None : Images are displayed inline; no figure object is returned.
+    """
     paths_dict = {}
 
     molt_to_index = {"Hatch": -5, "M1": -4, "M2": -3, "M3": -2, "M4": -1}

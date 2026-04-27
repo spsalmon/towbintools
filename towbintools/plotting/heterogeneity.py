@@ -18,6 +18,32 @@ def plot_cv_at_ecdysis(
     y_axis_label=None,
     exclude_arrests: bool = False,
 ):
+    """
+    Plot the coefficient of variation (CV) of a measurement at each molt event.
+
+    One line per condition; x-axis ticks are labelled M1–M4 (or Hatch–M4 when
+    ``remove_hatch=False``).
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the per-molt measurement array
+            (shape ``(n_worms, n_molts)``).
+        conditions_to_plot (list[int]) : Indices of conditions to include.
+        remove_hatch (bool) : If ``True``, drop the hatch (first) column before
+            computing CV.  Defaults to ``True``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label.  Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
+        exclude_arrests (bool) : If ``True``, remove arrested worms before
+            computing CV via ``exclude_arrests_from_series_at_ecdysis``.
+            Defaults to ``False``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(conditions_to_plot, colors)
 
     for i, condition in enumerate(conditions_to_plot):
@@ -54,6 +80,32 @@ def plot_std_at_ecdysis(
     y_axis_label=None,
     exclude_arrests: bool = False,
 ):
+    """
+    Plot the standard deviation of a measurement at each molt event.
+
+    One line per condition; x-axis ticks are labelled M1–M4 (or Hatch–M4 when
+    ``remove_hatch=False``).
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the per-molt measurement array
+            (shape ``(n_worms, n_molts)``).
+        conditions_to_plot (list[int]) : Indices of conditions to include.
+        remove_hatch (bool) : If ``True``, drop the hatch (first) column before
+            computing std.  Defaults to ``True``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label.  Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
+        exclude_arrests (bool) : If ``True``, remove arrested worms before
+            computing std via ``exclude_arrests_from_series_at_ecdysis``.
+            Defaults to ``False``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(conditions_to_plot, colors)
 
     for i, condition in enumerate(conditions_to_plot):
@@ -88,6 +140,29 @@ def plot_cv_development_percentage(
     x_axis_label=None,
     y_axis_label=None,
 ):
+    """
+    Plot the coefficient of variation (CV) of a rescaled series at specific development percentages.
+
+    ``column`` must be a pre-rescaled series of shape ``(n_worms, total_n_points)``.
+    Values at the requested ``percentages`` are extracted by linear index into the
+    rescaled time axis.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the rescaled measurement array.
+        conditions_to_plot (list[int]) : Indices of conditions to include.
+        percentages (np.ndarray) : Fractional development positions (0–1) at which
+            to compute CV.  Defaults to ``np.linspace(0, 1, 11)``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label.  Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(conditions_to_plot, colors)
     for i, condition in enumerate(conditions_to_plot):
         condition_dict = conditions_struct[condition]
@@ -120,6 +195,29 @@ def plot_cv_rescaled_data(
     x_axis_label=None,
     y_axis_label=None,
 ):
+    """
+    Plot the coefficient of variation (CV) across the full rescaled time axis.
+
+    One line per condition plotted against the resampled index.  An optional
+    median filter (window = 7) can be applied to the CV trace.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the rescaled measurement array
+            (shape ``(n_worms, n_points)``).
+        conditions_to_plot (list[int]) : Indices of conditions to include.
+        smooth (bool) : If ``True``, apply a median filter (window = 7) to each
+            CV trace.  Defaults to ``False``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label.  Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     color_palette = get_colors(conditions_to_plot, colors)
 
     for i, condition in enumerate(conditions_to_plot):

@@ -27,6 +27,48 @@ def plot_aggregated_series(
     y_axis_label=None,
     xlim=None,
 ):
+    """
+    Plot the time-rescaled aggregated series with 95% confidence intervals.
+
+    Series are rescaled to a common time axis via ``rescale_and_aggregate``, then
+    plotted as a solid line (mean or median) with a shaded 95% CI band.
+    If ``series_column`` is a list, all columns are overlaid on the same axes.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        series_column (str or list[str]) : Key(s) of the measurement series to plot.
+        conditions_to_plot (list[int]) : Indices of conditions to include.
+        x (str) : X-axis variable.  ``"time"`` uses rescaled hours;
+            ``"percentage"`` uses development completion (0–100 %).
+            Defaults to ``"time"``.
+        experiment_time (bool) : If ``True``, use absolute experiment time (hours);
+            otherwise use time-step index scaled by ``time_step``.
+            Defaults to ``True``.
+        aggregation (str) : Aggregation function; ``"mean"`` or ``"median"``.
+            Defaults to ``"mean"``.
+        n_points (int) : Number of resampled points per larval stage.
+            Defaults to ``100``.
+        time_step (int) : Minutes per frame, used to convert time-step indices to
+            hours when ``experiment_time=False``.  Defaults to ``10``.
+        log_scale (bool) : If ``True``, set the y-axis to log scale.
+            Defaults to ``True``.
+        colors (list or dict or None) : Color spec passed to ``get_colors``.
+            Defaults to ``None``.
+        legend (dict or None) : Legend spec passed to ``build_legend``.
+            Defaults to ``None``.
+        x_axis_label (str or None) : X-axis label; auto-generated when ``None``.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``series_column``
+            when ``None``.  Defaults to ``None``.
+        xlim (tuple[float, float] or None) : X-axis limits ``(xmin, xmax)`` used to
+            crop the plotted range.  Defaults to ``None``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+
+    Raises:
+        ValueError : If ``x`` is not ``"time"`` or ``"percentage"``.
+    """
     color_palette = get_colors(conditions_to_plot, colors)
 
     def plot_single_series(column: str):
@@ -120,6 +162,31 @@ def plot_growth_curves_individuals(
     y_axis_label=None,
     cut_after=None,
 ):
+    """
+    Plot smoothed individual-worm growth curves with one subplot per condition.
+
+    Each worm's series is smoothed via ``smooth_series_classified`` and plotted
+    from hatch time.  Worms without a detected hatch event are skipped.
+
+    Parameters:
+        conditions_struct (list) : List of condition dicts.
+        column (str) : Key of the raw measurement series.
+        conditions_to_plot (list[int]) : Indices of conditions to include.
+        share_y_axis (bool) : If ``True``, all subplots share the same y-axis range.
+        log_scale (bool or tuple or list) : Scale spec passed to ``set_scale``.
+            Defaults to ``True`` (log y-axis only).
+        figsize (tuple[float, float] or None) : Figure size ``(width, height)`` in inches.
+            Defaults to ``(n_conditions * 8, 10)``.
+        legend (dict or None) : Legend spec used to generate subplot titles.
+            Defaults to ``None``.
+        y_axis_label (str or None) : Y-axis label; falls back to ``column`` when ``None``.
+            Defaults to ``None``.
+        cut_after (float or None) : Truncate worm traces at this experiment time
+            (hours after hatch).  ``None`` keeps full traces.  Defaults to ``None``.
+
+    Returns:
+        matplotlib.figure.Figure : The generated figure.
+    """
     if figsize is None:
         figsize = (len(conditions_to_plot) * 8, 10)
     fig, ax = plt.subplots(

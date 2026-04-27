@@ -40,6 +40,19 @@ def save_figure(fig, name, directory, format="svg", dpi=300, transparent=True):
 
 
 def build_legend(single_condition_dict, legend):
+    """
+    Build a legend label string for a single condition.
+
+    Parameters:
+        single_condition_dict (dict) : Condition dict containing metadata fields.
+        legend (dict or None) : Mapping of condition dict keys to unit/suffix strings.
+            Each key whose value is truthy is appended as ``"<value> <unit>"``;
+            a falsy value appends only ``"<value>"``.  If ``None``, the label
+            defaults to ``"Condition <condition_id>"``.
+
+    Returns:
+        str : Legend label for the condition.
+    """
     if legend is None:
         return f'Condition {int(single_condition_dict["condition_id"])}'
     else:
@@ -55,6 +68,18 @@ def build_legend(single_condition_dict, legend):
 
 
 def set_scale(ax, log_scale):
+    """
+    Set the x- and/or y-axis scale of a matplotlib Axes object.
+
+    Parameters:
+        ax (matplotlib.axes.Axes) : Axes to configure.
+        log_scale (bool or tuple or list) : Scale specification.
+            - ``bool``: applies to the y-axis only (``True`` → log, ``False`` → linear).
+            - ``tuple`` or ``list`` of two bools ``(x_log, y_log)``: sets both axes independently.
+
+    Returns:
+        None
+    """
     if isinstance(log_scale, bool):
         ax.set_yscale("log" if log_scale else "linear")
     elif isinstance(log_scale, tuple):
@@ -66,6 +91,26 @@ def set_scale(ax, log_scale):
 
 
 def get_colors(conditions_to_plot, colors, base_palette="colorblind"):
+    """
+    Return a list of colors, one per condition, validating user-supplied values.
+
+    Parameters:
+        conditions_to_plot (list) : Ordered list of condition identifiers.
+        colors (list or dict or None) : Color specification.
+            - ``None``: a seaborn ``base_palette`` palette is generated automatically.
+            - ``list``: must have the same length as ``conditions_to_plot``.
+            - ``dict``: must contain a key for every entry in ``conditions_to_plot``;
+              values are returned in the same order.
+        base_palette (str) : Seaborn palette name used when ``colors`` is ``None``.
+            Defaults to ``"colorblind"``.
+
+    Returns:
+        list : Colors in the same order as ``conditions_to_plot``.
+
+    Raises:
+        AssertionError : If a list ``colors`` has a different length than ``conditions_to_plot``,
+            or if a dict ``colors`` is missing entries for any condition.
+    """
     if colors is None:
         colors = sns.color_palette("colorblind", len(conditions_to_plot))
     else:
