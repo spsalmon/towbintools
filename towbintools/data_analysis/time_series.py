@@ -7,7 +7,9 @@ from whittaker_eilers import WhittakerSmoother
 from towbintools.foundation.utils import interpolate_nans_infs
 
 
-def resize_series_to_length(series, new_length, kind="linear"):
+def resize_series_to_length(
+    series: np.ndarray, new_length: int, kind: str = "linear"
+) -> np.ndarray:
     """
     Resize a 1D or 2D series to a new length using interpolation.
 
@@ -38,7 +40,9 @@ def resize_series_to_length(series, new_length, kind="linear"):
         raise ValueError("Input series must be 1D or 2D array.")
 
 
-def pad_series_to_length(series, new_length, pad_value=0):
+def pad_series_to_length(
+    series: np.ndarray, new_length: int, pad_value: float = 0
+) -> np.ndarray:
     """
     Pad a 1D or 2D series to a new length with a specified pad value.
 
@@ -72,7 +76,7 @@ def pad_series_to_length(series, new_length, pad_value=0):
         raise ValueError("Input series must be 1D or 2D array.")
 
 
-def crop_series_to_length(series, new_length):
+def crop_series_to_length(series: np.ndarray, new_length: int) -> np.ndarray:
     """
     Crop a 1D or 2D series to a new length.
 
@@ -98,7 +102,7 @@ def crop_series_to_length(series, new_length):
         raise ValueError("Input series must be 1D or 2D array.")
 
 
-def random_crop_series_to_length(series, new_length):
+def random_crop_series_to_length(series: np.ndarray, new_length: int) -> np.ndarray:
     """
     Randomly crop a 1D or 2D series to a new length.
 
@@ -127,7 +131,9 @@ def random_crop_series_to_length(series, new_length):
         raise ValueError("Input series must be 1D or 2D array.")
 
 
-def correct_series_with_classification(series, qc):
+def correct_series_with_classification(
+    series: np.ndarray, qc: np.ndarray
+) -> np.ndarray:
     """
     Remove the points of non-worms from the time series and interpolate them back.
 
@@ -153,7 +159,7 @@ def correct_series_with_classification(series, qc):
     return series_worms
 
 
-def filter_series_with_classification(series, qc):
+def filter_series_with_classification(series: np.ndarray, qc: np.ndarray) -> np.ndarray:
     """Remove the points of non-worms from the time series.
 
     Parameters:
@@ -172,8 +178,13 @@ def filter_series_with_classification(series, qc):
 
 
 def interpolate_larval_stage(
-    series, time, ecdysis, larval_stage, qc=None, n_points=100
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    ecdysis: np.ndarray,
+    larval_stage: int,
+    qc: np.ndarray | None = None,
+    n_points: int = 100,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Interpolate a time series over a single larval stage to a fixed number of points.
 
@@ -236,7 +247,13 @@ def interpolate_larval_stage(
     return interpolated_time, interpolated_series
 
 
-def interpolate_entire_development(series, time, ecdysis, qc=None, n_points=100):
+def interpolate_entire_development(
+    series: np.ndarray,
+    time: np.ndarray,
+    ecdysis: np.ndarray,
+    qc: np.ndarray | None = None,
+    n_points: int = 100,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Interpolate a time series over all four larval stages.
 
@@ -279,7 +296,7 @@ def compute_exponential_series_at_time_classified(
     time: np.ndarray,
     qc: np.ndarray,
     fit_width: int = 10,
-) -> float:
+) -> np.ndarray:
     """
     Evaluate a time series at given time indices using exponential (log-linear) regression.
 
@@ -335,11 +352,11 @@ def compute_exponential_series_at_time_classified(
 
 def smooth_series_classified(
     series: np.ndarray,
-    series_time,
+    series_time: np.ndarray | None,
     qc: np.ndarray,
-    lmbda=0.0075,
-    order=2,
-    medfilt_window=5,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
 ) -> np.ndarray:
     """
     Smooth a time series after masking non-worm points.
@@ -385,10 +402,10 @@ def smooth_series_classified(
 
 def smooth_series(
     series: np.ndarray,
-    series_time,
-    lmbda=0.0075,
-    order=2,
-    medfilt_window=5,
+    series_time: np.ndarray | None,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
 ) -> np.ndarray:
     """
     Smooth a time series without classification-based masking.
@@ -492,11 +509,11 @@ def _smooth_series(
 def compute_series_at_time_classified(
     series: np.ndarray,
     time: np.ndarray,
-    series_time: np.ndarray,
+    series_time: np.ndarray | None,
     qc: np.ndarray,
-    lmbda=0.0075,
-    medfilt_window=5,
-    bspline_order=3,
+    lmbda: float = 0.0075,
+    medfilt_window: int = 5,
+    bspline_order: int = 3,
 ) -> np.ndarray:
     """
     Evaluate a time series at arbitrary time points after smoothing and classification-based masking.
@@ -553,7 +570,14 @@ def compute_series_at_time_classified(
     return interpolated_series(time)
 
 
-def rescale_series(series, time, ecdysis, qc, points=None, n_points=100):
+def rescale_series(
+    series: np.ndarray,
+    time: np.ndarray,
+    ecdysis: np.ndarray,
+    qc: np.ndarray,
+    points: list[int] | None = None,
+    n_points: int = 100,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Interpolates one or multiple series and the time to have n_points points in total per larval stages.
 
@@ -608,11 +632,11 @@ def rescale_series(series, time, ecdysis, qc, points=None, n_points=100):
 
 
 def aggregate_interpolated_series(
-    all_points_interpolated_series,
-    all_points_interpolated_time,
-    larval_stage_durations,
-    aggregation="mean",
-):
+    all_points_interpolated_series: np.ndarray,
+    all_points_interpolated_time: np.ndarray,
+    larval_stage_durations: np.ndarray,
+    aggregation: str = "mean",
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Aggregates the interpolated series and time information.
 
@@ -670,15 +694,15 @@ def aggregate_interpolated_series(
 
 
 def rescale_and_aggregate(
-    series,
-    time,
-    ecdysis,
-    larval_stage_durations,
-    qc,
-    points=None,
-    aggregation="mean",
-    n_points=100,
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    ecdysis: np.ndarray,
+    larval_stage_durations: np.ndarray,
+    qc: np.ndarray,
+    points: list[int] | None = None,
+    aggregation: str = "mean",
+    n_points: int = 100,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Rescales and aggregates the series and time information.
 

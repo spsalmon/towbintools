@@ -50,7 +50,7 @@ def normalized_variance_measure(
 # THE SOFTWARE.
 
 
-def LAPV(img):
+def LAPV(img: np.ndarray) -> float:
     """
     Compute the Variance of Laplacian (LAP4) focus measure.
 
@@ -66,7 +66,7 @@ def LAPV(img):
     return np.std(cv2.Laplacian(img, cv2.CV_64F)) ** 2  # type: ignore
 
 
-def LAPM(img):
+def LAPM(img: np.ndarray) -> float:
     """
     Compute the Modified Laplacian (LAP2) focus measure.
 
@@ -85,7 +85,7 @@ def LAPM(img):
     return np.mean(laplacianX + laplacianY)
 
 
-def TENG(img):
+def TENG(img: np.ndarray) -> float:
     """
     Compute the Tenengrad (TENG) focus measure.
 
@@ -103,7 +103,7 @@ def TENG(img):
     return np.mean(gaussianX * gaussianX + gaussianY * gaussianY)
 
 
-def MLOG(img):
+def MLOG(img: np.ndarray) -> float:
     """
     Compute the MLOG focus measure.
 
@@ -119,7 +119,7 @@ def MLOG(img):
     return np.max(cv2.convertScaleAbs(cv2.Laplacian(img, cv2.CV_64F)))  # type: ignore
 
 
-def TENG_VARIANCE(img):
+def TENG_VARIANCE(img: np.ndarray) -> float:
     """
     Compute the Tenengrad Variance focus measure.
 

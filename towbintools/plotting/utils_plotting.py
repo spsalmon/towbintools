@@ -1,12 +1,21 @@
 import os
 
+import matplotlib.axes
+import matplotlib.figure
 import numpy as np
 import seaborn as sns
 
 # THIS PART IS MOSTLY ABOUT HANDLING LEGENDS, SAVING FIGURES, ETC.
 
 
-def save_figure(fig, name, directory, format="svg", dpi=300, transparent=True):
+def save_figure(
+    fig: matplotlib.figure.Figure,
+    name: str,
+    directory: str,
+    format: str = "svg",
+    dpi: int = 300,
+    transparent: bool = True,
+) -> None:
     """
     Save a given matplotlib figure to the specified directory with the given name, in the chose format.
 
@@ -39,7 +48,7 @@ def save_figure(fig, name, directory, format="svg", dpi=300, transparent=True):
     )
 
 
-def build_legend(single_condition_dict, legend):
+def build_legend(single_condition_dict: dict, legend: dict | None) -> str:
     """
     Build a legend label string for a single condition.
 
@@ -67,7 +76,7 @@ def build_legend(single_condition_dict, legend):
         return legend_string
 
 
-def set_scale(ax, log_scale):
+def set_scale(ax: matplotlib.axes.Axes, log_scale: bool | tuple | list) -> None:
     """
     Set the x- and/or y-axis scale of a matplotlib Axes object.
 
@@ -90,7 +99,11 @@ def set_scale(ax, log_scale):
         ax.set_xscale("log" if log_scale[0] else "linear")
 
 
-def get_colors(conditions_to_plot, colors, base_palette="colorblind"):
+def get_colors(
+    conditions_to_plot: list,
+    colors: list | dict | None,
+    base_palette: str = "colorblind",
+) -> list:
     """
     Return a list of colors, one per condition, validating user-supplied values.
 

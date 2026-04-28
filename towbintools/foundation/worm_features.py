@@ -73,7 +73,7 @@ def get_available_regionprops():
 SKIMAGE_MASK_FEATURES, SKIMAGE_IMAGE_FEATURES = get_available_regionprops()
 
 
-def get_available_mask_features():
+def get_available_mask_features() -> list[str]:
     """
     Get a list of available worm features.
 
@@ -83,7 +83,7 @@ def get_available_mask_features():
     return AVAILABLE_MASK_FEATURES
 
 
-def get_features_to_compute_at_molt():
+def get_features_to_compute_at_molt() -> list[str]:
     """
     Get a list of features to compute at molt.
 
@@ -242,7 +242,7 @@ def compute_max_width(
 def compute_mid_width(
     width_profile: np.ndarray,
     window_size: int = 10,
-):
+) -> float:
     """
     Compute the width of a worm at its midpoint from its width profile by averaging the values around the midpoint.
 

@@ -15,7 +15,7 @@ FEATURES_TO_COMPUTE_AT_MOLT = get_features_to_compute_at_molt()
 # THIS PART HANDLES THE PROCESSING OF THE EXPERIMENT FILEMAP AND THE CREATION OF THE PLOTTING STRUCTURE
 
 
-def build_conditions(conditions_yaml):
+def build_conditions(conditions_yaml: str | dict) -> list:
     """
     Process a conditions YAML file structured in a factorized way. Refer to the documentation for the expected format.
     The function will return a list of dictionaries, each representing a condition with its parameters.
@@ -62,7 +62,10 @@ def build_conditions(conditions_yaml):
     return conditions
 
 
-def _add_conditions_to_filemap(experiment_filemap, conditions):
+def _add_conditions_to_filemap(
+    experiment_filemap: pl.DataFrame,
+    conditions: list[dict],
+) -> pl.DataFrame:
     """
     Add condition metadata columns to the experiment filemap.
 
@@ -147,7 +150,7 @@ def _add_conditions_to_filemap(experiment_filemap, conditions):
     return experiment_filemap
 
 
-def _get_custom_columns(filemap):
+def _get_custom_columns(filemap: pl.DataFrame) -> list[str]:
     """
     Identify non-standard columns in the filemap for pass-through to the plotting structure.
 
@@ -204,16 +207,16 @@ def _get_custom_columns(filemap):
 
 # TODO: Instead of doing it for each condition, do it for all conditions at once, then split
 def _process_condition_id_plotting_structure(
-    experiment_dir,
-    experiment_filemap,
-    filemap_path,
-    organ_channels,
-    conditions_keys,
-    condition_id,
-    custom_columns=None,
-    recompute_values_at_molt=False,
-    rescale_n_points=100,
-):
+    experiment_dir: str,
+    experiment_filemap: pl.DataFrame,
+    filemap_path: str,
+    organ_channels: dict[str, str],
+    conditions_keys: list[str],
+    condition_id: int,
+    custom_columns: list[str] | None = None,
+    recompute_values_at_molt: bool = False,
+    rescale_n_points: int = 100,
+) -> dict:
     """
     Build the condition dict for a single condition ID.
 
@@ -361,13 +364,13 @@ def _process_condition_id_plotting_structure(
 
 
 def build_plotting_struct(
-    experiment_dir,
-    filemap_path,
-    conditions_yaml_path,
-    organ_channels={"body": "ch2", "pharynx": "ch1"},
-    recompute_values_at_molt=False,
-    rescale_n_points=100,
-):
+    experiment_dir: str,
+    filemap_path: str,
+    conditions_yaml_path: str | dict,
+    organ_channels: dict[str, str] = {"body": "ch2", "pharynx": "ch1"},
+    recompute_values_at_molt: bool = False,
+    rescale_n_points: int = 100,
+) -> tuple[list[dict], list[dict]]:
     """
     Build the plotting structure for a single experiment.
 
@@ -463,7 +466,7 @@ def build_plotting_struct(
     return conditions_struct, conditions_info
 
 
-def _compute_larval_stage_duration(ecdysis_array):
+def _compute_larval_stage_duration(ecdysis_array: np.ndarray) -> np.ndarray:
     """
     Compute the duration of each larval stage from consecutive ecdysis times.
 
@@ -485,7 +488,7 @@ def _compute_larval_stage_duration(ecdysis_array):
     return durations
 
 
-def _get_time_ecdysis_and_durations(filemap):
+def _get_time_ecdysis_and_durations(filemap: pl.DataFrame) -> tuple:
     """
     Extract per-point time arrays, ecdysis indices, and larval stage durations.
 
@@ -568,7 +571,11 @@ def _get_time_ecdysis_and_durations(filemap):
     )
 
 
-def _get_values_at_molt(filemap, column, ecdysis_time_step):
+def _get_values_at_molt(
+    filemap: pl.DataFrame,
+    column: str,
+    ecdysis_time_step: np.ndarray,
+) -> np.ndarray:
     """
     Retrieve precomputed at-ecdysis values for a column from the filemap.
 
@@ -620,7 +627,7 @@ def _get_values_at_molt(filemap, column, ecdysis_time_step):
     return values_at_ecdysis
 
 
-def _get_death_and_arrest(filemap):
+def _get_death_and_arrest(filemap: pl.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     """
     Extract per-point death time and arrest flag from the filemap.
 
@@ -667,11 +674,11 @@ def _get_death_and_arrest(filemap):
 
 
 def _compute_values_at_molt(
-    condition_dict,
-    column,
-    worm_types,
-    recompute_values_at_molt=False,
-):
+    condition_dict: dict,
+    column: str,
+    worm_types: np.ndarray,
+    recompute_values_at_molt: bool = False,
+) -> dict:
     """
     Fill missing (or recompute all) at-molt values for a column using the time series.
 
@@ -737,7 +744,7 @@ def _compute_values_at_molt(
     return condition_dict
 
 
-def separate_column_by_point(filemap, column):
+def separate_column_by_point(filemap: pl.DataFrame, column: str) -> np.ndarray:
     """
     Pivot a long-format filemap column into a 2-D array indexed by point.
 
@@ -779,7 +786,7 @@ def separate_column_by_point(filemap, column):
     return result
 
 
-def remove_ignored_molts(filemap):
+def remove_ignored_molts(filemap: pl.DataFrame) -> pl.DataFrame:
     """
     Set molt-time columns to null for time points flagged with ``Ignore=True``.
 
@@ -827,7 +834,7 @@ def remove_ignored_molts(filemap):
     return filemap
 
 
-def remove_unwanted_info(conditions_info):
+def remove_unwanted_info(conditions_info: list[dict]) -> list[dict]:
     """
     Remove ``"description"`` and ``"condition_id"`` from each entry in conditions_info.
 
@@ -846,13 +853,13 @@ def remove_unwanted_info(conditions_info):
 
 
 def combine_experiments(
-    filemap_paths,
-    config_paths,
-    experiment_dirs=None,
-    organ_channels=[{"body": "ch2", "pharynx": "ch1"}],
-    recompute_values_at_molt=False,
-    rescale_n_points=100,
-):
+    filemap_paths: list[str],
+    config_paths: list[str],
+    experiment_dirs: list[str] | None = None,
+    organ_channels: list[dict] | dict = [{"body": "ch2", "pharynx": "ch1"}],
+    recompute_values_at_molt: bool = False,
+    rescale_n_points: int = 100,
+) -> list[dict]:
     """
     Build and merge the plotting structure from multiple experiments.
 

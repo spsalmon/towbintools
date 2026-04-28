@@ -1,6 +1,8 @@
 from itertools import combinations
 
 import bottleneck as bn
+import matplotlib.axes
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -19,11 +21,10 @@ custom_test = ["Feltz-Miller", "MSLR"]
 
 
 def _setup_figure(
-    df,
-    figsize,
-    titles,
-    # log_scale,
-):
+    df: pd.DataFrame,
+    figsize: tuple[float, float] | None,
+    titles: list[str] | None,
+) -> tuple[matplotlib.figure.Figure, matplotlib.axes.Axes | np.ndarray]:
     """
     Create a figure and axes grid sized to the number of unique ordering groups.
 
@@ -57,7 +58,9 @@ def _setup_figure(
     return fig, ax
 
 
-def feltz_miller_asymptotic_cv_test(sample1, sample2):
+def feltz_miller_asymptotic_cv_test(
+    sample1: np.ndarray, sample2: np.ndarray
+) -> tuple[float, float]:
     """
     Perform the Feltz-Miller asymptotic test for equality of CV on two samples.
 
@@ -89,7 +92,7 @@ def feltz_miller_asymptotic_cv_test(sample1, sample2):
     return D_AD, p_value
 
 
-def _LRT_STAT(n, x, s):
+def _LRT_STAT(n: np.ndarray, x: np.ndarray, s: np.ndarray) -> np.ndarray:
     """
     Compute the likelihood-ratio test statistic required by ``mslr_test``.
 
@@ -143,7 +146,9 @@ def _LRT_STAT(n, x, s):
     return np.concatenate([uh, [tauh, stat]])
 
 
-def mslr_test(sample1, sample2, nr=1000):
+def mslr_test(
+    sample1: np.ndarray, sample2: np.ndarray, nr: int = 1000
+) -> tuple[float, float]:
     """
     Perform the Modified Signed-Likelihood Ratio Test (MSLR) for equality of CVs.
 
@@ -193,16 +198,16 @@ def mslr_test(sample1, sample2, nr=1000):
 
 
 def _annotate_significance(
-    df,
-    conditions_to_plot,
-    column,
-    boxplot,
-    significance_pairs,
-    event_index,
-    plot_type="boxplot",
-    test="Mann-Whitney",
-    verbose=True,
-):
+    df: pd.DataFrame,
+    conditions_to_plot: list,
+    column: str,
+    boxplot: matplotlib.axes.Axes,
+    significance_pairs: list[tuple] | None,
+    event_index: int,
+    plot_type: str = "boxplot",
+    test: str = "Mann-Whitney",
+    verbose: bool = True,
+) -> None:
     """
     Add significance annotations to a single subplot using statannotations.
 
@@ -294,16 +299,16 @@ def _annotate_significance(
 
 
 def _add_metric_text(
-    df,
-    conditions_to_plot,
-    column,
-    ax,
-    event_index,
-    log_scale,
-    test="Mann-Whitney",
-    y_offset_pct=0.1,
-    significant_digits=3,
-):
+    df: pd.DataFrame,
+    conditions_to_plot: list,
+    column: str,
+    ax: matplotlib.axes.Axes,
+    event_index: int,
+    log_scale: bool,
+    test: str = "Mann-Whitney",
+    y_offset_pct: float = 0.1,
+    significant_digits: int = 3,
+) -> None:
     """
     Annotate each condition with its relevant summary statistic below the plot area.
 
@@ -400,20 +405,20 @@ def _add_metric_text(
 
 
 def _plot_violinplot(
-    df,
-    conditions_to_plot,
-    column,
-    color_palette,
-    ax,
-    titles,
-    share_y_axis,
-    plot_significance,
-    significance_pairs,
-    log_scale,
-    show_metric=False,
-    test="Mann-Whitney",
-    hide_outliers=False,
-):
+    df: pd.DataFrame,
+    conditions_to_plot: list,
+    column: str,
+    color_palette: list,
+    ax: matplotlib.axes.Axes | np.ndarray,
+    titles: list[str] | None,
+    share_y_axis: bool,
+    plot_significance: bool,
+    significance_pairs: list[tuple] | None,
+    log_scale: bool,
+    show_metric: bool = False,
+    test: str = "Mann-Whitney",
+    hide_outliers: bool = False,
+) -> tuple[list[float], list[float]]:
     """
     Draw violin + swarm subplots for each ordering group.
 
@@ -540,21 +545,21 @@ def _plot_violinplot(
 
 
 def _plot_boxplot(
-    df,
-    conditions_to_plot,
-    column,
-    color_palette,
-    ax,
-    titles,
-    share_y_axis,
-    plot_significance,
-    significance_pairs,
-    log_scale,
-    show_metric=False,
-    hide_outliers=False,
-    test="Mann-Whitney",
-    return_data=False,
-):
+    df: pd.DataFrame,
+    conditions_to_plot: list,
+    column: str,
+    color_palette: list,
+    ax: matplotlib.axes.Axes | np.ndarray,
+    titles: list[str] | None,
+    share_y_axis: bool,
+    plot_significance: bool,
+    significance_pairs: list[tuple] | None,
+    log_scale: bool,
+    show_metric: bool = False,
+    hide_outliers: bool = False,
+    test: str = "Mann-Whitney",
+    return_data: bool = False,
+) -> tuple[list[float], list[float]]:
     """
     Draw box + swarm subplots for each ordering group.
 
@@ -685,7 +690,7 @@ def _plot_boxplot(
     return y_min, y_max
 
 
-def _set_all_y_limits(ax, y_min, y_max):
+def _set_all_y_limits(ax: np.ndarray, y_min: list[float], y_max: list[float]) -> None:
     """
     Synchronise y-axis limits across all subplots with 10% padding.
 
@@ -707,14 +712,14 @@ def _set_all_y_limits(ax, y_min, y_max):
 
 
 def _set_labels_and_legend(
-    ax,
-    fig,
-    conditions_struct,
-    conditions_to_plot,
-    column,
-    y_axis_label,
-    legend,
-):
+    ax: matplotlib.axes.Axes | np.ndarray,
+    fig: matplotlib.figure.Figure,
+    conditions_struct: list,
+    conditions_to_plot: list,
+    column: str,
+    y_axis_label: str | None,
+    legend: dict | None,
+) -> None:
     """
     Set the y-axis label and place a shared figure legend to the right of the subplots.
 
@@ -765,24 +770,24 @@ def _set_labels_and_legend(
 
 
 def violinplot(
-    conditions_struct,
-    column,
-    conditions_to_plot,
-    events_to_plot=None,
+    conditions_struct: list,
+    column: str,
+    conditions_to_plot: list,
+    events_to_plot: list[int] | None = None,
     log_scale: bool = True,
-    figsize: tuple = None,
-    colors=None,
+    figsize: tuple[float, float] | None = None,
+    colors: list | dict | None = None,
     plot_significance: bool = False,
     show_metric: bool = False,
-    significance_pairs=None,
+    significance_pairs: list[tuple] | None = None,
     significance_test: str = "Mann-Whitney",
-    legend=None,
-    y_axis_label=None,
-    titles=None,
+    legend: dict | None = None,
+    y_axis_label: str | None = None,
+    titles: list[str] | None = None,
     share_y_axis: bool = False,
     hide_outliers: bool = True,
     return_data: bool = False,
-):
+) -> matplotlib.figure.Figure:
     """
     Create violin plots for a per-molt measurement across conditions.
 
@@ -902,24 +907,24 @@ def violinplot(
 
 
 def boxplot(
-    conditions_struct,
-    column,
-    conditions_to_plot,
-    events_to_plot=None,
+    conditions_struct: list,
+    column: str,
+    conditions_to_plot: list,
+    events_to_plot: list[int] | None = None,
     log_scale: bool = True,
-    figsize: tuple = None,
-    colors=None,
+    figsize: tuple[float, float] | None = None,
+    colors: list | dict | None = None,
     plot_significance: bool = False,
     show_metric: bool = False,
-    significance_pairs=None,
+    significance_pairs: list[tuple] | None = None,
     significance_test: str = "Mann-Whitney",
-    legend=None,
-    y_axis_label=None,
-    titles=None,
+    legend: dict | None = None,
+    y_axis_label: str | None = None,
+    titles: list[str] | None = None,
     share_y_axis: bool = False,
     hide_outliers: bool = True,
     return_data: bool = False,
-):
+) -> matplotlib.figure.Figure:
     """
     Create box plots for a per-molt measurement across conditions.
 
@@ -1041,24 +1046,24 @@ def boxplot(
 
 
 def violinplot_larval_stage(
-    conditions_struct,
-    column,
-    conditions_to_plot,
+    conditions_struct: list,
+    column: str,
+    conditions_to_plot: list,
     aggregation: str = "mean",
     n_points: int = 100,
     fraction: tuple[float, float] = (0.2, 0.8),
     log_scale: bool = True,
-    figsize: tuple = None,
-    colors=None,
+    figsize: tuple[float, float] | None = None,
+    colors: list | dict | None = None,
     plot_significance: bool = False,
-    significance_pairs=None,
+    significance_pairs: list[tuple] | None = None,
     significance_test: str = "Mann-Whitney",
-    legend=None,
-    y_axis_label=None,
-    titles=None,
+    legend: dict | None = None,
+    y_axis_label: str | None = None,
+    titles: list[str] | None = None,
     share_y_axis: bool = False,
     hide_outliers: bool = True,
-):
+) -> matplotlib.figure.Figure:
     """
     Create violin plots with per-worm values aggregated within a fraction of each larval stage.
 
@@ -1186,24 +1191,24 @@ def violinplot_larval_stage(
 
 
 def boxplot_larval_stage(
-    conditions_struct,
-    column,
-    conditions_to_plot,
+    conditions_struct: list,
+    column: str,
+    conditions_to_plot: list,
     aggregation: str = "mean",
     n_points: int = 100,
     fraction: tuple[float, float] = (0.2, 0.8),
     log_scale: bool = True,
-    figsize: tuple = None,
-    colors=None,
+    figsize: tuple[float, float] | None = None,
+    colors: list | dict | None = None,
     plot_significance: bool = False,
-    significance_pairs=None,
+    significance_pairs: list[tuple] | None = None,
     significance_test: str = "Mann-Whitney",
-    legend=None,
-    y_axis_label=None,
-    titles=None,
+    legend: dict | None = None,
+    y_axis_label: str | None = None,
+    titles: list[str] | None = None,
     share_y_axis: bool = False,
     hide_outliers: bool = True,
-):
+) -> matplotlib.figure.Figure:
     """
     Create box plots with per-worm values aggregated within a fraction of each larval stage.
 

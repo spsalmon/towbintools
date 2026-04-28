@@ -1,3 +1,4 @@
+from typing import Callable
 from typing import Optional
 from typing import Union
 
@@ -261,7 +262,7 @@ def get_segmentation_function(
     method: str,
     pixelsize: Optional[float] = None,
     **kwargs,
-) -> callable:
+) -> Callable:
     """
     Return a segmentation callable configured for the specified method.
 
@@ -309,8 +310,8 @@ def segment_image(
     image: Union[str, np.ndarray],
     method: str,
     channels: Optional[list[int]] = None,
-    pixelsize: float = None,
-    is_stack=True,
+    pixelsize: Optional[float] = None,
+    is_stack: bool = True,
     **kwargs,
 ) -> np.ndarray:
     """
@@ -374,7 +375,11 @@ def segment_image(
     return segment_fn(image)
 
 
-def _mode_limited_mean(image, nbins=2**8, histogram=None):
+def _mode_limited_mean(
+    image: np.ndarray,
+    nbins: int = 2**8,
+    histogram: tuple | None = None,
+) -> float:
     """
     Compute the Mode-Limited Mean (MoLiM) of an image.
 
@@ -408,7 +413,7 @@ def _mode_limited_mean(image, nbins=2**8, histogram=None):
     return molim
 
 
-def _custom_threshold_otsu(image, nbins=2**8):
+def _custom_threshold_otsu(image: np.ndarray, nbins: int = 2**8):
     """
     Compute an Otsu threshold with iterative histogram cropping guided by Mode-Limited Mean.
 

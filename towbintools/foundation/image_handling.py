@@ -14,7 +14,7 @@ def pad_to_dim(
     image: np.ndarray,
     xdim: int,
     ydim: int,
-    pad_value=0,
+    pad_value: float = 0,
 ) -> np.ndarray:
     """
     Pad an image to target dimensions by padding on its right and bottom.

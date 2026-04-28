@@ -2,7 +2,9 @@ import numpy as np
 from scipy.signal import find_peaks
 
 
-def heatmap_to_keypoints_1D(heatmap, height_threshold=0.5):
+def heatmap_to_keypoints_1D(
+    heatmap: np.ndarray, height_threshold: float = 0.5
+) -> np.ndarray:
     """
     Convert a 1D heatmap to keypoints by finding the highest peak per class.
 

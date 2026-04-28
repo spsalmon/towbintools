@@ -65,7 +65,9 @@ def filter_non_worm_data(
     return filtered_data
 
 
-def get_indices_from_percentages(percentages, ecdysis):
+def get_indices_from_percentages(
+    percentages: np.ndarray, ecdysis: np.ndarray
+) -> np.ndarray:
     """
     Convert fractional development percentages to raw time-step indices.
 
@@ -109,7 +111,12 @@ def get_indices_from_percentages(percentages, ecdysis):
     return np.array(indices).T
 
 
-def get_image_paths_of_time_point(point, time, filemap, image_columns):
+def get_image_paths_of_time_point(
+    point: int,
+    time: int,
+    filemap: pl.DataFrame,
+    image_columns: list[str] | str,
+) -> list:
     """
     Retrieve image file paths for a specific imaging point and time step.
 

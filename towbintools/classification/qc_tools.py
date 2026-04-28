@@ -58,7 +58,7 @@ def compute_qc_features(
     image: Union[str, np.ndarray, None],
     features: Optional[list[str]] = None,
     channels: Optional[list[int]] = None,
-):
+) -> Optional[pd.DataFrame]:
     """
     Compute quality-control features from a mask and an optional intensity image.
 

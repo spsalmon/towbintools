@@ -2,8 +2,11 @@ import numpy as np
 
 
 def compute_fluorescence_in_mask(
-    image, mask, aggregations=["sum"], background_aggregation=None
-):
+    image: np.ndarray,
+    mask: np.ndarray,
+    aggregations: list[str] = ["sum"],
+    background_aggregation: str | None = None,
+) -> dict[str, float]:
     """Quantify fluorescence of an image in a mask.
 
     Parameters:
@@ -45,7 +48,11 @@ def compute_fluorescence_in_mask(
     return results
 
 
-def compute_background_fluorescence(image, foreground_mask, aggregation="mean"):
+def compute_background_fluorescence(
+    image: np.ndarray,
+    foreground_mask: np.ndarray,
+    aggregation: str = "mean",
+) -> float:
     """Estimate the background value of an image.
 
     Parameters:

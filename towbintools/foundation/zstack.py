@@ -104,7 +104,7 @@ def augment_contrast_zstack(
 def find_best_plane(
     zstack: np.ndarray,
     measure: str,
-    channel: int = None,  # type: ignore
+    channel: int | None = None,
     dest_dtype: np.dtype = np.uint16,  # type: ignore
     each_plane: bool = True,
     contrast_augmentation: bool = False,

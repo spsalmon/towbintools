@@ -1,3 +1,4 @@
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import medfilt
@@ -11,13 +12,13 @@ def plot_cv_at_ecdysis(
     conditions_struct: dict,
     column: str,
     conditions_to_plot: list[int],
-    remove_hatch=True,
-    legend=None,
-    colors=None,
-    x_axis_label=None,
-    y_axis_label=None,
+    remove_hatch: bool = True,
+    legend: dict | None = None,
+    colors: list | dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
     exclude_arrests: bool = False,
-):
+) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) of a measurement at each molt event.
 
@@ -73,13 +74,13 @@ def plot_std_at_ecdysis(
     conditions_struct: dict,
     column: str,
     conditions_to_plot: list[int],
-    remove_hatch=True,
-    legend=None,
-    colors=None,
-    x_axis_label=None,
-    y_axis_label=None,
+    remove_hatch: bool = True,
+    legend: dict | None = None,
+    colors: list | dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
     exclude_arrests: bool = False,
-):
+) -> matplotlib.figure.Figure:
     """
     Plot the standard deviation of a measurement at each molt event.
 
@@ -135,11 +136,11 @@ def plot_cv_development_percentage(
     column: str,
     conditions_to_plot: list[int],
     percentages: np.ndarray = np.linspace(0, 1, 11),
-    legend=None,
-    colors=None,
-    x_axis_label=None,
-    y_axis_label=None,
-):
+    legend: dict | None = None,
+    colors: list | dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) of a rescaled series at specific development percentages.
 
@@ -190,11 +191,11 @@ def plot_cv_rescaled_data(
     column: str,
     conditions_to_plot: list[int],
     smooth: bool = False,
-    legend=None,
-    colors=None,
-    x_axis_label=None,
-    y_axis_label=None,
-):
+    legend: dict | None = None,
+    colors: list | dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) across the full rescaled time axis.
 

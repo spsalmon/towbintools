@@ -9,13 +9,13 @@ from towbintools.foundation.utils import interpolate_nans_infs
 
 
 def compute_growth_rate_linear(
-    series,
-    time,
-    ignore_start_fraction=0.0,
-    ignore_end_fraction=0.0,
-    savgol_filter_window=5,
-    savgol_filter_order=3,
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    ignore_start_fraction: float = 0.0,
+    ignore_end_fraction: float = 0.0,
+    savgol_filter_window: int = 5,
+    savgol_filter_order: int = 3,
+) -> float:
     """
     Compute the growth rate of a time series using linear regression.
 
@@ -67,13 +67,13 @@ def compute_growth_rate_linear(
 
 
 def compute_growth_rate_exponential(
-    series,
-    time,
-    ignore_start_fraction=0.0,
-    ignore_end_fraction=0.0,
-    savgol_filter_window=5,
-    savgol_filter_order=3,
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    ignore_start_fraction: float = 0.0,
+    ignore_end_fraction: float = 0.0,
+    savgol_filter_window: int = 5,
+    savgol_filter_order: int = 3,
+) -> float:
     """
     Compute the growth rate of a time series using exponential regression.
 
@@ -125,15 +125,15 @@ def compute_growth_rate_exponential(
 
 
 def compute_growth_rate_classified(
-    series,
-    time,
-    qc,
-    method="exponential",
-    ignore_start_fraction=0.0,
-    ignore_end_fraction=0.0,
-    savgol_filter_window=5,
-    savgol_filter_order=3,
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    qc: np.ndarray,
+    method: str = "exponential",
+    ignore_start_fraction: float = 0.0,
+    ignore_end_fraction: float = 0.0,
+    savgol_filter_window: int = 5,
+    savgol_filter_order: int = 3,
+) -> float:
     """
     Compute the growth rate of a time series after correcting non-worm timepoints.
 
@@ -189,12 +189,12 @@ def compute_growth_rate_classified(
 
 
 def compute_instantaneous_growth_rate(
-    series,
-    time,
-    lmbda=0.0075,
-    order=2,
-    medfilt_window=5,
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
+) -> np.ndarray:
     """
     Compute the instantaneous growth rate of a time series.
 
@@ -220,13 +220,13 @@ def compute_instantaneous_growth_rate(
 
 
 def compute_instantaneous_growth_rate_classified(
-    series,
-    time,
-    qc,
-    lmbda=0.0075,
-    order=2,
-    medfilt_window=5,
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    qc: np.ndarray,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
+) -> np.ndarray:
     """
     Compute the instantaneous growth rate of a time series after correcting the non-worm points by removing them and interpolating them back.
 
@@ -255,16 +255,16 @@ def compute_instantaneous_growth_rate_classified(
 
 
 def compute_growth_rate_per_larval_stage(
-    series,
-    time,
-    qc,
-    ecdysis,
-    method="exponential",
-    ignore_start_fraction=0.0,
-    ignore_end_fraction=0.0,
-    savgol_filter_window=5,
-    savgol_filter_order=3,
-):
+    series: np.ndarray,
+    time: np.ndarray,
+    qc: np.ndarray,
+    ecdysis: dict,
+    method: str = "exponential",
+    ignore_start_fraction: float = 0.0,
+    ignore_end_fraction: float = 0.0,
+    savgol_filter_window: int = 5,
+    savgol_filter_order: int = 3,
+) -> dict:
     """
     Compute the growth rate of a time series for each larval stage.
 
@@ -336,7 +336,7 @@ def compute_growth_rate_per_larval_stage(
     return growth_rates
 
 
-def compute_larval_stage_duration(ecdysis):
+def compute_larval_stage_duration(ecdysis: dict) -> dict:
     """
     Compute the duration of each larval stage.
 

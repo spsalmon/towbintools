@@ -1,3 +1,4 @@
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -12,21 +13,21 @@ from towbintools.foundation.utils import find_best_string_match
 
 
 def plot_aggregated_series(
-    conditions_struct,
-    series_column,
-    conditions_to_plot,
-    x="time",
-    experiment_time=True,
-    aggregation="mean",
-    n_points=100,
-    time_step=10,
-    log_scale=True,
-    colors=None,
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-    xlim=None,
-):
+    conditions_struct: list,
+    series_column: str | list[str],
+    conditions_to_plot: list[int],
+    x: str = "time",
+    experiment_time: bool = True,
+    aggregation: str = "mean",
+    n_points: int = 100,
+    time_step: int = 10,
+    log_scale: bool = True,
+    colors: list | dict | None = None,
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+    xlim: tuple[float, float] | None = None,
+) -> matplotlib.figure.Figure:
     """
     Plot the time-rescaled aggregated series with 95% confidence intervals.
 
@@ -152,16 +153,16 @@ def plot_aggregated_series(
 
 
 def plot_growth_curves_individuals(
-    conditions_struct,
-    column,
-    conditions_to_plot,
-    share_y_axis,
-    log_scale=True,
-    figsize=None,
-    legend=None,
-    y_axis_label=None,
-    cut_after=None,
-):
+    conditions_struct: list,
+    column: str,
+    conditions_to_plot: list[int],
+    share_y_axis: bool,
+    log_scale: bool | tuple | list = True,
+    figsize: tuple[float, float] | None = None,
+    legend: dict | None = None,
+    y_axis_label: str | None = None,
+    cut_after: float | None = None,
+) -> matplotlib.figure.Figure:
     """
     Plot smoothed individual-worm growth curves with one subplot per condition.
 

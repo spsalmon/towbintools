@@ -242,7 +242,7 @@ def find_molts(
     molt_size_range: list = [6.6e4, 15e4, 36e4, 102e4],
     search_width: int = 20,
     fit_width: int = 5,
-) -> tuple[dict, dict]:
+) -> dict:
     """
     Identify molt events.
 

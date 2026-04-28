@@ -6,10 +6,10 @@ import polars as pl
 
 
 def extract_time_point(
-    path,
-    time_regex=r"Time(\d+)",
-    point_regex=r"Point(\d+)",
-):
+    path: str,
+    time_regex: str = r"Time(\d+)",
+    point_regex: str = r"Point(\d+)",
+) -> tuple[int, int]:
     r"""
     Extract time and point information from a file name using regular expressions.
 
