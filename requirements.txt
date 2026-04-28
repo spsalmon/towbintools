@@ -27,3 +27,4 @@ bottleneck
 seaborn
 microfilm
 statsmodels
+statannotations

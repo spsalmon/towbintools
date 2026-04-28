@@ -42,6 +42,7 @@ dependencies = [
     "seaborn",
     "microfilm",
     "statsmodels",
+    "statannotations",
 ]
 
 [project.optional-dependencies]
