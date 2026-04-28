@@ -24,3 +24,6 @@ whittaker-eilers
 polars
 pyarrow
 bottleneck
+seaborn
+microfilm
+statsmodels

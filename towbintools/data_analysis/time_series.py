@@ -281,7 +281,6 @@ def compute_exponential_series_at_time_classified(
     fit_width: int = 10,
 ) -> float:
     """
-    """
     Evaluate a time series at given time indices using exponential (log-linear) regression.
 
     For each requested time index, fits a linear regression to the log-transformed

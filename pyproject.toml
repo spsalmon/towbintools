@@ -39,6 +39,9 @@ dependencies = [
 
     "whittaker-eilers",
     "bottleneck",
+    "seaborn",
+    "microfilm",
+    "statsmodels",
 ]
 
 [project.optional-dependencies]
