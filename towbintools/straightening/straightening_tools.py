@@ -306,7 +306,7 @@ class Warper:
             return rescaled
 
 
-def validate_mask(mask: NDArray):
+def validate_mask(mask: NDArray) -> None:
     """
     provided mask should be:
         - 2D or 3D
@@ -338,7 +338,11 @@ def validate_mask(mask: NDArray):
 ####################
 
 
-def extract_midline(mask2D, ridge_responce_thresh: float = 90, return_dt: bool = False):
+def extract_midline(
+    mask2D: NDArray[np.bool_],
+    ridge_responce_thresh: float = 90,
+    return_dt: bool = False,
+) -> NDArray | tuple[NDArray, NDArray]:
     """
     Returns a topologically sorted list of pixels making up the midline of the object
 
@@ -358,7 +362,7 @@ def extract_midline(mask2D, ridge_responce_thresh: float = 90, return_dt: bool =
         return midline
 
 
-def _detect_ridges(gray, sigma=1):
+def _detect_ridges(gray: NDArray, sigma: float = 1) -> tuple[NDArray, NDArray]:
     """Finds ridge points in a grayscale image. Copied from here : https://stackoverflow.com/questions/48727914/how-to-use-ridge-detection-filter-in-opencv"""
     H_elems = hessian_matrix(
         gray,
@@ -505,7 +509,7 @@ def _longest_path(graph: sparse.csr_matrix) -> NDArray[np.int_]:
     return path
 
 
-def _bfs_path(predecessors: list[int], node_j: int) -> NDArray[np.int_]:
+def _bfs_path(predecessors: NDArray[np.int_], node_j: int) -> NDArray[np.int_]:
     """given bfs predecessors and node_j, find path connecting bfs tree's root->node_j"""
     path = []
     current_node = node_j
@@ -865,7 +869,7 @@ def _align_splines(
     return aligned_splines, length
 
 
-def _handle_flips(midlines):
+def _handle_flips(midlines: list[NDArray | None]) -> list[NDArray | None]:
     """
     Ensure consistent head/tail orientation across a list of midlines.
 
@@ -1020,7 +1024,11 @@ def _warp_3D_img(
     return warped_img
 
 
-def _warped_shape(width: float, length: float, scale_factor=1) -> tuple[int, int]:
+def _warped_shape(
+    width: float,
+    length: float,
+    scale_factor: float | tuple[float, float] = 1,
+) -> tuple[int, int]:
     """2D grid shape that will contain the full object, scaled by scale_factor
 
     currently, no way to add margins has been implemented"""

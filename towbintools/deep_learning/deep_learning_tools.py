@@ -1,3 +1,5 @@
+from typing import Any
+
 from towbintools.deep_learning.architectures import ClassificationModel
 from towbintools.deep_learning.architectures import KeypointDetection1DModel
 from towbintools.deep_learning.architectures import SegmentationModel
@@ -7,13 +9,13 @@ from towbintools.deep_learning.utils.util import (
 
 
 def create_classification_model(
-    architecture,
-    input_channels,
-    classes,
-    learning_rate=1e-4,
-    checkpoint_path=None,
-    normalization={"type": "percentile", "lo": 1, "hi": 99},
-):
+    architecture: str,
+    input_channels: int,
+    classes: list[str],
+    learning_rate: float = 1e-4,
+    checkpoint_path: str | None = None,
+    normalization: dict = {"type": "percentile", "lo": 1, "hi": 99},
+) -> ClassificationModel:
     """
     Create a classification model.
 
@@ -30,7 +32,7 @@ def create_classification_model(
             hyperparameter for inference. (default: percentile 1–99)
 
     Returns:
-        PretrainedClassificationModel: Constructed or loaded classification model.
+        ClassificationModel: Constructed or loaded classification model.
     """
 
     if checkpoint_path is not None:
@@ -50,17 +52,17 @@ def create_classification_model(
 
 
 def create_segmentation_model(
-    input_channels=1,
-    n_classes=1,
-    architecture="UnetPlusPlus",
-    encoder="efficientnet-b4",
-    pretrained_weights="image-micronet",
-    normalization={"type": "percentile", "lo": 1, "hi": 99},
-    learning_rate=1e-5,
-    checkpoint_path=None,
-    reset_optimizer=True,
-    criterion=None,
-):
+    input_channels: int = 1,
+    n_classes: int = 1,
+    architecture: str = "UnetPlusPlus",
+    encoder: str = "efficientnet-b4",
+    pretrained_weights: str = "image-micronet",
+    normalization: dict = {"type": "percentile", "lo": 1, "hi": 99},
+    learning_rate: float = 1e-5,
+    checkpoint_path: str | None = None,
+    reset_optimizer: bool = True,
+    criterion: Any | None = None,
+) -> SegmentationModel:
     """
     Create a segmentation model with a pretrained encoder.
 
@@ -84,7 +86,7 @@ def create_segmentation_model(
             is chosen based on ``n_classes``. (default: None)
 
     Returns:
-        PretrainedSegmentationModel: Constructed or loaded segmentation model.
+        SegmentationModel: Constructed or loaded segmentation model.
 
     Raises:
         ValueError: If the checkpoint architecture or encoder does not match
@@ -136,14 +138,14 @@ def create_segmentation_model(
 
 
 def create_keypoint_detection_model(
-    architecture,
-    input_channels,
-    n_classes,
-    learning_rate=1e-4,
-    checkpoint_path=None,
-    criterion=None,
-    activation="relu",
-):
+    architecture: str,
+    input_channels: int,
+    n_classes: int,
+    learning_rate: float = 1e-4,
+    checkpoint_path: str | None = None,
+    criterion: Any | None = None,
+    activation: str = "relu",
+) -> KeypointDetection1DModel:
     """
     Create a 1D keypoint detection model.
 
@@ -183,7 +185,9 @@ def create_keypoint_detection_model(
     return model
 
 
-def load_segmentation_model_from_checkpoint(checkpoint_path):
+def load_segmentation_model_from_checkpoint(
+    checkpoint_path: str,
+) -> SegmentationModel:
     """
     Load a segmentation model from a checkpoint.
 
@@ -195,7 +199,7 @@ def load_segmentation_model_from_checkpoint(checkpoint_path):
         checkpoint_path (str): Path to a ``.ckpt`` checkpoint file.
 
     Returns:
-        PretrainedSegmentationModel: Loaded segmentation model.
+        SegmentationModel: Loaded segmentation model.
 
     Raises:
         ValueError: If both loading attempts fail.
@@ -218,7 +222,9 @@ def load_segmentation_model_from_checkpoint(checkpoint_path):
             )
 
 
-def load_keypoint_detection_model_from_checkpoint(checkpoint_path):
+def load_keypoint_detection_model_from_checkpoint(
+    checkpoint_path: str,
+) -> KeypointDetection1DModel:
     """
     Load a 1D keypoint detection model from a checkpoint.
 

@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterator
 from math import ceil
 from math import floor
 
@@ -9,7 +10,7 @@ from torch.serialization import safe_globals
 # from efficientnet_pytorch.utils import Conv2dStaticSamePadding
 
 
-def divide_batch(batch, n):
+def divide_batch(batch: torch.Tensor, n: int) -> Iterator[torch.Tensor]:
     """
     Yield successive mini-batches of size ``n`` from ``batch``.
 
@@ -24,7 +25,7 @@ def divide_batch(batch, n):
         yield batch[i : i + n, ::]  # noqa: E203
 
 
-def get_closest_upper_multiple(dim, multiple):
+def get_closest_upper_multiple(dim: int | float, multiple: int) -> int:
     """
     Round ``dim`` up to the nearest multiple of ``multiple``.
 
@@ -38,7 +39,7 @@ def get_closest_upper_multiple(dim, multiple):
     return int(multiple * ceil(dim / multiple))
 
 
-def get_closest_lower_multiple(dim, multiple):
+def get_closest_lower_multiple(dim: int | float, multiple: int) -> int:
     """
     Round ``dim`` down to the nearest multiple of ``multiple``.
 
@@ -52,7 +53,10 @@ def get_closest_lower_multiple(dim, multiple):
     return int(multiple * floor(dim / multiple))
 
 
-def adjust_tensor_dimensions(source_tensor, target_tensor_shape):
+def adjust_tensor_dimensions(
+    source_tensor: torch.Tensor,
+    target_tensor_shape: tuple,
+) -> torch.Tensor:
     """
     Squeeze ``source_tensor`` then unsqueeze it to match ``target_tensor_shape``.
 
@@ -72,7 +76,10 @@ def adjust_tensor_dimensions(source_tensor, target_tensor_shape):
     return adjusted_tensor
 
 
-def rename_keys_and_adjust_dimensions(model, pretrained_model):
+def rename_keys_and_adjust_dimensions(
+    model: torch.nn.Module,
+    pretrained_model: dict,
+) -> dict:
     """
     Map pretrained weights into a model with differently named or shaped parameters.
 
@@ -106,7 +113,7 @@ def rename_keys_and_adjust_dimensions(model, pretrained_model):
     return new_state_dict
 
 
-def get_input_channels_from_checkpoint(checkpoint_path):
+def get_input_channels_from_checkpoint(checkpoint_path: str) -> int:
     """
     Infer the number of input channels from a PyTorch Lightning checkpoint.
 
@@ -130,7 +137,7 @@ def get_input_channels_from_checkpoint(checkpoint_path):
     return input_channels
 
 
-def create_lightweight_checkpoint(input_path, output_path):
+def create_lightweight_checkpoint(input_path: str, output_path: str) -> dict:
     """
     Load a PyTorch Lightning checkpoint and save a lightweight version.
 

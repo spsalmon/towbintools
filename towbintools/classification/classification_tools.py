@@ -15,7 +15,7 @@ def classify_image(
     classifier: xgboost.XGBClassifier,
     classes: list,
     **kwargs,
-):
+) -> str:
     """
     Classify an image based on features extracted by a provided function.
 
@@ -53,16 +53,16 @@ def classify_image(
 
 
 def compute_features_of_label(
-    current_label,
-    mask_plane,
-    image_plane,
-    all_features,
-    extra_properties,
-    intensity_features,
-    extra_intensity_features,
-    num_closest=None,
-    patches=None,
-):
+    current_label: int,
+    mask_plane: np.ndarray,
+    image_plane: np.ndarray,
+    all_features: list[str],
+    extra_properties: list,
+    intensity_features: list[str],
+    extra_intensity_features: list,
+    num_closest: int | None = None,
+    patches: list[int] | None = None,
+) -> list:
     """
     Compute a set of features for a single label, including context features and patch features.
 
@@ -156,17 +156,17 @@ def compute_features_of_label(
 
 
 def compute_features_of_plane(
-    mask_plane,
-    image_plane,
-    all_features,
-    extra_properties,
-    intensity_features,
-    extra_intensity_features,
-    num_closest=None,
-    patches=None,
-    parallel=True,
-    n_jobs=-1,
-):
+    mask_plane: np.ndarray,
+    image_plane: np.ndarray,
+    all_features: list[str],
+    extra_properties: list,
+    intensity_features: list[str],
+    extra_intensity_features: list,
+    num_closest: int | None = None,
+    patches: list[int] | None = None,
+    parallel: bool = True,
+    n_jobs: int = -1,
+) -> list:
     """
     Compute a set of features for a single label, including context features and patch features for all labels in a plane.
 
@@ -220,19 +220,19 @@ def compute_features_of_plane(
 
 
 def classify_plane(
-    mask_plane,
-    image_plane,
-    classifier,
-    all_features,
-    extra_properties,
-    intensity_features,
-    extra_intensity_features,
-    num_closest=None,
-    patches=None,
-    parallel=True,
-    n_jobs=-1,
-    confidence_threshold=None,
-):
+    mask_plane: np.ndarray,
+    image_plane: np.ndarray,
+    classifier: xgboost.XGBClassifier,
+    all_features: list[str],
+    extra_properties: list,
+    intensity_features: list[str],
+    extra_intensity_features: list,
+    num_closest: int | None = None,
+    patches: list[int] | None = None,
+    parallel: bool = True,
+    n_jobs: int = -1,
+    confidence_threshold: float | None = None,
+) -> np.ndarray | None:
     """
     Compute the features of all the labels in a plane and classify them using an XGBoost classifier.
 
@@ -278,20 +278,20 @@ def classify_plane(
 
 
 def classify_labels(
-    mask,
-    image,
-    classifier,
-    all_features,
-    extra_properties,
-    intensity_features,
-    extra_intensity_features,
-    num_closest=None,
-    patches=None,
-    parallel=True,
-    n_jobs=-1,
-    is_zstack=False,
-    confidence_threshold=None,
-):
+    mask: np.ndarray,
+    image: np.ndarray,
+    classifier: xgboost.XGBClassifier,
+    all_features: list[str],
+    extra_properties: list,
+    intensity_features: list[str],
+    extra_intensity_features: list,
+    num_closest: int | None = None,
+    patches: list[int] | None = None,
+    parallel: bool = True,
+    n_jobs: int = -1,
+    is_zstack: bool = False,
+    confidence_threshold: float | None = None,
+) -> list:
     """
     Compute the features of all the labels in a mask and classify them using an XGBoost classifier.
 
@@ -353,15 +353,15 @@ def classify_labels(
 
 
 def classify_labels_features_dict(
-    mask,
-    image,
-    clf,
-    features_dict,
-    parallel=True,
-    n_jobs=-1,
-    is_zstack=False,
-    confidence_threshold=None,
-):
+    mask: np.ndarray,
+    image: np.ndarray,
+    clf: xgboost.XGBClassifier,
+    features_dict: dict,
+    parallel: bool = True,
+    n_jobs: int = -1,
+    is_zstack: bool = False,
+    confidence_threshold: float | None = None,
+) -> list:
     """
     Classify all labels in a mask using a features dictionary.
 
@@ -404,7 +404,11 @@ def classify_labels_features_dict(
     )
 
 
-def convert_classification_to_mask(mask, classification, is_zstack=False):
+def convert_classification_to_mask(
+    mask: np.ndarray,
+    classification: list,
+    is_zstack: bool = False,
+) -> np.ndarray:
     """
     Convert a classification (list of predicted classes) to a mask.
 
@@ -432,7 +436,11 @@ def convert_classification_to_mask(mask, classification, is_zstack=False):
     return new_mask
 
 
-def convert_classification_to_dataframe(mask, classification, is_zstack=False):
+def convert_classification_to_dataframe(
+    mask: np.ndarray,
+    classification: list,
+    is_zstack: bool = False,
+) -> pd.DataFrame:
     """
     Convert a classification (list of predicted classes) to a pandas DataFrame.
 
@@ -471,20 +479,20 @@ def convert_classification_to_dataframe(mask, classification, is_zstack=False):
 
 
 def classify_labels_and_convert_to_mask(
-    mask,
-    image,
-    classifier,
-    all_features,
-    extra_properties,
-    intensity_features,
-    extra_intensity_features,
-    num_closest=None,
-    patches=None,
-    parallel=True,
-    n_jobs=-1,
-    is_zstack=False,
-    confidence_threshold=None,
-):
+    mask: np.ndarray,
+    image: np.ndarray,
+    classifier: xgboost.XGBClassifier,
+    all_features: list[str],
+    extra_properties: list,
+    intensity_features: list[str],
+    extra_intensity_features: list,
+    num_closest: int | None = None,
+    patches: list[int] | None = None,
+    parallel: bool = True,
+    n_jobs: int = -1,
+    is_zstack: bool = False,
+    confidence_threshold: float | None = None,
+) -> np.ndarray:
     """
     Classify all the labels in a mask using an XGBoost classifier and convert the classification to a mask.
 
@@ -526,20 +534,20 @@ def classify_labels_and_convert_to_mask(
 
 
 def classify_labels_and_convert_to_dataframe(
-    mask,
-    image,
-    classifier,
-    all_features,
-    extra_properties,
-    intensity_features,
-    extra_intensity_features,
-    num_closest=None,
-    patches=None,
-    parallel=True,
-    n_jobs=-1,
-    is_zstack=False,
-    confidence_threshold=None,
-):
+    mask: np.ndarray,
+    image: np.ndarray,
+    classifier: xgboost.XGBClassifier,
+    all_features: list[str],
+    extra_properties: list,
+    intensity_features: list[str],
+    extra_intensity_features: list,
+    num_closest: int | None = None,
+    patches: list[int] | None = None,
+    parallel: bool = True,
+    n_jobs: int = -1,
+    is_zstack: bool = False,
+    confidence_threshold: float | None = None,
+) -> pd.DataFrame:
     """
     Classify all the labels in a mask using an XGBoost classifier and convert the classification to a pandas DataFrame.
 
@@ -581,15 +589,15 @@ def classify_labels_and_convert_to_dataframe(
 
 
 def classify_labels_and_convert_to_mask_features_dict(
-    mask,
-    image,
-    clf,
-    features_dict,
-    parallel=True,
-    n_jobs=-1,
-    is_zstack=False,
-    confidence_threshold=None,
-):
+    mask: np.ndarray,
+    image: np.ndarray,
+    clf: xgboost.XGBClassifier,
+    features_dict: dict,
+    parallel: bool = True,
+    n_jobs: int = -1,
+    is_zstack: bool = False,
+    confidence_threshold: float | None = None,
+) -> np.ndarray:
     """
     Classify all labels using a features dictionary and return the result as a mask.
 
@@ -626,15 +634,15 @@ def classify_labels_and_convert_to_mask_features_dict(
 
 
 def classify_labels_and_convert_to_dataframe_features_dict(
-    mask,
-    image,
-    clf,
-    features_dict,
-    parallel=True,
-    n_jobs=-1,
-    is_zstack=False,
-    confidence_threshold=None,
-):
+    mask: np.ndarray,
+    image: np.ndarray,
+    clf: xgboost.XGBClassifier,
+    features_dict: dict,
+    parallel: bool = True,
+    n_jobs: int = -1,
+    is_zstack: bool = False,
+    confidence_threshold: float | None = None,
+) -> pd.DataFrame:
     """
     Classify all labels using a features dictionary and return the result as a DataFrame.
 

@@ -1,3 +1,6 @@
+from typing import Any
+
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 import statsmodels.api as sm
@@ -23,13 +26,13 @@ from towbintools.foundation.utils import find_best_string_match
 
 
 def _get_continuous_proportion_model(
-    rescaled_series_one,
-    rescaled_series_two,
-    x_axis_label=None,
-    y_axis_label=None,
-    plot_model=True,
-    remove_outliers=True,
-):
+    rescaled_series_one: np.ndarray,
+    rescaled_series_two: np.ndarray,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+    plot_model: bool = True,
+    remove_outliers: bool = True,
+) -> Any:
     """
     Fit a LOWESS + linear-spline model to the log-log relationship between two series.
 
@@ -112,14 +115,14 @@ def _get_continuous_proportion_model(
 
 
 def _get_proportion_model(
-    series_one_values,
-    series_two_values,
-    x_axis_label=None,
-    y_axis_label=None,
-    poly_degree=2,
-    plot_model=True,
-    remove_outliers=True,
-):
+    series_one_values: np.ndarray,
+    series_two_values: np.ndarray,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+    poly_degree: int = 2,
+    plot_model: bool = True,
+    remove_outliers: bool = True,
+) -> Any:
     """
     Fit a polynomial OLS model to the log-log relationship between two series.
 
@@ -281,20 +284,20 @@ def _get_proportion_model(
 
 
 def plot_model_comparison_at_ecdysis(
-    conditions_struct,
-    column_one,
-    column_two,
-    conditions_to_plot,
-    remove_hatch=True,
-    poly_degree=2,
-    remove_outliers_fitting=True,
-    log_scale=(True, False),
-    colors=None,
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-    single_plot=True,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    conditions_to_plot: list,
+    remove_hatch: bool = True,
+    poly_degree: int = 2,
+    remove_outliers_fitting: bool = True,
+    log_scale: tuple[bool, bool] | bool = (True, False),
+    colors: list | dict | None = None,
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+    single_plot: bool = True,
+) -> matplotlib.figure.Figure:
     """
     Scatter-plot the log-log relationship between two columns at molt events with fitted models.
 
@@ -499,8 +502,11 @@ def plot_model_comparison_at_ecdysis(
 
 
 def get_deviation_from_model(
-    series_one_values, series_two_values, model, percentage=True
-):
+    series_one_values: np.ndarray,
+    series_two_values: np.ndarray,
+    model: Any,
+    percentage: bool = True,
+) -> np.ndarray:
     """
     Compute per-worm deviations from a proportion model at each molt event.
 
@@ -561,16 +567,16 @@ def get_deviation_from_model(
 
 
 def plot_correlation(
-    conditions_struct,
-    column_one,
-    column_two,
-    conditions_to_plot,
-    log_scale=True,
-    colors=None,
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    conditions_to_plot: list,
+    log_scale: bool | tuple | list = True,
+    colors: list | dict | None = None,
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+) -> matplotlib.figure.Figure:
     """
     Plot the correlation between two measurements as aggregated rescaled series.
 
@@ -665,17 +671,17 @@ def plot_correlation(
 
 
 def plot_correlation_at_ecdysis(
-    conditions_struct,
-    column_one,
-    column_two,
-    conditions_to_plot,
-    remove_hatch=True,
-    log_scale=True,
-    colors=None,
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    conditions_to_plot: list,
+    remove_hatch: bool = True,
+    log_scale: bool | tuple | list = True,
+    colors: list | dict | None = None,
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+) -> matplotlib.figure.Figure:
     """
     Plot the mean ± std of two measurements at each molt event as error-bar scatter.
 
@@ -758,19 +764,19 @@ def plot_correlation_at_ecdysis(
 
 
 def plot_continuous_deviation_from_model(
-    conditions_struct,
-    rescaled_column_one,
-    rescaled_column_two,
-    control_condition_id,
-    conditions_to_plot,
-    deviation_as_percentage=True,
-    colors=None,
-    log_scale=(True, False),
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-    sort_values=False,
-):
+    conditions_struct: list,
+    rescaled_column_one: str,
+    rescaled_column_two: str,
+    control_condition_id: int,
+    conditions_to_plot: list,
+    deviation_as_percentage: bool = True,
+    colors: list | dict | None = None,
+    log_scale: tuple[bool, bool] | bool = (True, False),
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+    sort_values: bool = False,
+) -> matplotlib.figure.Figure:
     """
     Plot the deviation from a LOWESS model as a continuous line across the rescaled axis.
 
@@ -882,21 +888,21 @@ def plot_continuous_deviation_from_model(
 
 
 def plot_deviation_from_model_at_ecdysis(
-    conditions_struct,
-    column_one,
-    column_two,
-    control_condition_id,
-    conditions_to_plot,
-    remove_hatch=False,
-    deviation_as_percentage=True,
-    log_scale=(True, False),
-    colors=None,
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-    poly_degree=2,
-    remove_outliers_fitting=True,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    control_condition_id: int,
+    conditions_to_plot: list,
+    remove_hatch: bool = False,
+    deviation_as_percentage: bool = True,
+    log_scale: tuple[bool, bool] | bool = (True, False),
+    colors: list | dict | None = None,
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+    poly_degree: int = 2,
+    remove_outliers_fitting: bool = True,
+) -> matplotlib.figure.Figure:
     """
     Plot the per-condition deviation from a polynomial model at each molt event.
 
@@ -1019,21 +1025,21 @@ def plot_deviation_from_model_at_ecdysis(
 
 
 def plot_deviation_from_model_development_percentage(
-    conditions_struct,
-    column_one,
-    column_two,
-    control_condition_id,
-    conditions_to_plot,
-    percentages,
-    deviation_as_percentage=True,
-    log_scale=(True, False),
-    colors=None,
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-    poly_degree=2,
-    remove_outliers_fitting=True,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    control_condition_id: int,
+    conditions_to_plot: list,
+    percentages: np.ndarray,
+    deviation_as_percentage: bool = True,
+    log_scale: tuple[bool, bool] | bool = (True, False),
+    colors: list | dict | None = None,
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+    poly_degree: int = 2,
+    remove_outliers_fitting: bool = True,
+) -> matplotlib.figure.Figure:
     """
     Plot the deviation from a polynomial model at specified development percentages.
 
@@ -1237,18 +1243,18 @@ def plot_deviation_from_model_development_percentage(
 
 
 def plot_normalized_proportions_at_ecdysis(
-    conditions_struct,
-    column_one,
-    column_two,
-    control_condition_id,
-    conditions_to_plot,
-    colors=None,
-    aggregation="mean",
-    log_scale=(True, False),
-    legend=None,
-    x_axis_label=None,
-    y_axis_label=None,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    control_condition_id: int,
+    conditions_to_plot: list,
+    colors: list | dict | None = None,
+    aggregation: str = "mean",
+    log_scale: tuple[bool, bool] | bool = (True, False),
+    legend: dict | None = None,
+    x_axis_label: str | None = None,
+    y_axis_label: str | None = None,
+) -> matplotlib.figure.Figure:
     """
     Plot the column_two/column_one ratio normalised to the control at each molt event.
 
@@ -1333,16 +1339,16 @@ def plot_normalized_proportions_at_ecdysis(
 
 
 def compute_deviation_from_model_at_ecdysis(
-    conditions_struct,
-    column_one,
-    column_two,
-    control_condition,
-    output_column_name,
-    remove_hatch=True,
-    deviations_as_percentage=True,
-    poly_degree=2,
-    remove_outliers_fitting=True,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    control_condition: int,
+    output_column_name: str,
+    remove_hatch: bool = True,
+    deviations_as_percentage: bool = True,
+    poly_degree: int = 2,
+    remove_outliers_fitting: bool = True,
+) -> list:
     """
     Compute per-worm deviations from a control-fitted model and store them in conditions_struct.
 
@@ -1403,15 +1409,15 @@ def compute_deviation_from_model_at_ecdysis(
 
 
 def compute_deviation_from_each_model_at_ecdysis(
-    conditions_struct,
-    column_one,
-    column_two,
-    output_column_name,
-    remove_hatch=True,
-    deviations_as_percentage=True,
-    poly_degree=2,
-    remove_outliers_fitting=True,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    output_column_name: str,
+    remove_hatch: bool = True,
+    deviations_as_percentage: bool = True,
+    poly_degree: int = 2,
+    remove_outliers_fitting: bool = True,
+) -> list:
     """
     Fit a separate model per condition and store each condition's self-deviation.
 
@@ -1463,16 +1469,16 @@ def compute_deviation_from_each_model_at_ecdysis(
 
 
 def compute_deviation_from_model_development_percentage(
-    conditions_struct,
-    column_one,
-    column_two,
-    control_condition,
-    percentages,
-    output_column_name,
-    deviations_as_percentage=True,
-    poly_degree=2,
-    remove_outliers_fitting=True,
-):
+    conditions_struct: list,
+    column_one: str,
+    column_two: str,
+    control_condition: int,
+    percentages: np.ndarray,
+    output_column_name: str,
+    deviations_as_percentage: bool = True,
+    poly_degree: int = 2,
+    remove_outliers_fitting: bool = True,
+) -> list:
     """
     Compute per-worm deviations from a control model sampled at development percentages.
 

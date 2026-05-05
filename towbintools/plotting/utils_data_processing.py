@@ -12,8 +12,12 @@ from towbintools.foundation.utils import find_best_string_match
 
 
 def combine_series(
-    conditions_struct, series_one, series_two, operation, new_series_name
-):
+    conditions_struct: list,
+    series_one: str,
+    series_two: str,
+    operation: str,
+    new_series_name: str,
+) -> list:
     """
     Combine two series in every condition dict via an elementwise arithmetic operation.
 
@@ -45,7 +49,12 @@ def combine_series(
     return conditions_struct
 
 
-def transform_series(conditions_struct, series, operation, new_series_name):
+def transform_series(
+    conditions_struct: list,
+    series: str,
+    operation: str,
+    new_series_name: str,
+) -> list:
     """
     Apply a pointwise mathematical transformation to a series in every condition dict.
 
@@ -74,14 +83,14 @@ def transform_series(conditions_struct, series, operation, new_series_name):
 
 
 def compute_growth_rate(
-    conditions_struct,
-    series_name,
-    gr_series_name,
-    experiment_time=True,
-    lmbda=0.0075,
-    order=2,
-    medfilt_window=5,
-):
+    conditions_struct: list,
+    series_name: str,
+    gr_series_name: str,
+    experiment_time: bool = True,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
+) -> list:
     """
     Compute the instantaneous growth rate for each worm in every condition.
 
@@ -137,12 +146,12 @@ def compute_growth_rate(
 
 
 def rescale(
-    conditions_struct,
-    series_name,
-    rescaled_series_name,
-    experiment_time=True,
-    n_points=100,
-):
+    conditions_struct: list,
+    series_name: str,
+    rescaled_series_name: str,
+    experiment_time: bool = True,
+    n_points: int = 100,
+) -> list:
     """
     Rescale a series to a fixed number of points per larval stage and flatten the stage axis.
 
@@ -190,12 +199,12 @@ def rescale(
 
 
 def rescale_without_flattening(
-    conditions_struct,
-    series_name,
-    rescaled_series_name,
-    experiment_time=True,
-    n_points=100,
-):
+    conditions_struct: list,
+    series_name: str,
+    rescaled_series_name: str,
+    experiment_time: bool = True,
+    n_points: int = 100,
+) -> list:
     """
     Rescale a series to a fixed number of points per larval stage, retaining the stage axis.
 
@@ -237,7 +246,7 @@ def rescale_without_flattening(
     return conditions_struct
 
 
-def exclude_arrests_from_series_at_ecdysis(series_at_ecdysis):
+def exclude_arrests_from_series_at_ecdysis(series_at_ecdysis: np.ndarray) -> np.ndarray:
     """
     Remove arrested worms from a per-molt measurement array.
 
@@ -273,14 +282,14 @@ def exclude_arrests_from_series_at_ecdysis(series_at_ecdysis):
 
 
 def smooth_series(
-    conditions_struct,
-    series_name,
-    smoothed_series_name,
-    experiment_time=True,
-    lmbda=0.0075,
-    order=2,
-    medfilt_window=5,
-):
+    conditions_struct: list,
+    series_name: str,
+    smoothed_series_name: str,
+    experiment_time: bool = True,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
+) -> list:
     """
     Smooth a measurement series for each worm in every condition using a classified smoother.
 
@@ -343,16 +352,16 @@ def smooth_series(
 
 
 def smooth_and_rescale_series(
-    conditions_struct,
-    series_name,
-    smoothed_series_name,
-    experiment_time=True,
-    lmbda=0.0075,
-    order=2,
-    medfilt_window=5,
-    n_points=100,
-    flatten=True,
-):
+    conditions_struct: list,
+    series_name: str,
+    smoothed_series_name: str,
+    experiment_time: bool = True,
+    lmbda: float = 0.0075,
+    order: int = 2,
+    medfilt_window: int = 5,
+    n_points: int = 100,
+    flatten: bool = True,
+) -> list:
     """
     Smooth a series and rescale it to a fixed number of points per larval stage.
 
@@ -435,7 +444,10 @@ def smooth_and_rescale_series(
     return conditions_struct
 
 
-def detrend_rescaled_series_population_mean(conditions_struct, rescaled_series):
+def detrend_rescaled_series_population_mean(
+    conditions_struct: list,
+    rescaled_series: str,
+) -> list:
     """
     Remove the population mean trend from a rescaled series in every condition.
 
@@ -458,7 +470,7 @@ def detrend_rescaled_series_population_mean(conditions_struct, rescaled_series):
     return conditions_struct
 
 
-def _detrend_rescaled_series_population_mean(series):
+def _detrend_rescaled_series_population_mean(series: np.ndarray) -> np.ndarray:
     """
     Subtract the column-wise population mean from a 2-D series array.
 

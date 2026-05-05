@@ -1,12 +1,13 @@
 import re
 from difflib import SequenceMatcher
+from typing import Callable
 
 import numpy as np
 
 
 def nan_helper(
-    y,
-):
+    y: np.ndarray,
+) -> tuple[np.ndarray, Callable]:
     """
     Return logical indices of NaNs and a conversion function for use with np.interp.
 
@@ -27,8 +28,8 @@ def nan_helper(
 
 
 def inf_helper(
-    y,
-):
+    y: np.ndarray,
+) -> tuple[np.ndarray, Callable]:
     """
     Return logical indices of infinities and a conversion function for use with np.interp.
 
@@ -124,7 +125,7 @@ class NotImplementedError(Exception):
     pass
 
 
-def _extract_column_components(col_name):
+def _extract_column_components(col_name: str) -> list[str]:
     """
     Split a column name into lowercase components on ``_``, ``-``, and ``.`` separators.
 
