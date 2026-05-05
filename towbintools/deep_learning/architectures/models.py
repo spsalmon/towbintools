@@ -7,16 +7,14 @@ from torchmetrics.classification import BinaryF1Score
 from torchmetrics.classification import MulticlassF1Score
 
 from .archs import AttentionUnet1D
-from .archs import Unet
 from .archs import Unet1D
-from .archs import UnetPlusPlus
 from .archs import UnetPlusPlus1D
 from towbintools.deep_learning.utils.loss import FocalTverskyLoss
 from towbintools.deep_learning.utils.loss import MultiClassFocalLoss
 from towbintools.deep_learning.utils.loss import PeakWeightedMSELoss
 
 
-class PretrainedClassificationModel(pl.LightningModule):
+class ClassificationModel(pl.LightningModule):
     """
     PyTorch Lightning module for image classification using a pretrained backbone.
 
@@ -160,7 +158,7 @@ class PretrainedClassificationModel(pl.LightningModule):
         return optimizer
 
 
-class PretrainedSegmentationModel(pl.LightningModule):
+class SegmentationModel(pl.LightningModule):
     """
     PyTorch Lightning module for image segmentation using a pretrained encoder.
 
@@ -306,172 +304,6 @@ class PretrainedSegmentationModel(pl.LightningModule):
     def predict_step(self, batch):
         x = batch
 
-        pred = self.forward(x)
-
-        # binarize predictions
-        if self.n_classes == 1:
-            pred = pred > 0.5
-        else:
-            pred = torch.argmax(pred, dim=1)
-
-        return pred
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
-
-
-class SegmentationModel(pl.LightningModule):
-    """
-    PyTorch Lightning module for image segmentation using a custom architecture.
-
-    Supports ``"Unet"`` and ``"UnetPlusPlus"`` architectures from
-    :mod:`towbintools.deep_learning.architectures.archs`. For binary tasks
-    (``n_classes == 1``): sigmoid activation + ``FocalTverskyLoss`` +
-    ``BinaryF1Score``. For multiclass tasks: softmax activation +
-    ``MultiClassFocalLoss`` + ``MulticlassF1Score``.
-
-    Parameters:
-        architecture (str): Architecture name; one of ``"Unet"`` or ``"UnetPlusPlus"``.
-        input_channels (int): Number of input image channels.
-        n_classes (int): Number of foreground segmentation classes.
-        learning_rate (float): Learning rate for the Adam optimizer.
-        normalization (dict): Normalization config stored as a hyperparameter
-            and used at inference time to reconstruct the preprocessing pipeline.
-        deep_supervision (bool, optional): If ``True``, enable deep supervision
-            (only relevant for ``"UnetPlusPlus"``). (default: False)
-        criterion (nn.Module, optional): Loss function. If ``None``,
-            ``FocalTverskyLoss`` is used for binary tasks and
-            ``MultiClassFocalLoss`` for multiclass. (default: None)
-        ignore_index (int, optional): Target value to ignore in the loss and
-            F1 score. (default: None)
-
-    Raises:
-        ValueError: If ``architecture`` is not one of the supported values.
-    """
-
-    def __init__(
-        self,
-        architecture,
-        input_channels,
-        n_classes,
-        learning_rate,
-        normalization,
-        deep_supervision=False,
-        criterion=None,
-        ignore_index=None,
-    ):
-        super().__init__()
-
-        if n_classes == 1:
-            self.activation = nn.Sigmoid()
-        else:
-            self.activation = nn.Softmax(dim=1)
-
-        if architecture == "Unet":
-            model = Unet(num_classes=n_classes, input_channels=input_channels)
-        elif architecture == "UnetPlusPlus":
-            model = UnetPlusPlus(
-                num_classes=n_classes + 1 if n_classes > 1 else n_classes,
-                input_channels=input_channels,
-                deep_supervision=deep_supervision,
-            )
-        else:
-            raise ValueError(
-                f"Architecture {architecture} not implemented. Implemented architectures are: Unet, UnetPlusPlus"
-            )
-        self.model = model
-        self.learning_rate = learning_rate
-        self.ignore_index = ignore_index
-
-        if criterion is None:
-            if n_classes == 1:
-                self.criterion = FocalTverskyLoss(ignore_index=self.ignore_index)
-            else:
-                self.criterion = MultiClassFocalLoss(
-                    ignore_index=self.ignore_index,
-                    alpha=torch.tensor([0.1] + [0.75] * n_classes),
-                )
-        else:
-            self.criterion = criterion
-
-        if n_classes == 1:
-            self.f1_score = BinaryF1Score(ignore_index=self.criterion.ignore_index)
-        else:
-            self.f1_score = MulticlassF1Score(
-                num_classes=n_classes + 1,
-                ignore_index=self.criterion.ignore_index,
-            )
-
-        self.normalization = normalization
-        self.save_hyperparameters()
-        self.n_classes = n_classes
-
-    def forward(self, x):
-        y = self.model(x)
-        return self.activation(y)
-
-    def training_step(self, batch):
-        x, y = batch
-        y_hat = self.model(x)
-        loss = self.criterion(y_hat, y)
-        self.log(
-            "train_loss",
-            loss,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-            sync_dist=True,
-        )
-
-        y_hat = self.activation(y_hat)
-        if self.n_classes > 1 and y.dim() == 4 and y.shape[1] == 1:
-            y = y.squeeze(1)
-
-        f1_score = self.f1_score(y_hat, y)
-
-        self.log(
-            "train_f1_score",
-            f1_score,
-            on_step=False,
-            on_epoch=True,
-            logger=True,
-            sync_dist=True,
-        )
-        return loss
-
-    def validation_step(self, batch):
-        x, y = batch
-        y_hat = self.model(x)
-        loss = self.criterion(y_hat, y)
-        self.log(
-            "val_loss",
-            loss,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-            sync_dist=True,
-        )
-
-        y_hat = self.activation(y_hat)
-        if self.n_classes > 1 and y.dim() == 4 and y.shape[1] == 1:
-            y = y.squeeze(1)
-
-        f1_score = self.f1_score(y_hat, y)
-        self.log(
-            "val_f1_score",
-            f1_score,
-            on_step=False,
-            on_epoch=True,
-            logger=True,
-            prog_bar=True,
-            sync_dist=True,
-        )
-
-    def predict_step(self, batch):
-        x = batch
         pred = self.forward(x)
 
         # binarize predictions

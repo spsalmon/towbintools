@@ -1,6 +1,5 @@
+from towbintools.deep_learning.architectures import ClassificationModel
 from towbintools.deep_learning.architectures import KeypointDetection1DModel
-from towbintools.deep_learning.architectures import PretrainedClassificationModel
-from towbintools.deep_learning.architectures import PretrainedSegmentationModel
 from towbintools.deep_learning.architectures import SegmentationModel
 from towbintools.deep_learning.utils.util import (
     get_input_channels_from_checkpoint,
@@ -35,12 +34,12 @@ def create_classification_model(
     """
 
     if checkpoint_path is not None:
-        model = PretrainedClassificationModel.load_from_checkpoint(
+        model = ClassificationModel.load_from_checkpoint(
             checkpoint_path, weights_only=False
         )
         return model
 
-    model = PretrainedClassificationModel(
+    model = ClassificationModel(
         architecture,
         input_channels,
         classes,
@@ -50,7 +49,7 @@ def create_classification_model(
     return model
 
 
-def create_pretrained_segmentation_model(
+def create_segmentation_model(
     input_channels=1,
     n_classes=1,
     architecture="UnetPlusPlus",
@@ -91,7 +90,7 @@ def create_pretrained_segmentation_model(
         ValueError: If the checkpoint architecture or encoder does not match
             the requested one.
     """
-    model = PretrainedSegmentationModel(
+    model = SegmentationModel(
         input_channels=input_channels,
         n_classes=n_classes,
         learning_rate=learning_rate,
@@ -103,7 +102,7 @@ def create_pretrained_segmentation_model(
     )
 
     if checkpoint_path is not None:
-        loaded_model = PretrainedSegmentationModel.load_from_checkpoint(
+        loaded_model = SegmentationModel.load_from_checkpoint(
             checkpoint_path, map_location="cpu", weights_only=False
         )
 
@@ -132,69 +131,6 @@ def create_pretrained_segmentation_model(
         loaded_model.configure_optimizers()
 
         return loaded_model
-
-    return model
-
-
-def create_segmentation_model(
-    architecture,
-    input_channels,
-    n_classes,
-    normalization={"type": "percentile", "lo": 1, "hi": 99},
-    learning_rate=1e-5,
-    deep_supervision=False,
-    checkpoint_path=None,
-    reset_optimizer=True,
-    criterion=None,
-):
-    """
-    Create a segmentation model using a custom (non-pretrained) architecture.
-
-    Parameters:
-        architecture (str): Architecture name; one of ``"Unet"`` or
-            ``"UnetPlusPlus"``.
-        input_channels (int): Number of input image channels.
-        n_classes (int): Number of foreground segmentation classes.
-        normalization (dict, optional): Normalization config. (default: percentile 1–99)
-        learning_rate (float, optional): Learning rate for the Adam optimizer.
-            (default: 1e-5)
-        deep_supervision (bool, optional): Enable deep supervision (only relevant
-            for ``"UnetPlusPlus"``). (default: False)
-        checkpoint_path (str, optional): Path to a ``.ckpt`` checkpoint. If
-            provided, the model is loaded from the checkpoint, then
-            ``learning_rate``, ``normalization``, and ``deep_supervision`` are
-            updated. (default: None)
-        reset_optimizer (bool, optional): If ``True``, discard the optimizer
-            state from the checkpoint. (default: True)
-        criterion (nn.Module, optional): Loss function. If ``None``, a default
-            is chosen based on ``n_classes``. (default: None)
-
-    Returns:
-        SegmentationModel: Constructed or loaded segmentation model.
-    """
-
-    if checkpoint_path is not None:
-        model = SegmentationModel.load_from_checkpoint(
-            checkpoint_path, weights_only=False
-        )
-
-        if reset_optimizer:
-            model.optimizer = None
-            model.lr_scheduler = None
-        model.learning_rate = learning_rate
-        model.normalization = normalization
-        model.deep_supervision = deep_supervision
-        return model
-
-    model = SegmentationModel(
-        architecture=architecture,
-        input_channels=input_channels,
-        n_classes=n_classes,
-        learning_rate=learning_rate,
-        normalization=normalization,
-        deep_supervision=deep_supervision,
-        criterion=criterion,
-    )
 
     return model
 
@@ -247,9 +183,9 @@ def create_keypoint_detection_model(
     return model
 
 
-def load_pretrained_segmentation_model_from_checkpoint(checkpoint_path):
+def load_segmentation_model_from_checkpoint(checkpoint_path):
     """
-    Load a pretrained segmentation model from a checkpoint.
+    Load a segmentation model from a checkpoint.
 
     First tries a direct load; if that fails (e.g. mismatched ``input_channels``
     in the checkpoint metadata), infers the channel count from the checkpoint
@@ -265,44 +201,6 @@ def load_pretrained_segmentation_model_from_checkpoint(checkpoint_path):
         ValueError: If both loading attempts fail.
     """
     try:
-        return PretrainedSegmentationModel.load_from_checkpoint(
-            checkpoint_path, weights_only=False
-        )
-    except Exception as e:
-        try:
-            return PretrainedSegmentationModel.load_from_checkpoint(
-                checkpoint_path,
-                input_channels=get_input_channels_from_checkpoint(checkpoint_path),
-                pretrained_weights=None,
-                weights_only=False,
-            )
-        except Exception as e2:
-            raise ValueError(
-                f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
-            )
-
-
-def load_scratch_segmentation_model_from_checkpoint(
-    checkpoint_path, default_deep_supervision=False
-):
-    """
-    Load a :class:`SegmentationModel` from a checkpoint.
-
-    First tries a direct load; if that fails, infers the channel count from
-    the checkpoint weights and retries with ``deep_supervision=default_deep_supervision``.
-
-    Parameters:
-        checkpoint_path (str): Path to a ``.ckpt`` checkpoint file.
-        default_deep_supervision (bool, optional): Deep supervision value used
-            on the fallback load attempt. (default: False)
-
-    Returns:
-        SegmentationModel: Loaded segmentation model.
-
-    Raises:
-        ValueError: If both loading attempts fail.
-    """
-    try:
         return SegmentationModel.load_from_checkpoint(
             checkpoint_path, weights_only=False
         )
@@ -311,37 +209,9 @@ def load_scratch_segmentation_model_from_checkpoint(
             return SegmentationModel.load_from_checkpoint(
                 checkpoint_path,
                 input_channels=get_input_channels_from_checkpoint(checkpoint_path),
-                deep_supervision=default_deep_supervision,
+                pretrained_weights=None,
                 weights_only=False,
             )
-        except Exception as e2:
-            raise ValueError(
-                f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"
-            )
-
-
-def load_segmentation_model_from_checkpoint(checkpoint_path):
-    """
-    Load a segmentation model from a checkpoint, trying both model types.
-
-    First tries to load as :class:`PretrainedSegmentationModel`; if that fails,
-    tries :class:`SegmentationModel`. Raises if both fail.
-
-    Parameters:
-        checkpoint_path (str): Path to a ``.ckpt`` checkpoint file.
-
-    Returns:
-        PretrainedSegmentationModel or SegmentationModel: Loaded segmentation model.
-
-    Raises:
-        ValueError: If both loading attempts fail.
-    """
-
-    try:
-        return load_pretrained_segmentation_model_from_checkpoint(checkpoint_path)
-    except Exception as e:
-        try:
-            return load_scratch_segmentation_model_from_checkpoint(checkpoint_path)
         except Exception as e2:
             raise ValueError(
                 f"Could not load model from checkpoint {checkpoint_path}. Error: {e} and {e2}"

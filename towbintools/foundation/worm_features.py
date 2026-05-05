@@ -710,9 +710,6 @@ def compute_bending_energy(
     denominator = (dx_du * dx_du + dy_du * dy_du) ** 1.5
     curvature = numerator / denominator
 
-    # Compute differential arc length
-    ds = np.sqrt(dx_du * dx_du + dy_du * dy_du) * (u_new[1] - u_new[0])
-
     # Compute second moment of area (I) assuming circular cross-section
     # I = (π/64) * d⁴ for a circular cross-section
     I = np.pi * (widths_new**4) / 64.0  # noqa: E741
@@ -721,9 +718,8 @@ def compute_bending_energy(
     EI = E * I
 
     # Compute bending energy = ∫ (EI/2) κ²ds
-    local_energy = (EI / 2) * curvature**2 * ds
-
-    total_energy = simpson(local_energy, x=u_new)
+    integrand = (EI / 2) * curvature**2 * np.sqrt(dx_du**2 + dy_du**2)
+    total_energy = simpson(integrand, x=u_new)
 
     return total_energy
 
