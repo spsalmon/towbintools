@@ -240,6 +240,9 @@ def interpolate_larval_stage(
     filtered_time = filtered_time[valid_indices]
     filtered_series = filtered_series[valid_indices]
 
+    if filtered_time.size == 0 or filtered_series.size == 0:
+        return np.full(n_points, np.nan), np.full(n_points, np.nan)
+
     interpolated_series = interpolate.make_interp_spline(
         filtered_time, filtered_series, k=1
     )(interpolated_time)
