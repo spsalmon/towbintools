@@ -322,8 +322,7 @@ def _add_metric_text(
         column (str) : Column name of the y-variable.
         ax (matplotlib.axes.Axes) : Axes object of the target subplot.
         event_index (int) : The ``"Order"`` value identifying the current subplot.
-        log_scale (bool) : If ``True``, back-transform values from log10 before
-            computing statistics.
+        log_scale (bool) : If ``True``, adjust y-position calculation for log-scale axes.
         test (str) : Statistical test name; determines which statistic to display.
             Defaults to ``"Mann-Whitney"``.
         y_offset_pct (float) : Downward offset of the text box as a fraction of the
@@ -358,14 +357,18 @@ def _add_metric_text(
     data = df[df["Order"] == event_index]
 
     y_min, y_max = ax.get_ylim()
-    y_range = y_max - y_min
-    y_position = y_min - (y_range * y_offset_pct)
+
+    if log_scale:
+        log_y_min = np.log10(y_min) if y_min > 0 else np.log10(y_max) - 1
+        log_y_max = np.log10(y_max)
+        log_range = log_y_max - log_y_min
+        y_position = 10 ** (log_y_min - log_range * y_offset_pct)
+    else:
+        y_range = y_max - y_min
+        y_position = y_min - (y_range * y_offset_pct)
 
     for i, condition in enumerate(conditions_to_plot):
         condition_data = data[data["Condition"] == condition][column]
-        if log_scale:
-            # transform back to avoid incorrect statistics
-            condition_data = np.exp(condition_data)
 
         if len(condition_data) == 0 or condition_data.isna().all():
             continue
@@ -401,7 +404,10 @@ def _add_metric_text(
             ),
         )
 
-    ax.set_ylim(y_position - (y_range * 0.04), y_max)
+    if log_scale:
+        ax.set_ylim(10 ** (log_y_min - log_range * (y_offset_pct + 0.04)), y_max)
+    else:
+        ax.set_ylim(y_position - (y_range * 0.04), y_max)
 
 
 def _plot_violinplot(
@@ -496,6 +502,7 @@ def _plot_violinplot(
             ] = np.nan
 
         if show_swarm:
+            dot_size = _swarm_dot_size(plot_df, event_index, column)
             sns.swarmplot(
                 data=plot_df[plot_df["Order"] == event_index],
                 x="Condition",
@@ -505,6 +512,7 @@ def _plot_violinplot(
                 alpha=0.5,
                 color="black",
                 dodge=False,
+                size=dot_size,
             )
 
         current_ax.set_xlabel("")
@@ -513,6 +521,9 @@ def _plot_violinplot(
 
         if titles is not None:
             current_ax.set_title(titles[event_index])
+
+        if log_scale:
+            current_ax.set_yscale("log")
 
         current_ax.tick_params(
             axis="x", which="both", bottom=False, top=False, labelbottom=False
@@ -621,7 +632,6 @@ def _plot_boxplot(
             linewidth=2,
             legend="full",
             linecolor="black",
-            log_scale=log_scale,
         )
 
         plot_df = df.copy()
@@ -643,7 +653,11 @@ def _plot_boxplot(
                 column,
             ] = np.nan
 
+        if log_scale:
+            current_ax.set_yscale("log")
+
         if show_swarm:
+            dot_size = _swarm_dot_size(plot_df, event_index, column)
             sns.swarmplot(
                 data=plot_df[plot_df["Order"] == event_index],
                 x="Condition",
@@ -653,7 +667,7 @@ def _plot_boxplot(
                 alpha=0.5,
                 color="black",
                 dodge=False,
-                log_scale=log_scale,
+                size=dot_size,
             )
 
         current_ax.set_xlabel("")
@@ -696,6 +710,29 @@ def _plot_boxplot(
         y_max.append(max_y)
 
     return y_min, y_max
+
+
+def _swarm_dot_size(df: pd.DataFrame, event_index: int, column: str) -> float:
+    """
+    Compute a dot size for swarm plots that shrinks as sample count grows.
+
+    Uses ``max(1.5, 5 * sqrt(20 / max(20, n_max)))`` so dots stay at 5 pt up to
+    20 points and decay smoothly above that, flooring at 1.5 pt.
+
+    Parameters:
+        df (pandas.DataFrame) : Full data DataFrame with ``"Order"`` and ``"Condition"`` columns.
+        event_index (int) : The ``"Order"`` value identifying the current subplot.
+        column (str) : Column name used to count non-NaN values.
+
+    Returns:
+        float : Dot size in points for ``sns.swarmplot``.
+    """
+    event_data = df[df["Order"] == event_index]
+    n_max = (
+        event_data.groupby("Condition")[column].apply(lambda s: s.notna().sum()).max()
+    )
+    n_max = max(20, int(n_max))
+    return max(1.5, 5.0 * (20.0 / n_max) ** 0.5)
 
 
 def _set_all_y_limits(ax: np.ndarray, y_min: list[float], y_max: list[float]) -> None:
@@ -800,7 +837,6 @@ def violinplot(
     """
     Create violin plots for a per-molt measurement across conditions.
 
-    Values are log10-transformed when ``log_scale=True`` before plotting.
     Each column in ``column`` (axis 1) corresponds to one molt event subplot.
 
     Parameters:
@@ -810,7 +846,7 @@ def violinplot(
         conditions_to_plot (list) : Ordered condition identifiers.
         events_to_plot (list[int] or None) : Column indices (molt events) to include.
             All events are plotted when ``None``.  Defaults to ``None``.
-        log_scale (bool) : If ``True``, apply log10 to values before plotting.
+        log_scale (bool) : If ``True``, render y-axis in log scale via ``set_yscale``.
             Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
@@ -864,7 +900,7 @@ def violinplot(
                         "Condition": condition_id,
                         "Order": order,
                         "Description": condition_dict["description"],
-                        column: np.log10(value) if log_scale else value,
+                        column: value,
                     }
                 )
 
@@ -952,7 +988,7 @@ def boxplot(
         conditions_to_plot (list) : Ordered condition identifiers.
         events_to_plot (list[int] or None) : Column indices (molt events) to include.
             All events are plotted when ``None``.  Defaults to ``None``.
-        log_scale (bool) : If ``True``, render axes in log scale via seaborn.
+        log_scale (bool) : If ``True``, render y-axis in log scale via ``set_yscale``.
             Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
@@ -1100,8 +1136,8 @@ def violinplot_larval_stage(
             Defaults to ``100``.
         fraction (tuple[float, float]) : Start and end fractions of each stage
             to include in the aggregation.  Defaults to ``(0.2, 0.8)``.
-        log_scale (bool) : If ``True``, apply natural log before aggregation and
-            render axes in log scale.  Defaults to ``True``.
+        log_scale (bool) : If ``True``, render y-axis in log scale via ``set_yscale``.
+            Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
         colors (list or dict or None) : Color spec passed to ``get_colors``.
@@ -1155,7 +1191,6 @@ def violinplot_larval_stage(
                 ),
             ]
 
-            data_of_stage = np.log(data_of_stage) if log_scale else data_of_stage
             if aggregation == "mean":
                 aggregated_data_of_stage = np.nanmean(data_of_stage, axis=1)
             elif aggregation == "median":
@@ -1252,8 +1287,8 @@ def boxplot_larval_stage(
             Defaults to ``100``.
         fraction (tuple[float, float]) : Start and end fractions of each stage
             to include in the aggregation.  Defaults to ``(0.2, 0.8)``.
-        log_scale (bool) : If ``True``, apply natural log before aggregation and
-            render axes in log scale.  Defaults to ``True``.
+        log_scale (bool) : If ``True``, render y-axis in log scale via ``set_yscale``.
+            Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
         colors (list or dict or None) : Color spec passed to ``get_colors``.
@@ -1307,7 +1342,6 @@ def boxplot_larval_stage(
                 ),
             ]
 
-            data_of_stage = np.log(data_of_stage) if log_scale else data_of_stage
             if aggregation == "mean":
                 aggregated_data_of_stage = np.nanmean(data_of_stage, axis=1)
             elif aggregation == "median":
