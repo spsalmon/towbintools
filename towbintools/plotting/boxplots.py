@@ -417,6 +417,7 @@ def _plot_violinplot(
     log_scale: bool,
     show_metric: bool = False,
     test: str = "Mann-Whitney",
+    show_swarm: bool = True,
     hide_outliers: bool = False,
 ) -> tuple[list[float], list[float]]:
     """
@@ -439,6 +440,8 @@ def _plot_violinplot(
             Defaults to ``False``.
         test (str) : Statistical test for significance annotation.
             Defaults to ``"Mann-Whitney"``.
+        show_swarm (bool) : If ``True``, overlay a swarm plot on the violin plot.
+            Defaults to ``True``.
         hide_outliers (bool) : If ``True``, remove data points beyond ±3 std in the
             swarm plot (violin retains them).  Defaults to ``False``.
 
@@ -492,16 +495,17 @@ def _plot_violinplot(
                 column,
             ] = np.nan
 
-        sns.swarmplot(
-            data=plot_df[plot_df["Order"] == event_index],
-            x="Condition",
-            order=conditions_to_plot,
-            y=column,
-            ax=current_ax,
-            alpha=0.5,
-            color="black",
-            dodge=False,
-        )
+        if show_swarm:
+            sns.swarmplot(
+                data=plot_df[plot_df["Order"] == event_index],
+                x="Condition",
+                order=conditions_to_plot,
+                y=column,
+                ax=current_ax,
+                alpha=0.5,
+                color="black",
+                dodge=False,
+            )
 
         current_ax.set_xlabel("")
         if event_index > 0:
@@ -556,6 +560,7 @@ def _plot_boxplot(
     significance_pairs: list[tuple] | None,
     log_scale: bool,
     show_metric: bool = False,
+    show_swarm: bool = True,
     hide_outliers: bool = False,
     test: str = "Mann-Whitney",
     return_data: bool = False,
@@ -578,6 +583,8 @@ def _plot_boxplot(
         log_scale (bool) : Passed to seaborn and ``_add_metric_text`` for log-scale handling.
         show_metric (bool) : If ``True``, display summary statistics below the plot.
             Defaults to ``False``.
+        show_swarm (bool) : If ``True``, overlay a swarm plot on the box plot.
+            Defaults to ``True``.
         hide_outliers (bool) : If ``True``, remove data points beyond ±3 std in the
             swarm plot.  Defaults to ``False``.
         test (str) : Statistical test for significance annotation.
@@ -636,17 +643,18 @@ def _plot_boxplot(
                 column,
             ] = np.nan
 
-        sns.swarmplot(
-            data=plot_df[plot_df["Order"] == event_index],
-            x="Condition",
-            order=conditions_to_plot,
-            y=column,
-            ax=current_ax,
-            alpha=0.5,
-            color="black",
-            dodge=False,
-            log_scale=log_scale,
-        )
+        if show_swarm:
+            sns.swarmplot(
+                data=plot_df[plot_df["Order"] == event_index],
+                x="Condition",
+                order=conditions_to_plot,
+                y=column,
+                ax=current_ax,
+                alpha=0.5,
+                color="black",
+                dodge=False,
+                log_scale=log_scale,
+            )
 
         current_ax.set_xlabel("")
         # Hide y-axis labels and ticks for all subplots except the first one
@@ -785,6 +793,7 @@ def violinplot(
     y_axis_label: str | None = None,
     titles: list[str] | None = None,
     share_y_axis: bool = False,
+    show_swarm: bool = True,
     hide_outliers: bool = True,
     return_data: bool = False,
 ) -> matplotlib.figure.Figure:
@@ -822,6 +831,8 @@ def violinplot(
         titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
         share_y_axis (bool) : If ``True``, synchronise y-axis limits.
             Defaults to ``False``.
+        show_swarm (bool) : If ``True``, overlay a swarm plot on the violin plot.
+            Defaults to ``True``.
         hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
             Defaults to ``True``.
         return_data (bool) : If ``True``, also return the intermediate DataFrame.
@@ -877,6 +888,7 @@ def violinplot(
         significance_pairs,
         log_scale=log_scale,
         show_metric=show_metric,
+        show_swarm=show_swarm,
         hide_outliers=hide_outliers,
         test=significance_test,
     )
@@ -922,6 +934,7 @@ def boxplot(
     y_axis_label: str | None = None,
     titles: list[str] | None = None,
     share_y_axis: bool = False,
+    show_swarm: bool = True,
     hide_outliers: bool = True,
     return_data: bool = False,
 ) -> matplotlib.figure.Figure:
@@ -960,6 +973,8 @@ def boxplot(
         titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
         share_y_axis (bool) : If ``True``, synchronise y-axis limits.
             Defaults to ``False``.
+        show_swarm (bool) : If ``True``, overlay a swarm plot on the box plot.
+            Defaults to ``True``.
         hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
             Defaults to ``True``.
         return_data (bool) : If ``True``, also return the intermediate DataFrame.
@@ -1014,6 +1029,7 @@ def boxplot(
         share_y_axis,
         plot_significance,
         significance_pairs,
+        show_swarm=show_swarm,
         hide_outliers=hide_outliers,
         log_scale=log_scale,
         show_metric=show_metric,
@@ -1062,6 +1078,8 @@ def violinplot_larval_stage(
     y_axis_label: str | None = None,
     titles: list[str] | None = None,
     share_y_axis: bool = False,
+    show_metric: bool = False,
+    show_swarm: bool = True,
     hide_outliers: bool = True,
 ) -> matplotlib.figure.Figure:
     """
@@ -1101,6 +1119,10 @@ def violinplot_larval_stage(
         titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
         share_y_axis (bool) : If ``True``, synchronise y-axis limits.
             Defaults to ``False``.
+        show_metric (bool) : If ``True``, display summary statistics below the plot.
+            Defaults to ``False``.
+        show_swarm (bool) : If ``True``, overlay a swarm plot on the violin plot.
+            Defaults to ``True``.
         hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
             Defaults to ``True``.
 
@@ -1167,6 +1189,8 @@ def violinplot_larval_stage(
         plot_significance,
         significance_pairs,
         log_scale=log_scale,
+        show_metric=show_metric,
+        show_swarm=show_swarm,
         hide_outliers=hide_outliers,
         test=significance_test,
     )
@@ -1207,6 +1231,8 @@ def boxplot_larval_stage(
     y_axis_label: str | None = None,
     titles: list[str] | None = None,
     share_y_axis: bool = False,
+    show_metric: bool = False,
+    show_swarm: bool = True,
     hide_outliers: bool = True,
 ) -> matplotlib.figure.Figure:
     """
@@ -1245,6 +1271,10 @@ def boxplot_larval_stage(
         titles (list[str] or None) : Subplot titles.  Defaults to ``None``.
         share_y_axis (bool) : If ``True``, synchronise y-axis limits.
             Defaults to ``False``.
+        show_metric (bool) : If ``True``, display summary statistics below the plot.
+            Defaults to ``False``.
+        show_swarm (bool) : If ``True``, overlay a swarm plot on the box plot.
+            Defaults to ``True``.
         hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
             Defaults to ``True``.
 
@@ -1312,6 +1342,8 @@ def boxplot_larval_stage(
         significance_pairs,
         hide_outliers,
         log_scale,
+        show_metric=show_metric,
+        show_swarm=show_swarm,
         test=significance_test,
     )
 
