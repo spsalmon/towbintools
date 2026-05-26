@@ -716,8 +716,8 @@ def _swarm_dot_size(df: pd.DataFrame, event_index: int, column: str) -> float:
     """
     Compute a dot size for swarm plots that shrinks as sample count grows.
 
-    Uses ``max(1.5, 5 * sqrt(20 / max(20, n_max)))`` so dots stay at 5 pt up to
-    20 points and decay smoothly above that, flooring at 1.5 pt.
+    Uses ``max(3, 6 * sqrt(20 / max(20, n_max)))`` so dots stay at 6 pt up to
+    20 points and decay smoothly above that, flooring at 3 pt.
 
     Parameters:
         df (pandas.DataFrame) : Full data DataFrame with ``"Order"`` and ``"Condition"`` columns.
@@ -732,7 +732,7 @@ def _swarm_dot_size(df: pd.DataFrame, event_index: int, column: str) -> float:
         event_data.groupby("Condition")[column].apply(lambda s: s.notna().sum()).max()
     )
     n_max = max(20, int(n_max))
-    return max(1.5, 5.0 * (20.0 / n_max) ** 0.5)
+    return max(3.0, 6.0 * (20.0 / n_max) ** 0.5)
 
 
 def _set_all_y_limits(ax: np.ndarray, y_min: list[float], y_max: list[float]) -> None:
