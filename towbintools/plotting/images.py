@@ -41,7 +41,12 @@ def get_condition_filemaps_images(
             col for col in filemap.columns if col.startswith("raw") or "analysis" in col
         ]
         filemap = filemap.select(pl.col(selected_columns))
+
+        # keep only points in the condition
+        points_in_condition = condition_dict["point"].squeeze()
+        filemap = filemap.filter(pl.col("Point").is_in(points_in_condition))
         filemaps[filemap_path] = filemap
+
     return filemaps
 
 
