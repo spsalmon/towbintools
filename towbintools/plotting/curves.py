@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .utils_plotting import build_legend
+from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
 from .utils_plotting import set_scale
 from towbintools.data_analysis import rescale_and_aggregate
@@ -27,6 +28,7 @@ def plot_aggregated_series(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     xlim: tuple[float, float] | None = None,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the time-rescaled aggregated series with 95% confidence intervals.
@@ -63,6 +65,8 @@ def plot_aggregated_series(
             when ``None``.  Defaults to ``None``.
         xlim (tuple[float, float] or None) : X-axis limits ``(xmin, xmax)`` used to
             crop the plotted range.  Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -70,6 +74,8 @@ def plot_aggregated_series(
     Raises:
         ValueError : If ``x`` is not ``"time"`` or ``"percentage"``.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(ax_w=ax_size[0], ax_h=ax_size[1])
     color_palette = get_colors(conditions_to_plot, colors)
 
     def plot_single_series(column: str):
@@ -159,6 +165,7 @@ def plot_growth_curves_individuals(
     share_y_axis: bool,
     log_scale: bool | tuple | list = True,
     figsize: tuple[float, float] | None = None,
+    ax_size: tuple[float, float] | None = None,
     legend: dict | None = None,
     y_axis_label: str | None = None,
     cut_after: float | None = None,
@@ -178,6 +185,9 @@ def plot_growth_curves_individuals(
             Defaults to ``True`` (log y-axis only).
         figsize (tuple[float, float] or None) : Figure size ``(width, height)`` in inches.
             Defaults to ``(n_conditions * 8, 10)``.
+        ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
+            ``(ax_w, ax_h)`` inches. Overrides ``figsize``. Note: ``share_y_axis`` is ignored
+            when ``ax_size`` is provided. Defaults to ``None``.
         legend (dict or None) : Legend spec used to generate subplot titles.
             Defaults to ``None``.
         y_axis_label (str or None) : Y-axis label; falls back to ``column`` when ``None``.
@@ -188,11 +198,16 @@ def plot_growth_curves_individuals(
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
-    if figsize is None:
-        figsize = (len(conditions_to_plot) * 8, 10)
-    fig, ax = plt.subplots(
-        1, len(conditions_to_plot), figsize=figsize, sharey=share_y_axis
-    )
+    if ax_size is not None:
+        fig, ax = create_fixed_ax_sized_fig(
+            ncols=len(conditions_to_plot), ax_w=ax_size[0], ax_h=ax_size[1]
+        )
+    else:
+        if figsize is None:
+            figsize = (len(conditions_to_plot) * 8, 10)
+        fig, ax = plt.subplots(
+            1, len(conditions_to_plot), figsize=figsize, sharey=share_y_axis
+        )
     for i, condition_id in enumerate(conditions_to_plot):
         condition_dict = conditions_struct[condition_id]
 
