@@ -14,6 +14,7 @@ from statannotations.stats.StatTest import STATTEST_LIBRARY
 
 from .utils_data_processing import rescale_without_flattening
 from .utils_plotting import build_legend
+from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
 
 STATANNOTATIONS_TESTS = STATTEST_LIBRARY.keys()
@@ -24,6 +25,7 @@ def _setup_figure(
     df: pd.DataFrame,
     figsize: tuple[float, float] | None,
     titles: list[str] | None,
+    ax_size: tuple[float, float] | None = None,
 ) -> tuple[matplotlib.figure.Figure, matplotlib.axes.Axes | np.ndarray]:
     """
     Create a figure and axes grid sized to the number of unique ordering groups.
@@ -32,28 +34,37 @@ def _setup_figure(
         df (pandas.DataFrame) : Data DataFrame containing an ``"Order"`` column
             whose unique values determine the number of subplots.
         figsize (tuple[float, float] or None) : Explicit figure size.
-            Defaults to ``(6 * n_groups, 10)`` when ``None``.
+            Ignored when ``ax_size`` is provided. Defaults to ``(6 * n_groups, 10)``
+            when both are ``None``.
         titles (list[str] or None) : Subplot titles; set to ``None`` internally
             if the length does not match the number of groups.
+        ax_size (tuple[float, float] or None) : If provided, each panel's axes area
+            is fixed to ``(ax_w, ax_h)`` inches via ``create_fixed_ax_sized_fig``
+            instead of using ``figsize``. Defaults to ``None``.
 
     Returns:
         tuple[matplotlib.figure.Figure, matplotlib.axes.Axes or np.ndarray] :
             The created figure and axes (scalar or array depending on group count).
     """
-    # Determine figure size
-    if figsize is None:
-        figsize = (6 * df["Order"].nunique(), 10)
-    if titles is not None and len(titles) != df["Order"].nunique():
+    n_groups = df["Order"].nunique()
+    if titles is not None and len(titles) != n_groups:
         print("Number of titles does not match the number of ecdysis events.")
         titles = None
 
-    fig, ax = plt.subplots(
-        1,
-        df["Order"].nunique(),
-        figsize=(figsize[0] + 3, figsize[1]),
-        sharey=False,
-        layout="constrained",
-    )
+    if ax_size is not None:
+        fig, ax = create_fixed_ax_sized_fig(
+            ncols=n_groups, ax_w=ax_size[0], ax_h=ax_size[1]
+        )
+    else:
+        if figsize is None:
+            figsize = (6 * n_groups, 10)
+        fig, ax = plt.subplots(
+            1,
+            n_groups,
+            figsize=(figsize[0] + 3, figsize[1]),
+            sharey=False,
+            layout="constrained",
+        )
 
     return fig, ax
 
@@ -821,6 +832,7 @@ def violinplot(
     events_to_plot: list[int] | None = None,
     log_scale: bool = True,
     figsize: tuple[float, float] | None = None,
+    ax_size: tuple[float, float] | None = None,
     colors: list | dict | None = None,
     plot_significance: bool = False,
     show_metric: bool = False,
@@ -850,6 +862,8 @@ def violinplot(
             Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
+            ``(ax_w, ax_h)`` inches. Overrides ``figsize``. Defaults to ``None``.
         colors (list or dict or None) : Color spec passed to ``get_colors``.
             Defaults to ``None``.
         plot_significance (bool) : If ``True``, add significance brackets.
@@ -910,6 +924,7 @@ def violinplot(
         df,
         figsize,
         titles,
+        ax_size=ax_size,
     )
 
     y_min, y_max = _plot_violinplot(
@@ -961,6 +976,7 @@ def boxplot(
     events_to_plot: list[int] | None = None,
     log_scale: bool = True,
     figsize: tuple[float, float] | None = None,
+    ax_size: tuple[float, float] | None = None,
     colors: list | dict | None = None,
     plot_significance: bool = False,
     show_metric: bool = False,
@@ -992,6 +1008,8 @@ def boxplot(
             Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
+            ``(ax_w, ax_h)`` inches. Overrides ``figsize``. Defaults to ``None``.
         colors (list or dict or None) : Color spec passed to ``get_colors``.
             Defaults to ``None``.
         plot_significance (bool) : If ``True``, add significance brackets.
@@ -1053,6 +1071,7 @@ def boxplot(
         df,
         figsize,
         titles,
+        ax_size=ax_size,
     )
 
     y_min, y_max = _plot_boxplot(
@@ -1106,6 +1125,7 @@ def violinplot_larval_stage(
     fraction: tuple[float, float] = (0.2, 0.8),
     log_scale: bool = True,
     figsize: tuple[float, float] | None = None,
+    ax_size: tuple[float, float] | None = None,
     colors: list | dict | None = None,
     plot_significance: bool = False,
     significance_pairs: list[tuple] | None = None,
@@ -1140,6 +1160,8 @@ def violinplot_larval_stage(
             Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
+            ``(ax_w, ax_h)`` inches. Overrides ``figsize``. Defaults to ``None``.
         colors (list or dict or None) : Color spec passed to ``get_colors``.
             Defaults to ``None``.
         plot_significance (bool) : If ``True``, add significance brackets.
@@ -1211,6 +1233,7 @@ def violinplot_larval_stage(
         df,
         figsize,
         titles,
+        ax_size=ax_size,
     )
 
     y_min, y_max = _plot_violinplot(
@@ -1258,6 +1281,7 @@ def boxplot_larval_stage(
     fraction: tuple[float, float] = (0.2, 0.8),
     log_scale: bool = True,
     figsize: tuple[float, float] | None = None,
+    ax_size: tuple[float, float] | None = None,
     colors: list | dict | None = None,
     plot_significance: bool = False,
     significance_pairs: list[tuple] | None = None,
@@ -1291,6 +1315,8 @@ def boxplot_larval_stage(
             Defaults to ``True``.
         figsize (tuple[float, float] or None) : Figure size; auto-sized when ``None``.
             Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
+            ``(ax_w, ax_h)`` inches. Overrides ``figsize``. Defaults to ``None``.
         colors (list or dict or None) : Color spec passed to ``get_colors``.
             Defaults to ``None``.
         plot_significance (bool) : If ``True``, add significance brackets.
@@ -1362,6 +1388,7 @@ def boxplot_larval_stage(
         df,
         figsize,
         titles,
+        ax_size=ax_size,
     )
 
     y_min, y_max = _plot_boxplot(
