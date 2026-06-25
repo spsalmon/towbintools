@@ -75,7 +75,9 @@ def plot_aggregated_series(
         ValueError : If ``x`` is not ``"time"`` or ``"percentage"``.
     """
     if ax_size is not None:
-        create_fixed_ax_sized_fig(ax_w=ax_size[0], ax_h=ax_size[1])
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
     color_palette = get_colors(conditions_to_plot, colors)
 
     def plot_single_series(column: str):
