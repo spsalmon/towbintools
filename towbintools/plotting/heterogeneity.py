@@ -5,6 +5,7 @@ from scipy.signal import medfilt
 
 from .utils_data_processing import exclude_arrests_from_series_at_ecdysis
 from .utils_plotting import build_legend
+from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
 
 
@@ -18,6 +19,7 @@ def plot_cv_at_ecdysis(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     exclude_arrests: bool = False,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) of a measurement at each molt event.
@@ -41,10 +43,17 @@ def plot_cv_at_ecdysis(
         exclude_arrests (bool) : If ``True``, remove arrested worms before
             computing CV via ``exclude_arrests_from_series_at_ecdysis``.
             Defaults to ``False``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
+
     color_palette = get_colors(conditions_to_plot, colors)
 
     for i, condition in enumerate(conditions_to_plot):
@@ -80,6 +89,7 @@ def plot_std_at_ecdysis(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     exclude_arrests: bool = False,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the standard deviation of a measurement at each molt event.
@@ -103,10 +113,17 @@ def plot_std_at_ecdysis(
         exclude_arrests (bool) : If ``True``, remove arrested worms before
             computing std via ``exclude_arrests_from_series_at_ecdysis``.
             Defaults to ``False``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
+
     color_palette = get_colors(conditions_to_plot, colors)
 
     for i, condition in enumerate(conditions_to_plot):
@@ -140,6 +157,7 @@ def plot_cv_development_percentage(
     colors: list | dict | None = None,
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) of a rescaled series at specific development percentages.
@@ -160,10 +178,17 @@ def plot_cv_development_percentage(
             Defaults to ``None``.
         x_axis_label (str or None) : X-axis label.  Defaults to ``None``.
         y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
+
     color_palette = get_colors(conditions_to_plot, colors)
     for i, condition in enumerate(conditions_to_plot):
         condition_dict = conditions_struct[condition]
@@ -195,6 +220,7 @@ def plot_cv_rescaled_data(
     colors: list | dict | None = None,
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) across the full rescaled time axis.
@@ -215,10 +241,17 @@ def plot_cv_rescaled_data(
             Defaults to ``None``.
         x_axis_label (str or None) : X-axis label.  Defaults to ``None``.
         y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
+
     color_palette = get_colors(conditions_to_plot, colors)
 
     for i, condition in enumerate(conditions_to_plot):
