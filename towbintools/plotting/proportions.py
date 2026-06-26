@@ -12,6 +12,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 
 from .utils_plotting import build_legend
+from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
 from .utils_plotting import set_scale
 from towbintools.data_analysis import rescale_and_aggregate
@@ -297,6 +298,7 @@ def plot_model_comparison_at_ecdysis(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     single_plot: bool = True,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Scatter-plot the log-log relationship between two columns at molt events with fitted models.
@@ -326,6 +328,8 @@ def plot_model_comparison_at_ecdysis(
             Defaults to ``None``.
         single_plot (bool) : If ``True``, overlay all conditions on one axes;
             otherwise create one subplot per condition.  Defaults to ``True``.
+        ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
+            ``(ax_w, ax_h)`` inches. Overrides the default figure size. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -337,7 +341,12 @@ def plot_model_comparison_at_ecdysis(
 
     r_squared_texts = []
 
-    if single_plot:
+    if ax_size is not None:
+        ncols = 1 if single_plot else len(conditions_to_plot)
+        fig, axs = create_fixed_ax_sized_fig(
+            ncols=ncols, ax_w=ax_size[0], ax_h=ax_size[1]
+        )
+    elif single_plot:
         fig, axs = plt.subplots(1, 1)
     else:
         fig, axs = plt.subplots(1, len(conditions_to_plot), sharey=True, sharex=True)
@@ -576,6 +585,7 @@ def plot_correlation(
     legend: dict | None = None,
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the correlation between two measurements as aggregated rescaled series.
@@ -598,10 +608,16 @@ def plot_correlation(
             Defaults to ``None``.
         y_axis_label (str or None) : Y-axis label; falls back to ``column_two``.
             Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -681,6 +697,7 @@ def plot_correlation_at_ecdysis(
     legend: dict | None = None,
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the mean ± std of two measurements at each molt event as error-bar scatter.
@@ -705,10 +722,16 @@ def plot_correlation_at_ecdysis(
             Defaults to ``None``.
         y_axis_label (str or None) : Y-axis label; falls back to ``column_two``.
             Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -776,6 +799,7 @@ def plot_continuous_deviation_from_model(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     sort_values: bool = False,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the deviation from a LOWESS model as a continuous line across the rescaled axis.
@@ -804,10 +828,16 @@ def plot_continuous_deviation_from_model(
             Defaults to ``None``.
         sort_values (bool) : If ``True``, sort both the x and residual arrays by x
             before averaging.  Defaults to ``False``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -902,6 +932,7 @@ def plot_deviation_from_model_at_ecdysis(
     y_axis_label: str | None = None,
     poly_degree: int = 2,
     remove_outliers_fitting: bool = True,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the per-condition deviation from a polynomial model at each molt event.
@@ -933,10 +964,16 @@ def plot_deviation_from_model_at_ecdysis(
         poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
         remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
             outliers before fitting.  Defaults to ``True``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
     color_palette = get_colors(
         conditions_to_plot,
         colors,
@@ -1039,6 +1076,7 @@ def plot_deviation_from_model_development_percentage(
     y_axis_label: str | None = None,
     poly_degree: int = 2,
     remove_outliers_fitting: bool = True,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the deviation from a polynomial model at specified development percentages.
@@ -1070,10 +1108,16 @@ def plot_deviation_from_model_development_percentage(
         poly_degree (int) : Polynomial degree for model fitting.  Defaults to ``2``.
         remove_outliers_fitting (bool) : If ``True``, use IsolationForest to remove
             outliers before fitting.  Defaults to ``True``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
     color_palette = get_colors(conditions_to_plot, colors)
 
     xlbl = column_one
@@ -1254,6 +1298,7 @@ def plot_normalized_proportions_at_ecdysis(
     legend: dict | None = None,
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
+    ax_size: tuple[float, float] | None = None,
 ) -> matplotlib.figure.Figure:
     """
     Plot the column_two/column_one ratio normalised to the control at each molt event.
@@ -1279,10 +1324,16 @@ def plot_normalized_proportions_at_ecdysis(
             Defaults to ``None``.
         y_axis_label (str or None) : Y-axis label; auto-generated when ``None``.
             Defaults to ``None``.
+        ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
+            ``(ax_w, ax_h)`` inches. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
     """
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
     color_palette = get_colors(
         conditions_to_plot,
         colors,
