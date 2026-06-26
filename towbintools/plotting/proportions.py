@@ -329,7 +329,8 @@ def plot_model_comparison_at_ecdysis(
         single_plot (bool) : If ``True``, overlay all conditions on one axes;
             otherwise create one subplot per condition.  Defaults to ``True``.
         ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
-            ``(ax_w, ax_h)`` inches. Overrides the default figure size. Defaults to ``None``.
+            ``(ax_w, ax_h)`` inches. Overrides the default figure size. Note: ``sharex`` and
+            ``sharey`` are ignored when ``ax_size`` is provided. Defaults to ``None``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.

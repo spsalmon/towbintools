@@ -2,8 +2,11 @@ import os
 
 import matplotlib.axes
 import matplotlib.figure
+import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from mpl_toolkits.axes_grid1 import Divider
+from mpl_toolkits.axes_grid1 import Size
 
 # THIS PART IS MOSTLY ABOUT HANDLING LEGENDS, SAVING FIGURES, ETC.
 
@@ -28,7 +31,7 @@ def save_figure(
         transparent (bool) : Whether to save the figure with a transparent background
 
     Returns:
-        str : Full path to the saved file
+        None
     """
 
     # Create directory if it doesn't exist
@@ -125,7 +128,7 @@ def get_colors(
             or if a dict ``colors`` is missing entries for any condition.
     """
     if colors is None:
-        colors = sns.color_palette("colorblind", len(conditions_to_plot))
+        colors = sns.color_palette(base_palette, len(conditions_to_plot))
     else:
         if isinstance(colors, list):
             assert len(colors) == len(
@@ -139,3 +142,97 @@ def get_colors(
             colors = [colors[condition] for condition in conditions_to_plot]
 
     return colors
+
+
+def create_fixed_ax_sized_fig(
+    ax_w: float = 3.5,
+    ax_h: float = 3.0,
+    left: float = 1.0,
+    right: float = 0.8,
+    bottom: float = 0.6,
+    top: float = 0.3,
+    nrows: int = 1,
+    ncols: int = 1,
+    hspace: float = 0.4,
+    wspace: float = 0.4,
+    dpi: float | None = None,
+    return_divider: bool = False,
+) -> tuple:
+    """
+    Create a figure whose axes panels each have a guaranteed physical size in inches.
+
+    All measurements are in inches.
+
+    Parameters:
+        ax_w (float): Width of each axes area, excluding any labels or ticks. (default: 3.5)
+        ax_h (float): Height of each axes area, excluding any labels or ticks. (default: 3.0)
+        left (float): Left margin of the figure, in inches.  Should accommodate
+            y-axis tick labels and title of the leftmost column. (default: 1.0)
+        right (float): Right margin of the figure, in inches. (default: 0.8)
+        bottom (float): Bottom margin of the figure, in inches.  Should accommodate
+            x-axis tick labels and title of the bottom row. (default: 0.6)
+        top (float): Top margin of the figure, in inches. (default: 0.3)
+        nrows (int): Number of panel rows in the grid. (default: 1)
+        ncols (int): Number of panel columns in the grid. (default: 1)
+        hspace (float): Vertical gap between rows, in inches. (default: 0.4)
+        wspace (float): Horizontal gap between columns, in inches. (default: 0.4)
+        dpi (float or None): Resolution of the figure in dots per inch.  ``None``
+            uses matplotlib's default (typically 100 for screen). (default: ``None``)
+        return_divider (bool): If ``True``, include the ``Divider`` object as the last
+            element of the returned tuple — useful for placing additional axes (e.g.
+            colorbars) in the same coordinate system. (default: ``False``)
+
+    Returns:
+        tuple: ``(fig, ax)`` for a single panel (``nrows=ncols=1``);
+            ``(fig, axes)`` for a grid, where ``axes`` is a 2-D ``np.ndarray`` of
+            shape ``(nrows, ncols)`` — or a 1-D array when one dimension is 1.
+            When ``return_divider=True``, the ``Divider`` is appended as the final
+            element: ``(fig, ax, div)`` or ``(fig, axes, div)``.
+    """
+    fig_w = left + ncols * ax_w + (ncols - 1) * wspace + right
+    fig_h = bottom + nrows * ax_h + (nrows - 1) * hspace + top
+
+    kwargs = {"figsize": (fig_w, fig_h)}
+    if dpi is not None:
+        kwargs["dpi"] = dpi
+    fig = plt.figure(**kwargs)
+
+    h = [Size.Fixed(left)]
+    for c in range(ncols):
+        h.append(Size.Fixed(ax_w))
+        if c < ncols - 1:
+            h.append(Size.Fixed(wspace))
+    h.append(Size.Fixed(right))
+
+    v = [Size.Fixed(bottom)]
+    for r in range(nrows):
+        v.append(Size.Fixed(ax_h))
+        if r < nrows - 1:
+            v.append(Size.Fixed(hspace))
+    v.append(Size.Fixed(top))
+
+    div = Divider(fig, (0, 0, 1, 1), h, v, aspect=False)
+
+    axes = np.empty((nrows, ncols), dtype=object)
+    for r in range(nrows):
+        for c in range(ncols):
+            nx = 1 + c * 2
+            # v is indexed bottom-up, so row 0 (top) maps to the highest ny index
+            ny = 1 + (nrows - 1 - r) * 2
+            axes[r, c] = fig.add_axes(
+                div.get_position(), axes_locator=div.new_locator(nx=nx, ny=ny)
+            )
+
+    # Squeeze: single panel → bare Axes; one row/col → 1-D array
+    if nrows == 1 and ncols == 1:
+        out_axes = axes[0, 0]
+    elif nrows == 1:
+        out_axes = axes[0, :]
+    elif ncols == 1:
+        out_axes = axes[:, 0]
+    else:
+        out_axes = axes
+
+    if return_divider:
+        return fig, out_axes, div
+    return fig, out_axes
