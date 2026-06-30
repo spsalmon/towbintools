@@ -154,7 +154,7 @@ def create_fixed_ax_sized_fig(
     nrows: int = 1,
     ncols: int = 1,
     hspace: float = 0.4,
-    wspace: float = 0.4,
+    wspace: float = 0.2,
     dpi: float | None = None,
     return_divider: bool = False,
 ) -> tuple:

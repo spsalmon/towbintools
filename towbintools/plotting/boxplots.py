@@ -818,7 +818,7 @@ def _set_labels_and_legend(
     fig.legend(
         legend_handles,
         legend_labels,
-        bbox_to_anchor=(1.005, 0.5),
+        bbox_to_anchor=(1.001, 0.5),
         loc="center left",
         title=None,
         frameon=True,
