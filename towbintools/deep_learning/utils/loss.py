@@ -227,3 +227,80 @@ class PeakWeightedMSELoss(nn.Module):
     def forward(self, input, target):
         weights = 1.0 + self.peak_weight * target  # Higher weight for higher values
         return (weights * (input - target) ** 2).mean()
+
+
+class MoltDetectionLoss(nn.Module):
+    """
+    Combined loss for molt detection, integrating heatmap regression and presence classification.
+
+    This loss function combines a peak-weighted MSE loss for heatmap regression
+    with a binary cross-entropy loss for presence classification. It is designed
+    for 1D keypoint detection tasks where both the location of keypoints and their
+    presence/absence need to be predicted.
+    """
+
+    def __init__(self, ignore_index=-1, peak_weight=3.0):
+        """
+        Parameters:
+            ignore_index (int, optional): Reserved for API consistency; currently
+                unused in the forward pass. (default: -1)
+            peak_weight (float, optional): Additional weight multiplier for
+                high-value target positions in the heatmap loss. (default: 3.0)
+        """
+        super().__init__()
+        self.ignore_index = ignore_index
+        self.peak_weight = peak_weight
+        self.presence_loss_fn = F.binary_cross_entropy
+
+    def heatmap_loss(self, predicted_heatmap, target_heatmap, mask):
+        """
+        Compute the heatmap regression loss.
+
+        Parameters:
+            predicted_heatmap (Tensor): Predicted heatmaps of shape [B, C, T].
+            target_heatmap (Tensor): Ground truth heatmaps of shape [B, C, T].
+            mask (Tensor): Boolean mask indicating valid (unpadded) frames of shape [B, 1, T].
+
+        Returns:
+            Tensor: The heatmap regression loss value.
+        """
+        weight = 1.0 + self.peak_weight * torch.maximum(
+            target_heatmap, predicted_heatmap.detach()
+        )
+        sq = (predicted_heatmap - target_heatmap) ** 2
+        loss = (weight * sq * mask).sum() / mask.sum().clamp(min=1.0)
+        return loss
+
+    def forward(
+        self,
+        valid_mask,
+        predicted_heatmap,
+        predicted_presence,
+        target_heatmap,
+        target_presence,
+    ):
+        """
+        Compute the combined loss.
+
+        Parameters:
+            valid_mask (Tensor): Boolean mask indicating valid (unpadded) frames of shape [B, T].
+            predicted_heatmap (Tensor): Predicted heatmaps of shape [B, C, T].
+            predicted_presence (Tensor): Predicted presence logits of shape [B, C].
+            target_heatmap (Tensor): Ground truth heatmaps of shape [B, C, T].
+            target_presence (Tensor): Ground truth presence labels of shape [B, C].
+
+        Returns:
+            Tensor: The combined loss value.
+        """
+
+        B, C, T = predicted_heatmap.shape
+
+        dtype = predicted_heatmap.dtype
+
+        mask = valid_mask.to(dtype)
+        target_presence = target_presence.to(dtype)
+        frame_mask = mask.view(B, 1, T)  # broadcast over channels
+
+        heatmap_loss = self.heatmap_loss(predicted_heatmap, target_heatmap, frame_mask)
+        presence_loss = self.presence_loss_fn(predicted_presence, target_presence)
+        return heatmap_loss + presence_loss

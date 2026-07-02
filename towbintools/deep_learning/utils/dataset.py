@@ -769,19 +769,21 @@ class KeypointDetection1DTrainingDataset(Dataset):
         targets (array-like): Sequence of target heatmap arrays aligned with
             ``inputs``.
         enforce_divisibility_by (int, optional): Target batch length is rounded
-            to a multiple of this value. (default: 32)
+            to a multiple of this value. (default: 64)
         resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
     """
 
     def __init__(
         self,
         inputs,
-        targets,
-        enforce_divisibility_by=32,
+        heatmap_targets,
+        index_targets,
+        enforce_divisibility_by=64,
         resize_method="pad",
     ):
         self.input_series = inputs
-        self.targets = targets
+        self.heatmap_targets = heatmap_targets
+        self.index_targets = index_targets
         self.enforce_divisibility_by = enforce_divisibility_by
 
         self.resize_method = resize_method
@@ -799,20 +801,33 @@ class KeypointDetection1DTrainingDataset(Dataset):
 
     def __getitem__(self, i):
         series = self.input_series[i]
-        target = self.targets[i]
+        heatmap_target = self.heatmap_targets[i]
+        index_target = self.index_targets[i]
+
+        presence_target = np.isnan(np.array(index_target)).astype(np.float32)
 
         if series.ndim == 1:
             series = series.reshape(1, -1)
-        if target.ndim == 1:
-            target = target.reshape(1, -1)
+        if heatmap_target.ndim == 1:
+            heatmap_target = heatmap_target.reshape(1, -1)
+        if index_target.ndim == 1:
+            index_target = index_target.reshape(1, -1)
 
-        return series.astype(np.float32), target.astype(np.float32), series.shape
+        return (
+            series.astype(np.float32),
+            heatmap_target.astype(np.float32),
+            index_target.astype(np.float32),
+            presence_target,
+            series.shape,
+        )
 
     def collate_fn(self, batch):
-        series, targets, original_shapes = zip(*batch)
+        series, heatmap_targets, index_targets, presence_targets, original_shapes = zip(
+            *batch
+        )
 
         if self.enforce_divisibility_by is None:
-            return series, targets, original_shapes
+            return series, heatmap_targets, index_targets, original_shapes
 
         if self.resize_method == "crop":
             target_length = min([shape[-1] for shape in original_shapes])
@@ -825,17 +840,29 @@ class KeypointDetection1DTrainingDataset(Dataset):
 
         # resize the images
         resized_series = []
-        for series_i in series:
+        valid_masks = []
+        for series_i, original_length in zip(
+            series, [shape[-1] for shape in original_shapes]
+        ):
             resized_series_i = self.resize_function(series_i, new_length)
+
+            # get the mask of unpadded values (i.e., the original values before padding)
+            mask_i = np.zeros(new_length, dtype=bool)
+            mask_i[: min(original_length, new_length)] = True
+            valid_masks.append(mask_i)
             resized_series.append(resized_series_i)
 
         resized_series = np.array(resized_series, dtype=np.float32)
+        valid_masks = np.array(valid_masks, dtype=bool)
 
-        resized_targets = []
-        for target_i in targets:
-            resized_target_i = self.target_resize_function(target_i, new_length)
-            resized_targets.append(resized_target_i)
-        resized_targets = np.array(resized_targets, dtype=np.float32)
+        resized_heatmap_targets = []
+        for heatmap_target_i in heatmap_targets:
+            resized_heatmap_target_i = self.target_resize_function(
+                heatmap_target_i, new_length
+            )
+
+            resized_heatmap_targets.append(resized_heatmap_target_i)
+        resized_heatmap_targets = np.array(resized_heatmap_targets, dtype=np.float32)
 
         # remove series if they contain NaN values
         valid_series_index = [
@@ -844,15 +871,34 @@ class KeypointDetection1DTrainingDataset(Dataset):
             if not np.any(np.isnan(series_i))
         ]
         resized_series = resized_series[valid_series_index]
-        resized_targets = resized_targets[valid_series_index]
+        valid_masks = valid_masks[valid_series_index]
+        resized_heatmap_targets = resized_heatmap_targets[valid_series_index]
+        index_targets = [index_targets[i] for i in valid_series_index]
+        presence_targets = [presence_targets[i] for i in valid_series_index]
         original_shapes = [original_shapes[i] for i in valid_series_index]
+
+        presence_targets = np.array(presence_targets, dtype=np.float32)
 
         if type(resized_series) is np.ndarray:
             resized_series = torch.tensor(resized_series, dtype=torch.float32)
-        if type(resized_targets) is np.ndarray:
-            resized_targets = torch.tensor(resized_targets, dtype=torch.float32)
+        if type(resized_heatmap_targets) is np.ndarray:
+            resized_heatmap_targets = torch.tensor(
+                resized_heatmap_targets, dtype=torch.float32
+            )
+        if type(index_targets) is np.ndarray:
+            index_targets = torch.tensor(index_targets, dtype=torch.float32)
+        if type(presence_targets) is np.ndarray:
+            presence_targets = torch.tensor(presence_targets, dtype=torch.float32)
+        if type(valid_masks) is np.ndarray:
+            valid_masks = torch.tensor(valid_masks, dtype=torch.bool)
 
-        return resized_series, resized_targets
+        return (
+            resized_series,
+            valid_masks,
+            resized_heatmap_targets,
+            index_targets,
+            presence_targets,
+        )
 
 
 class KeypointDetection1DPredictionDataset(Dataset):
@@ -866,14 +912,14 @@ class KeypointDetection1DPredictionDataset(Dataset):
     Parameters:
         inputs (array-like): Sequence of 1D (or 2D) input series arrays.
         enforce_divisibility_by (int, optional): Target batch length is rounded
-            to a multiple of this value. (default: 32)
+            to a multiple of this value. (default: 64)
         resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
     """
 
     def __init__(
         self,
         inputs,
-        enforce_divisibility_by=32,
+        enforce_divisibility_by=64,
         resize_method="pad",
     ):
         self.input_series = inputs
@@ -915,11 +961,20 @@ class KeypointDetection1DPredictionDataset(Dataset):
 
         # resize the images
         resized_series = []
-        for series_i in series:
+        valid_masks = []
+        for series_i, original_length in zip(
+            series, [shape[-1] for shape in original_shapes]
+        ):
             resized_series_i = self.resize_function(series_i, new_length)
+
+            # get the mask of unpadded values (i.e., the original values before padding)
+            mask_i = np.zeros(new_length, dtype=bool)
+            mask_i[: min(original_length, new_length)] = True
+            valid_masks.append(mask_i)
             resized_series.append(resized_series_i)
 
         resized_series = np.array(resized_series, dtype=np.float32)
+        valid_masks = np.array(valid_masks, dtype=bool)
 
         # any series containing NaN would cause the batch to fail, so we replace them with zeros
         invalid_series_index = [
@@ -927,11 +982,13 @@ class KeypointDetection1DPredictionDataset(Dataset):
         ]
         for i in invalid_series_index:
             resized_series[i] = np.zeros(new_length, dtype=np.float32)
-
+            valid_masks[i] = np.zeros(new_length, dtype=bool)
         if type(resized_series) is np.ndarray:
             resized_series = torch.tensor(resized_series, dtype=torch.float32)
+        if type(valid_masks) is np.ndarray:
+            valid_masks = torch.tensor(valid_masks, dtype=torch.bool)
 
-        return resized_series, invalid_series_index, original_shapes
+        return resized_series, valid_masks, invalid_series_index, original_shapes
 
 
 def split_dataset(dataframe, validation_size, test_size):

@@ -6,12 +6,10 @@ import torch.nn as nn
 from torchmetrics.classification import BinaryF1Score
 from torchmetrics.classification import MulticlassF1Score
 
-from .archs import AttentionUnet1D
 from .archs import Unet1D
-from .archs import UnetPlusPlus1D
 from towbintools.deep_learning.utils.loss import FocalTverskyLoss
+from towbintools.deep_learning.utils.loss import MoltDetectionLoss
 from towbintools.deep_learning.utils.loss import MultiClassFocalLoss
-from towbintools.deep_learning.utils.loss import PeakWeightedMSELoss
 
 
 class ClassificationModel(pl.LightningModule):
@@ -324,19 +322,16 @@ class KeypointDetection1DModel(pl.LightningModule):
     PyTorch Lightning module for 1D keypoint detection using a U-Net architecture.
 
     Operates on 1D sequences (e.g. straightened worm fluorescence profiles).
-    Supports ``"Unet"``, ``"AttentionUnet"``, and ``"UnetPlusPlus"`` 1D
-    architectures. Uses ``PeakWeightedMSELoss`` by default.
+    Uses ``MoltDetectionLoss`` by default.
 
     Parameters:
         input_channels (int): Number of input sequence channels.
         n_classes (int): Number of keypoint classes (output channels).
         learning_rate (float): Learning rate for the Adam optimizer.
-        architecture (str, optional): Architecture name; one of ``"Unet"``,
-            ``"AttentionUnet"``, or ``"UnetPlusPlus"``. (default: ``"UnetPlusPlus"``)
         activation (str, optional): Output activation; one of ``"relu"``,
             ``"leaky_relu"``, ``"sigmoid"``, or ``"none"``. (default: ``"sigmoid"``)
         criterion (nn.Module, optional): Loss function. If ``None``,
-            ``PeakWeightedMSELoss`` is used. (default: None)
+            ``MoltDetectionLoss`` is used. (default: None)
 
     Raises:
         ValueError: If ``architecture`` or ``activation`` is not supported.
@@ -347,23 +342,12 @@ class KeypointDetection1DModel(pl.LightningModule):
         input_channels,
         n_classes,
         learning_rate,
-        architecture="UnetPlusPlus",
         activation="sigmoid",
         criterion=None,
     ):
         super().__init__()
 
-        if architecture == "Unet":
-            model = Unet1D(num_classes=n_classes, input_channels=input_channels)
-        elif architecture == "AttentionUnet":
-            model = AttentionUnet1D(
-                num_classes=n_classes, input_channels=input_channels
-            )
-        elif architecture == "UnetPlusPlus":
-            model = UnetPlusPlus1D(num_classes=n_classes, input_channels=input_channels)
-        else:
-            raise ValueError(f"Unsupported architecture: {architecture}")
-
+        model = Unet1D(num_classes=n_classes, input_channels=input_channels)
         self.model = model
         self.learning_rate = learning_rate
 
@@ -372,7 +356,7 @@ class KeypointDetection1DModel(pl.LightningModule):
             self.ignore_index = -100
 
         if criterion is None:
-            self.criterion = PeakWeightedMSELoss()
+            self.criterion = MoltDetectionLoss()
 
         else:
             self.criterion = criterion
@@ -395,10 +379,18 @@ class KeypointDetection1DModel(pl.LightningModule):
         return self.activation(y)
 
     def training_step(self, batch):
-        x, y = batch
-        y_hat = self.model(x)
-        y_hat = self.activation(y_hat)
-        loss = self.criterion(y_hat, y)
+        x, valid_mask, heatmap_target, index_target, presence_target = batch
+        predicted_heatmap, predicted_presence = self.model(x, mask=valid_mask)
+        predicted_heatmap, predicted_presence = self.activation(
+            predicted_heatmap
+        ), self.activation(predicted_presence)
+        loss = self.criterion(
+            valid_mask,
+            predicted_heatmap,
+            predicted_presence,
+            heatmap_target,
+            presence_target,
+        )
         self.log(
             "train_loss",
             loss,
@@ -411,10 +403,18 @@ class KeypointDetection1DModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch):
-        x, y = batch
-        y_hat = self.model(x)
-        y_hat = self.activation(y_hat)
-        loss = self.criterion(y_hat, y)
+        x, valid_mask, heatmap_target, index_target, presence_target = batch
+        predicted_heatmap, predicted_presence = self.model(x, mask=valid_mask)
+        predicted_heatmap, predicted_presence = self.activation(
+            predicted_heatmap
+        ), self.activation(predicted_presence)
+        loss = self.criterion(
+            valid_mask,
+            predicted_heatmap,
+            predicted_presence,
+            heatmap_target,
+            presence_target,
+        )
         self.log(
             "val_loss",
             loss,
@@ -426,9 +426,12 @@ class KeypointDetection1DModel(pl.LightningModule):
         )
 
     def predict_step(self, batch):
-        x = batch
-        pred = self.model(x)
-        return pred
+        x, valid_mask = batch
+        predicted_heatmap, predicted_presence = self.model(x, mask=valid_mask)
+        predicted_heatmap, predicted_presence = self.activation(
+            predicted_heatmap
+        ), self.activation(predicted_presence)
+        return predicted_heatmap, predicted_presence
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

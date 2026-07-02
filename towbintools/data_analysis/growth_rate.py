@@ -86,7 +86,7 @@ def compute_growth_rate_exponential(
             the end. (default: 0.0)
         savgol_filter_window (int, optional): Window size of the Savitzky-Golay
             filter. (default: 5)
-        savgol_filter_order (int, optional): Polynomial order of the
+            ol_filter_order (int, optional): Polynomial order of the
             Savitzky-Golay filter. (default: 3)
 
     Returns:

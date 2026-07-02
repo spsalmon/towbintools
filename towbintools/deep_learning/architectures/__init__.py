@@ -6,7 +6,5 @@ __all__ = [
     "SegmentationModel",
     "ClassificationModel",
     "Unet1D",
-    "AttentionUnet1D",
-    "UnetPlusPlus1D",
     "KeypointDetection1DModel",
 ]
