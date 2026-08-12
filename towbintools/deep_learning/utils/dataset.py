@@ -760,16 +760,24 @@ class KeypointDetection1DTrainingDataset(Dataset):
     """
     PyTorch Dataset for 1D keypoint detection training.
 
-    Stores pairs of input time-series and target heatmaps. The collate function
-    pads or crops all series in a batch to the same length (a multiple of
-    ``enforce_divisibility_by``) and drops samples containing NaN values.
+    Stores input time-series together with their target heatmaps and target
+    keypoint indices. A per-keypoint presence target is derived on the fly from
+    ``index_targets``: a keypoint counts as present when its index is not NaN.
+    The collate function pads or crops all series in a batch to the same length
+    (a multiple of ``enforce_divisibility_by``), builds a boolean mask marking
+    the unpadded positions, and drops samples whose series contains NaN values.
 
     Parameters:
-        inputs (array-like): Sequence of 1D (or 2D) input series arrays.
-        targets (array-like): Sequence of target heatmap arrays aligned with
-            ``inputs``.
+        inputs (array-like): Sequence of input series of shape ``(T,)`` or
+            ``(C, T)``. 1D series are reshaped to ``(1, T)``.
+        heatmap_targets (array-like): Sequence of target heatmaps of shape
+            ``(T,)`` or ``(n_classes, T)``, aligned with ``inputs``.
+        index_targets (array-like): Sequence of target keypoint indices of shape
+            ``(n_classes,)`` or ``(1, n_classes)``, aligned with ``inputs``. NaN
+            marks a keypoint that is absent from the series.
         enforce_divisibility_by (int, optional): Target batch length is rounded
-            to a multiple of this value. (default: 64)
+            to a multiple of this value. Pass ``None`` to skip resizing entirely.
+            (default: 64)
         resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
     """
 
@@ -822,6 +830,21 @@ class KeypointDetection1DTrainingDataset(Dataset):
         )
 
     def collate_fn(self, batch):
+        """
+        Resize a batch of series to a common length and drop invalid samples.
+
+        Parameters:
+            batch (list[tuple]): Samples returned by ``__getitem__``.
+
+        Returns:
+            tuple: ``(series, valid_masks, heatmap_targets, index_targets,
+            presence_targets)``, where ``series`` has shape ``(B, C, new_length)``,
+            ``valid_masks`` has shape ``(B, new_length)`` and is ``True`` on the
+            unpadded positions, and the targets are aligned with the kept samples.
+            When ``enforce_divisibility_by`` is ``None``, the untouched
+            ``(series, heatmap_targets, index_targets, original_shapes)`` tuple is
+            returned instead.
+        """
         series, heatmap_targets, index_targets, presence_targets, original_shapes = zip(
             *batch
         )
@@ -906,13 +929,16 @@ class KeypointDetection1DPredictionDataset(Dataset):
     PyTorch Dataset for 1D keypoint detection inference.
 
     Stores input time-series for prediction. The collate function pads or crops
-    all series to the same length and replaces NaN-containing series with zeros,
+    all series to the same length, builds a boolean mask marking the unpadded
+    positions, and replaces NaN-containing series (and their masks) with zeros,
     returning their indices as ``invalid_series_index``.
 
     Parameters:
-        inputs (array-like): Sequence of 1D (or 2D) input series arrays.
+        inputs (array-like): Sequence of input series of shape ``(T,)`` or
+            ``(C, T)``. 1D series are reshaped to ``(1, T)``.
         enforce_divisibility_by (int, optional): Target batch length is rounded
-            to a multiple of this value. (default: 64)
+            to a multiple of this value. Pass ``None`` to skip resizing entirely.
+            (default: 64)
         resize_method (str, optional): ``"pad"`` or ``"crop"``. (default: ``"pad"``)
     """
 
@@ -945,6 +971,21 @@ class KeypointDetection1DPredictionDataset(Dataset):
         return series.astype(np.float32), series.shape
 
     def collate_fn(self, batch):
+        """
+        Resize a batch of series to a common length and neutralize invalid ones.
+
+        Parameters:
+            batch (list[tuple]): Samples returned by ``__getitem__``.
+
+        Returns:
+            tuple: ``(series, valid_masks, invalid_series_index, original_shapes)``,
+            where ``series`` has shape ``(B, C, new_length)``, ``valid_masks`` has
+            shape ``(B, new_length)`` and is ``True`` on the unpadded positions,
+            and ``invalid_series_index`` lists the batch positions of the series
+            that contained NaN values and were zeroed out. When
+            ``enforce_divisibility_by`` is ``None``, the untouched
+            ``(series, original_shapes)`` tuple is returned instead.
+        """
         series, original_shapes = zip(*batch)
 
         if self.enforce_divisibility_by is None:

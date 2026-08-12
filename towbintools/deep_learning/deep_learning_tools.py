@@ -138,20 +138,20 @@ def create_segmentation_model(
 
 
 def create_keypoint_detection_model(
-    architecture: str,
     input_channels: int,
     n_classes: int,
     learning_rate: float = 1e-4,
     checkpoint_path: str | None = None,
     criterion: Any | None = None,
-    activation: str = "relu",
+    activation: str = "sigmoid",
 ) -> KeypointDetection1DModel:
     """
     Create a 1D keypoint detection model.
 
+    The model predicts, for every input series, a per-class heatmap and a
+    per-class presence probability, using a 1D U-Net backbone.
+
     Parameters:
-        architecture (str): Architecture name; one of ``"Unet"``,
-            ``"AttentionUnet"``, or ``"UnetPlusPlus"``.
         input_channels (int): Number of input sequence channels.
         n_classes (int): Number of keypoint classes (output channels).
         learning_rate (float, optional): Learning rate for the Adam optimizer.
@@ -159,10 +159,13 @@ def create_keypoint_detection_model(
         checkpoint_path (str, optional): Path to a ``.ckpt`` checkpoint; if
             provided, the model is loaded from the checkpoint and all other
             arguments are ignored. (default: None)
-        criterion (nn.Module, optional): Loss function. If ``None``,
-            ``PeakWeightedMSELoss`` is used. (default: None)
-        activation (str, optional): Output activation; one of ``"relu"``,
-            ``"leaky_relu"``, ``"sigmoid"``, or ``"none"``. (default: ``"relu"``)
+        criterion (nn.Module, optional): Loss function, called as
+            ``criterion(valid_mask, predicted_heatmap, predicted_presence,
+            heatmap_target, presence_target)``. If ``None``, ``MoltDetectionLoss``
+            is used. (default: None)
+        activation (str, optional): Output activation applied to the heatmap and
+            presence outputs; one of ``"relu"``, ``"leaky_relu"``, ``"sigmoid"``,
+            or ``"none"``. (default: ``"sigmoid"``)
 
     Returns:
         KeypointDetection1DModel: Constructed or loaded keypoint detection model.
@@ -178,7 +181,6 @@ def create_keypoint_detection_model(
         input_channels,
         n_classes,
         learning_rate,
-        architecture=architecture,
         activation=activation,
         criterion=criterion,
     )

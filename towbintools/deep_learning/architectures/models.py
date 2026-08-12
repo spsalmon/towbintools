@@ -321,20 +321,29 @@ class KeypointDetection1DModel(pl.LightningModule):
     """
     PyTorch Lightning module for 1D keypoint detection using a U-Net architecture.
 
-    Operates on 1D sequences (e.g. straightened worm fluorescence profiles).
-    Uses ``MoltDetectionLoss`` by default.
+    Operates on 1D sequences (e.g. worm volume time series) with a :class:`Unet1D`
+    backbone that outputs both a per-class heatmap of shape ``(B, n_classes, T)``
+    and a per-class presence logit of shape ``(B, n_classes)``. The activation is
+    applied to both outputs. Training and validation batches are the 5-tuple
+    ``(series, valid_mask, heatmap_target, index_target, presence_target)``
+    produced by :class:`KeypointDetection1DTrainingDataset`, while prediction
+    batches are the ``(series, valid_mask)`` pair. ``valid_mask`` keeps padded
+    positions out of both the presence pooling and the loss.
 
     Parameters:
         input_channels (int): Number of input sequence channels.
         n_classes (int): Number of keypoint classes (output channels).
         learning_rate (float): Learning rate for the Adam optimizer.
-        activation (str, optional): Output activation; one of ``"relu"``,
-            ``"leaky_relu"``, ``"sigmoid"``, or ``"none"``. (default: ``"sigmoid"``)
-        criterion (nn.Module, optional): Loss function. If ``None``,
-            ``MoltDetectionLoss`` is used. (default: None)
+        activation (str, optional): Output activation applied to the heatmap and
+            presence outputs; one of ``"relu"``, ``"leaky_relu"``, ``"sigmoid"``,
+            or ``"none"``. (default: ``"sigmoid"``)
+        criterion (nn.Module, optional): Loss function, called as
+            ``criterion(valid_mask, predicted_heatmap, predicted_presence,
+            heatmap_target, presence_target)``. If ``None``, ``MoltDetectionLoss``
+            is used. (default: None)
 
     Raises:
-        ValueError: If ``architecture`` or ``activation`` is not supported.
+        ValueError: If ``activation`` is not supported.
     """
 
     def __init__(
