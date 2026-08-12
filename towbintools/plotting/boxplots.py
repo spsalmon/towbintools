@@ -436,6 +436,7 @@ def _plot_violinplot(
     test: str = "Mann-Whitney",
     show_swarm: bool = True,
     hide_outliers: bool = False,
+    inner: str | None = "box",
 ) -> tuple[list[float], list[float]]:
     """
     Draw violin + swarm subplots for each ordering group.
@@ -461,6 +462,7 @@ def _plot_violinplot(
             Defaults to ``True``.
         hide_outliers (bool) : If ``True``, remove data points beyond ±3 std in the
             swarm plot (violin retains them).  Defaults to ``False``.
+        inner (str or None) : Passed to seaborn violinplot ``inner`` parameter. Defaults to ``None``.
 
     Returns:
         tuple[list[float], list[float]] : Per-subplot y-axis minima and maxima.
@@ -487,10 +489,10 @@ def _plot_violinplot(
             hue="Condition",
             palette=color_palette,
             cut=0,
-            inner="box",
             ax=current_ax,
             linewidth=2,
             legend="full",
+            inner=inner,
         )
 
         plot_df = df.copy()

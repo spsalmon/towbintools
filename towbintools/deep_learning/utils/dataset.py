@@ -804,7 +804,7 @@ class KeypointDetection1DTrainingDataset(Dataset):
         heatmap_target = self.heatmap_targets[i]
         index_target = self.index_targets[i]
 
-        presence_target = np.isnan(np.array(index_target)).astype(np.float32)
+        presence_target = (~np.isnan(np.array(index_target))).astype(np.float32)
 
         if series.ndim == 1:
             series = series.reshape(1, -1)

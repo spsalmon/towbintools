@@ -374,9 +374,9 @@ class KeypointDetection1DModel(pl.LightningModule):
 
         self.save_hyperparameters()
 
-    def forward(self, x):
-        y = self.model(x)
-        return self.activation(y)
+    def forward(self, x, mask=None):
+        predicted_heatmap, predicted_presence = self.model(x, mask=mask)
+        return self.activation(predicted_heatmap), self.activation(predicted_presence)
 
     def training_step(self, batch):
         x, valid_mask, heatmap_target, index_target, presence_target = batch

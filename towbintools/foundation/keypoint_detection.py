@@ -1,20 +1,21 @@
 import numpy as np
-from scipy.signal import find_peaks
 
 
 def heatmap_to_keypoints_1D(
-    heatmap: np.ndarray, height_threshold: float = 0.5
+    heatmap: np.ndarray,
+    presence: np.ndarray,
+    height_threshold: float = 0.25,
+    presence_threshold: float = 0.5,
 ) -> np.ndarray:
     """
-    Convert a 1D heatmap to keypoints by finding the highest peak per class.
-
-    For each class (row of the heatmap), finds all peaks above ``height_threshold``
-    and retains the single highest peak. If no peak is found for a class, NaN is
-    returned for that class.
+    Convert a 1D heatmap to keypoints by finding the index of the highest value for each class, subject to a height threshold and presence threshold.
+    Presence corresponds to the probability of the class being present in the signal.
 
     Parameters:
         heatmap (np.ndarray): 2D array of shape ``(n_classes, length)`` where each
             row is a 1D signal for one class.
+        presence (np.ndarray): 2D array of shape ``(n_classes, length)`` where each
+            row indicates the presence probability for one class.
         height_threshold (float, optional): Minimum peak height to consider.
             (default: 0.5)
 
@@ -23,12 +24,16 @@ def heatmap_to_keypoints_1D(
             highest peak for each class, or NaN if no peak was found.
     """
     peaks = []
-    for i in range(heatmap.shape[0]):
+    for i, (heatmap_i, presence_i) in enumerate(zip(heatmap, presence)):
+        if presence_i < presence_threshold:
+            peaks.append(np.nan)
+            continue
         try:
-            peaks_i, peaks_i_dict = find_peaks(heatmap[i], height=height_threshold)
-            # keep only the highest peak
-            best_peak = np.argmax(peaks_i_dict["peak_heights"])
-            peaks.append(peaks_i[best_peak])
+            peak = np.argmax(heatmap_i)
+            if heatmap_i[peak] < height_threshold:
+                peaks.append(np.nan)
+            else:
+                peaks.append(peak)
         except ValueError:
             peaks.append(np.nan)
     peaks = np.array(peaks)
