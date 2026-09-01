@@ -1009,6 +1009,12 @@ def plot_deviation_from_model_at_ecdysis(
         remove_outliers=remove_outliers_fitting,
     )
 
+    # figure got used for the control model, create a new one for the deviations plot
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
+
     for i, condition_id in enumerate(conditions_to_plot):
         condition = conditions_struct[condition_id]
         column_one_values, column_two_values = (
@@ -1154,6 +1160,12 @@ def plot_deviation_from_model_development_percentage(
         plot_model=True,
     )
 
+    # figure got used for the control model, create a new one for the deviations plot
+    if ax_size is not None:
+        create_fixed_ax_sized_fig(
+            ax_w=ax_size[0], ax_h=ax_size[1]
+        )  # sets pyplot current figure/axes
+
     for i, condition_id in enumerate(conditions_to_plot):
         condition = conditions_struct[condition_id]
         column_one_values, column_two_values = (
@@ -1201,90 +1213,6 @@ def plot_deviation_from_model_development_percentage(
     fig = plt.gcf()
     plt.show()
     return fig
-
-
-# def plot_model_comparison_at_ecdysis(
-#     conditions_struct,
-#     column_one,
-#     column_two,
-#     control_condition_id,
-#     conditions_to_plot,
-#     remove_hatch=True,
-#     log_scale=(True, False),
-#     colors=None,
-#     legend=None,
-#     x_axis_label=None,
-#     y_axis_label=None,
-#     percentage=True,
-#     exclude_arrests=False,
-#     poly_degree=3,
-# ):
-#     color_palette = get_colors(
-#         conditions_to_plot,
-#         colors,
-#     )
-
-#     xlbl = column_one
-
-#     x_axis_label = x_axis_label if x_axis_label is not None else xlbl
-#     y_axis_label = (
-#         y_axis_label
-#         if y_axis_label is not None
-#         else f"deviation from modeled {column_two}"
-#     )
-
-#     models = {}
-#     xs = {}
-
-#     for i, condition_id in enumerate(conditions_to_plot):
-#         condition = conditions_struct[condition_id]
-
-#         model = _get_proportion_model(
-#             condition[column_one],
-#             condition[column_two],
-#             remove_hatch,
-#             exclude_arrests=exclude_arrests,
-#             poly_degree=poly_degree,
-#             plot_model=False,
-#         )
-
-#         column_one_values = np.log(condition[column_one])
-
-#         x = np.linspace(np.nanmin(column_one_values), np.nanmax(column_one_values), 100)
-
-#         models[condition_id] = model
-#         xs[condition_id] = x
-
-#     # determine the overlap of all the x values
-#     x_min = np.nanmax(
-#         [np.nanmin(xs[condition_id]) for condition_id in conditions_to_plot]
-#     )
-#     x_max = np.nanmin(
-#         [np.nanmax(xs[condition_id]) for condition_id in conditions_to_plot]
-#     )
-
-#     x = np.linspace(x_min, x_max, 100)
-#     control_values = np.exp(models[control_condition_id](x))
-
-#     for i, condition_id in enumerate(conditions_to_plot):
-#         plt.plot(
-#             np.exp(x),
-#             (np.exp(models[condition_id](x)) / control_values - 1) * 100,
-#             color=color_palette[i],
-#             label=build_legend(conditions_struct[condition_id], legend),
-#         )
-
-#     plt.xlabel(x_axis_label)
-#     plt.ylabel(y_axis_label)
-
-#     set_scale(plt.gca(), log_scale)
-
-#     plt.legend()
-
-#     fig = plt.gcf()
-#     plt.show()
-
-#     return fig
 
 
 def plot_normalized_proportions_at_ecdysis(
