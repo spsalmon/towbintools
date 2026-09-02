@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -239,42 +240,40 @@ def add_dir_to_experiment_filemap(
     return experiment_filemap
 
 
-def read_filemap(filemap_path: str, lazy_loading: bool = False) -> pl.DataFrame:
+def read_filemap(
+    filemap_path: str, lazy_loading: bool = False
+) -> pl.DataFrame | pl.LazyFrame:
     """
     Read a filemap from a CSV or Parquet file using Polars.
 
-    Detects the file format from the ``.parquet`` extension; otherwise treats the
-    file as CSV. When ``lazy_loading`` is ``True`` a ``LazyFrame`` is returned
-    instead of an eager ``DataFrame``.
+    The format is taken from the file extension (``.parquet`` → Parquet, anything
+    else → CSV). If the file is missing, the sibling path with the other
+    extension is tried instead.
 
     Parameters:
         filemap_path (str): Path to the filemap file (``.csv`` or ``.parquet``).
-        lazy_loading (bool, optional): If ``True``, return a Polars ``LazyFrame``
+        lazy_loading (bool, optional): If ``True``, return a ``LazyFrame``
             instead of a ``DataFrame``. (default: False)
 
     Returns:
-        pl.DataFrame: The filemap as a Polars DataFrame (or LazyFrame when
-            ``lazy_loading`` is ``True``).
+        pl.DataFrame | pl.LazyFrame: The filemap.
     """
-    if filemap_path.endswith(".parquet"):
-        if lazy_loading:
-            filemap = pl.scan_parquet(filemap_path)
-        else:
-            filemap = pl.read_parquet(filemap_path)
-    else:
-        if lazy_loading:
-            filemap = pl.scan_csv(
-                filemap_path,
-                infer_schema_length=10000,
-                null_values=["np.nan", "[nan]", "", "NaN", "nan", "NA", "N/A"],
-            )
-        else:
-            filemap = pl.read_csv(
-                filemap_path,
-                infer_schema_length=10000,
-                null_values=["np.nan", "[nan]", "", "NaN", "nan", "NA", "N/A"],
-            )
-    return filemap
+    null_values = ["np.nan", "[nan]", "", "NaN", "nan", "NA", "N/A"]
+
+    def load(path: Path) -> pl.DataFrame | pl.LazyFrame:
+        if path.suffix == ".parquet":
+            return pl.scan_parquet(path) if lazy_loading else pl.read_parquet(path)
+        read_csv = pl.scan_csv if lazy_loading else pl.read_csv
+        return read_csv(path, infer_schema_length=10000, null_values=null_values)
+
+    path = Path(filemap_path)
+    fallback = path.with_suffix(".csv" if path.suffix == ".parquet" else ".parquet")
+
+    try:
+        return load(path)
+    except FileNotFoundError:
+        print(f"File not found: {path}, trying {fallback} instead.")
+        return load(fallback)
 
 
 def write_filemap(filemap: pl.DataFrame, filemap_path: str) -> None:
