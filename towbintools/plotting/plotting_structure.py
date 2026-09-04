@@ -769,7 +769,8 @@ def separate_column_by_point(filemap: pl.DataFrame, column: str) -> np.ndarray:
     filemap_points = filemap.select(pl.col("Point"), pl.col(column))
     point_dataframes = filemap_points.partition_by("Point", maintain_order=True)
 
-    sample = point_dataframes[0].select(pl.col(column)).head(1).item()
+    sample = filemap_points.select(pl.col(column)).drop_nulls().head(1).item()
+
     is_string = isinstance(sample, str) or (
         hasattr(sample, "dtype") and np.issubdtype(sample.dtype, np.str_)
     )
