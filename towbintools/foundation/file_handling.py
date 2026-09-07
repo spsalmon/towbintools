@@ -119,7 +119,7 @@ def fill_empty_timepoints(
 
         missing = set(all_times) - set(times_of_point)
         missing_times.extend(
-            [{"Time": time, "Point": point, "ImagePath": ""} for time in missing]
+            [{"Time": time, "Point": point, "ImagePath": None} for time in missing]
         )
 
     if missing_times:
@@ -200,7 +200,6 @@ def get_experiment_dir_filemap(
                 experiment_filemap = experiment_filemap.join(
                     filemap, on=["Time", "Point"], how="left"
                 )
-    experiment_filemap = experiment_filemap.fillna("")
     return experiment_filemap
 
 
@@ -236,7 +235,6 @@ def add_dir_to_experiment_filemap(
     experiment_filemap = experiment_filemap.join(
         subdir_filemap, on=["Time", "Point"], how="left"
     )
-    experiment_filemap = experiment_filemap.fill_nan("").fill_null("")
     return experiment_filemap
 
 
