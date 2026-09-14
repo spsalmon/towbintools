@@ -2,6 +2,7 @@ import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .utils_plotting import add_legend
 from .utils_plotting import build_legend
 from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
@@ -29,6 +30,7 @@ def plot_aggregated_series(
     y_axis_label: str | None = None,
     xlim: tuple[float, float] | None = None,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the time-rescaled aggregated series with 95% confidence intervals.
@@ -67,6 +69,8 @@ def plot_aggregated_series(
             crop the plotted range.  Defaults to ``None``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -141,10 +145,7 @@ def plot_aggregated_series(
             plot_single_series(column)
     else:
         plot_single_series(series_column)
-    # remove duplicate labels
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    plt.legend(by_label.values(), by_label.keys())
+    add_legend(placement=legend_placement, deduplicate=True)
     plt.yscale("log" if log_scale else "linear")
     if y_axis_label is not None:
         plt.ylabel(y_axis_label)

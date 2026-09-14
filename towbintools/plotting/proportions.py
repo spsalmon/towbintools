@@ -11,6 +11,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 
+from .utils_plotting import add_legend
 from .utils_plotting import build_legend
 from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
@@ -272,7 +273,7 @@ def _get_proportion_model(
             color="red",
             label=f"{int((1-alpha)*100)}% CI",
         )
-        plt.legend()
+        add_legend()
         plt.show()
 
     # Add method to model for getting confidence intervals
@@ -299,6 +300,7 @@ def plot_model_comparison_at_ecdysis(
     y_axis_label: str | None = None,
     single_plot: bool = True,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "outside right",
 ) -> matplotlib.figure.Figure:
     """
     Scatter-plot the log-log relationship between two columns at molt events with fitted models.
@@ -331,6 +333,9 @@ def plot_model_comparison_at_ecdysis(
         ax_size (tuple[float, float] or None) : If provided, each panel's axes area is fixed to
             ``(ax_w, ax_h)`` inches. Overrides the default figure size. Note: ``sharex`` and
             ``sharey`` are ignored when ``ax_size`` is provided. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  With multiple subplots the legend is shared
+            and placed relative to the figure.  Defaults to ``"outside right"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -392,8 +397,9 @@ def plot_model_comparison_at_ecdysis(
             correct_indices = ~np.isnan(values_one) & ~np.isnan(values_two)
             values_one = values_one[correct_indices]
             values_two = values_two[correct_indices]
-            values_one = np.log(values_one)
-            values_two = np.log(values_two)
+
+            log_values_one = np.log(values_one)
+            log_values_two = np.log(values_two)
 
             model_plot_x.extend(values_one)
             model_plot_y.extend(values_two)
@@ -402,7 +408,7 @@ def plot_model_comparison_at_ecdysis(
                 # remove outliers using an isolation forest
                 outlier_mask = (
                     isolation_forest.fit_predict(
-                        np.column_stack((values_one, values_two))
+                        np.column_stack((log_values_one, log_values_two))
                     )
                     == 1
                 )
@@ -434,7 +440,10 @@ def plot_model_comparison_at_ecdysis(
 
         # plot the model
         x_values = np.linspace(np.nanmin(model_plot_x), np.nanmax(model_plot_x), 100)
-        y_values, ci_low, ci_high = model.get_confidence_intervals(x_values)
+        y_values, ci_low, ci_high = model.get_confidence_intervals(np.log(x_values))
+        y_values = np.exp(y_values)
+        ci_low = np.exp(ci_low)
+        ci_high = np.exp(ci_high)
 
         current_ax.plot(
             x_values,
@@ -457,7 +466,9 @@ def plot_model_comparison_at_ecdysis(
             current_ax.tick_params(axis="y", which="both", left=False, labelleft=False)
 
         # text box with R^2 value
-        r_squared = model.score(model_plot_x.reshape(-1, 1), model_plot_y)
+        r_squared = model.score(
+            np.log(model_plot_x).reshape(-1, 1), np.log(model_plot_y)
+        )
         textstr = f"$R^2$ = {r_squared:.2f}"
 
         r_squared_texts.append(textstr)
@@ -469,7 +480,7 @@ def plot_model_comparison_at_ecdysis(
             f"{label} ({r_squared})"
             for label, r_squared in zip(labels, r_squared_texts)
         ]
-        axs.legend(handles, new_labels, loc="upper left")
+        add_legend(axs, legend_placement, handles, new_labels)
 
         plt.xlabel(x_axis_label if x_axis_label else column_one)
         plt.ylabel(y_axis_label if y_axis_label else column_two)
@@ -493,16 +504,9 @@ def plot_model_comparison_at_ecdysis(
             for label, r_squared in zip(all_labels, r_squared_texts)
         ]
 
-        # Create shared legend
-        fig.legend(
-            all_handles,
-            new_labels,
-            bbox_to_anchor=(1.01, 0.5),
-            loc="center left",
-            title=None,
-            frameon=True,
-        )
+        add_legend(fig, legend_placement, all_handles, new_labels)
 
+    set_scale(plt.gca(), log_scale)
     fig = plt.gcf()
     plt.show()
     return fig
@@ -587,6 +591,7 @@ def plot_correlation(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the correlation between two measurements as aggregated rescaled series.
@@ -611,6 +616,8 @@ def plot_correlation(
             Defaults to ``None``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -679,7 +686,7 @@ def plot_correlation(
 
     set_scale(plt.gca(), log_scale)
 
-    plt.legend()
+    add_legend(placement=legend_placement)
 
     fig = plt.gcf()
     plt.show()
@@ -699,6 +706,7 @@ def plot_correlation_at_ecdysis(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the mean ± std of two measurements at each molt event as error-bar scatter.
@@ -725,6 +733,8 @@ def plot_correlation_at_ecdysis(
             Defaults to ``None``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -779,7 +789,7 @@ def plot_correlation_at_ecdysis(
 
     set_scale(plt.gca(), log_scale)
 
-    plt.legend()
+    add_legend(placement=legend_placement)
 
     fig = plt.gcf()
     plt.show()
@@ -801,6 +811,7 @@ def plot_continuous_deviation_from_model(
     y_axis_label: str | None = None,
     sort_values: bool = False,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the deviation from a LOWESS model as a continuous line across the rescaled axis.
@@ -831,6 +842,8 @@ def plot_continuous_deviation_from_model(
             before averaging.  Defaults to ``False``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -910,7 +923,7 @@ def plot_continuous_deviation_from_model(
 
     set_scale(plt.gca(), log_scale)
 
-    plt.legend()
+    add_legend(placement=legend_placement)
 
     fig = plt.gcf()
     plt.show()
@@ -934,6 +947,7 @@ def plot_deviation_from_model_at_ecdysis(
     poly_degree: int = 2,
     remove_outliers_fitting: bool = True,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the per-condition deviation from a polynomial model at each molt event.
@@ -967,6 +981,8 @@ def plot_deviation_from_model_at_ecdysis(
             outliers before fitting.  Defaults to ``True``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -1060,7 +1076,7 @@ def plot_deviation_from_model_at_ecdysis(
 
     set_scale(plt.gca(), log_scale)
 
-    plt.legend()
+    add_legend(placement=legend_placement)
 
     fig = plt.gcf()
     plt.show()
@@ -1084,6 +1100,7 @@ def plot_deviation_from_model_development_percentage(
     poly_degree: int = 2,
     remove_outliers_fitting: bool = True,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the deviation from a polynomial model at specified development percentages.
@@ -1117,6 +1134,8 @@ def plot_deviation_from_model_development_percentage(
             outliers before fitting.  Defaults to ``True``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -1208,7 +1227,7 @@ def plot_deviation_from_model_development_percentage(
 
     plt.xlabel(x_axis_label)
     plt.ylabel(y_axis_label)
-    plt.legend()
+    add_legend(placement=legend_placement)
     set_scale(plt.gca(), log_scale)
     fig = plt.gcf()
     plt.show()
@@ -1228,6 +1247,7 @@ def plot_normalized_proportions_at_ecdysis(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the column_two/column_one ratio normalised to the control at each molt event.
@@ -1255,6 +1275,8 @@ def plot_normalized_proportions_at_ecdysis(
             Defaults to ``None``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -1310,7 +1332,7 @@ def plot_normalized_proportions_at_ecdysis(
 
     set_scale(plt.gca(), log_scale)
 
-    plt.legend()
+    add_legend(placement=legend_placement)
 
     fig = plt.gcf()
     plt.show()

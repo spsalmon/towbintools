@@ -5,10 +5,27 @@ import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from matplotlib.legend import Legend
 from mpl_toolkits.axes_grid1 import Divider
 from mpl_toolkits.axes_grid1 import Size
 
 # THIS PART IS MOSTLY ABOUT HANDLING LEGENDS, SAVING FIGURES, ETC.
+
+# (loc, bbox_to_anchor) for legends placed just outside an axes, in axes coordinates
+LEGEND_AXES_OUTSIDE_ANCHORS = {
+    "outside right": ("center left", (1.02, 0.5)),
+    "outside top": ("lower center", (0.5, 1.02)),
+    "outside bottom": ("upper center", (0.5, -0.15)),
+}
+
+# (loc, bbox_to_anchor) for legends placed just outside a figure, in figure coordinates
+LEGEND_FIGURE_OUTSIDE_ANCHORS = {
+    "outside right": ("center left", (1.001, 0.5)),
+    "outside top": ("lower center", (0.5, 1.0)),
+    "outside bottom": ("upper center", (0.5, 0.0)),
+}
+
+AVAILABLE_LEGEND_PLACEMENTS = list(Legend.codes) + list(LEGEND_AXES_OUTSIDE_ANCHORS)
 
 
 def save_figure(
@@ -77,6 +94,96 @@ def build_legend(single_condition_dict: dict, legend: dict | None) -> str:
             if i < len(legend) - 1:
                 legend_string += ", "
         return legend_string
+
+
+def add_legend(
+    target: matplotlib.axes.Axes | matplotlib.figure.Figure | None = None,
+    placement: str | None = "best",
+    handles: list | None = None,
+    labels: list[str] | None = None,
+    deduplicate: bool = False,
+    **legend_kwargs,
+) -> Legend | None:
+    """
+    Draw a single legend on an axes or a figure at a named placement.
+
+    Any legend already drawn on the target (or, for a figure, on any of its axes, e.g.
+    by seaborn) is removed first, so repeated calls never stack legends.
+
+    Parameters:
+        target (matplotlib.axes.Axes or matplotlib.figure.Figure or None): Where to draw
+            the legend. ``None`` uses the current pyplot axes. (default: ``None``)
+        placement (str or None): Either a matplotlib ``loc`` string (``"best"``,
+            ``"upper left"``, ...) placing the legend inside the target, or one of
+            ``"outside right"``, ``"outside top"``, ``"outside bottom"`` anchoring it
+            just outside. ``"best"`` falls back to ``"upper right"`` for figures.
+            ``None`` removes the legend. (default: ``"best"``)
+        handles (list or None): Legend artists. If ``None``, collected from the target's
+            axes. Must be given together with ``labels``. (default: ``None``)
+        labels (list[str] or None): Legend labels matching ``handles``. (default: ``None``)
+        deduplicate (bool): If ``True``, keep only the first entry for each label when
+            handles are collected automatically. (default: ``False``)
+        **legend_kwargs: Extra keyword arguments forwarded to ``legend()``. They take
+            precedence over the ``loc``, ``bbox_to_anchor`` and ``ncols`` derived from
+            ``placement``.
+
+    Returns:
+        matplotlib.legend.Legend or None: The created legend, or ``None`` when
+            ``placement`` is ``None``.
+
+    Raises:
+        ValueError: If ``placement`` is not in ``AVAILABLE_LEGEND_PLACEMENTS``, or if
+            only one of ``handles`` and ``labels`` is given.
+    """
+    if placement is not None and placement not in AVAILABLE_LEGEND_PLACEMENTS:
+        raise ValueError(
+            f"Invalid legend placement: {placement}. Must be None or one of {AVAILABLE_LEGEND_PLACEMENTS}."
+        )
+    if (handles is None) != (labels is None):
+        raise ValueError("handles and labels must be given together.")
+
+    if target is None:
+        target = plt.gca()
+    is_figure = isinstance(target, matplotlib.figure.Figure)
+    axes = target.axes if is_figure else [target]
+
+    existing_legends = [ax.get_legend() for ax in axes]
+    if is_figure:
+        existing_legends.extend(target.legends)
+    for existing_legend in existing_legends:
+        if existing_legend is not None:
+            existing_legend.remove()
+
+    if placement is None:
+        return None
+
+    if handles is None:
+        handles, labels = [], []
+        for ax in axes:
+            for handle, label in zip(*ax.get_legend_handles_labels()):
+                if deduplicate and label in labels:
+                    continue
+                handles.append(handle)
+                labels.append(label)
+
+    outside_anchors = (
+        LEGEND_FIGURE_OUTSIDE_ANCHORS if is_figure else LEGEND_AXES_OUTSIDE_ANCHORS
+    )
+    if placement in outside_anchors:
+        loc, bbox_to_anchor = outside_anchors[placement]
+        placement_kwargs = {"loc": loc, "bbox_to_anchor": bbox_to_anchor}
+        if (
+            placement in ("outside top", "outside bottom")
+            and "ncol" not in legend_kwargs
+        ):
+            # lay entries out in a single row above/below the target
+            placement_kwargs["ncols"] = max(len(labels), 1)
+    elif is_figure and placement == "best":
+        placement_kwargs = {"loc": "upper right"}
+    else:
+        placement_kwargs = {"loc": placement}
+
+    return target.legend(handles, labels, **{**placement_kwargs, **legend_kwargs})
 
 
 def set_scale(ax: matplotlib.axes.Axes, log_scale: bool | tuple | list) -> None:

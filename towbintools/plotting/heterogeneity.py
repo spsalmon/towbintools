@@ -4,6 +4,7 @@ import numpy as np
 from scipy.signal import medfilt
 
 from .utils_data_processing import exclude_arrests_from_series_at_ecdysis
+from .utils_plotting import add_legend
 from .utils_plotting import build_legend
 from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
@@ -20,6 +21,7 @@ def plot_cv_at_ecdysis(
     y_axis_label: str | None = None,
     exclude_arrests: bool = False,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) of a measurement at each molt event.
@@ -45,6 +47,8 @@ def plot_cv_at_ecdysis(
             Defaults to ``False``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -73,7 +77,7 @@ def plot_cv_at_ecdysis(
         plt.xticks(range(5), ["Hatch", "M1", "M2", "M3", "M4"])
     plt.xlabel(x_axis_label)
     plt.ylabel(y_axis_label)
-    plt.legend()
+    add_legend(placement=legend_placement)
     fig = plt.gcf()
     plt.show()
     return fig
@@ -90,6 +94,7 @@ def plot_std_at_ecdysis(
     y_axis_label: str | None = None,
     exclude_arrests: bool = False,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the standard deviation of a measurement at each molt event.
@@ -115,6 +120,8 @@ def plot_std_at_ecdysis(
             Defaults to ``False``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -142,7 +149,7 @@ def plot_std_at_ecdysis(
         plt.xticks(range(5), ["Hatch", "M1", "M2", "M3", "M4"])
     plt.xlabel(x_axis_label)
     plt.ylabel(y_axis_label)
-    plt.legend()
+    add_legend(placement=legend_placement)
     fig = plt.gcf()
     plt.show()
     return fig
@@ -158,6 +165,7 @@ def plot_cv_development_percentage(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) of a rescaled series at specific development percentages.
@@ -180,6 +188,8 @@ def plot_cv_development_percentage(
         y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -205,7 +215,7 @@ def plot_cv_development_percentage(
         )
     plt.xlabel(x_axis_label)
     plt.ylabel(y_axis_label)
-    plt.legend()
+    add_legend(placement=legend_placement)
     fig = plt.gcf()
     plt.show()
     return fig
@@ -221,6 +231,7 @@ def plot_cv_rescaled_data(
     x_axis_label: str | None = None,
     y_axis_label: str | None = None,
     ax_size: tuple[float, float] | None = None,
+    legend_placement: str | None = "best",
 ) -> matplotlib.figure.Figure:
     """
     Plot the coefficient of variation (CV) across the full rescaled time axis.
@@ -243,6 +254,8 @@ def plot_cv_rescaled_data(
         y_axis_label (str or None) : Y-axis label.  Defaults to ``None``.
         ax_size (tuple[float, float] or None) : If provided, fixes the axes area to
             ``(ax_w, ax_h)`` inches. Defaults to ``None``.
+        legend_placement (str or None) : Legend placement passed to ``add_legend``;
+            ``None`` hides the legend.  Defaults to ``"best"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -265,7 +278,7 @@ def plot_cv_rescaled_data(
         plt.plot(cvs, label=label, color=color_palette[i])
     plt.xlabel(x_axis_label)
     plt.ylabel(y_axis_label)
-    plt.legend()
+    add_legend(placement=legend_placement)
     fig = plt.gcf()
     plt.show()
     return fig

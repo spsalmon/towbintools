@@ -13,6 +13,7 @@ from statannotations.stats.StatTest import StatTest
 from statannotations.stats.StatTest import STATTEST_LIBRARY
 
 from .utils_data_processing import rescale_without_flattening
+from .utils_plotting import add_legend
 from .utils_plotting import build_legend
 from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
@@ -777,9 +778,10 @@ def _set_labels_and_legend(
     column: str,
     y_axis_label: str | None,
     legend: dict | None,
+    legend_placement: str | None = "outside right",
 ) -> None:
     """
-    Set the y-axis label and place a shared figure legend to the right of the subplots.
+    Set the y-axis label and place a shared figure legend.
 
     Individual subplot legends are removed; a single legend is added to the figure.
 
@@ -791,6 +793,8 @@ def _set_labels_and_legend(
         column (str) : Column name; used as the y-axis label fallback.
         y_axis_label (str or None) : Explicit y-axis label; falls back to ``column``.
         legend (dict or None) : Legend spec passed to ``build_legend``.
+        legend_placement (str or None) : Figure legend placement passed to
+            ``add_legend``; ``None`` hides the legend.  Defaults to ``"outside right"``.
 
     Returns:
         None
@@ -804,27 +808,13 @@ def _set_labels_and_legend(
     else:
         ax[0].set_ylabel(column)
 
-    # Add legend to the right of the subplots
     legend_labels = [
         build_legend(conditions_struct[condition_id], legend)
         for condition_id in conditions_to_plot
     ]
-
     legend_handles = ax[0].get_legend_handles_labels()[0]
 
-    # Remove the legend from all subplots
-    for i in range(len(ax)):
-        ax[i].legend_.remove()
-
-    # Place legend to the right of the subplots
-    fig.legend(
-        legend_handles,
-        legend_labels,
-        bbox_to_anchor=(1.001, 0.5),
-        loc="center left",
-        title=None,
-        frameon=True,
-    )
+    add_legend(fig, legend_placement, legend_handles, legend_labels)
 
 
 def violinplot(
@@ -847,6 +837,7 @@ def violinplot(
     show_swarm: bool = True,
     hide_outliers: bool = True,
     return_data: bool = False,
+    legend_placement: str | None = "outside right",
 ) -> matplotlib.figure.Figure:
     """
     Create violin plots for a per-molt measurement across conditions.
@@ -889,6 +880,8 @@ def violinplot(
             Defaults to ``True``.
         return_data (bool) : If ``True``, also return the intermediate DataFrame.
             Defaults to ``False``.
+        legend_placement (str or None) : Figure legend placement passed to
+            ``add_legend``; ``None`` hides the legend.  Defaults to ``"outside right"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -954,6 +947,7 @@ def violinplot(
         column,
         y_axis_label,
         legend,
+        legend_placement,
     )
 
     if share_y_axis:
@@ -991,6 +985,7 @@ def boxplot(
     show_swarm: bool = True,
     hide_outliers: bool = True,
     return_data: bool = False,
+    legend_placement: str | None = "outside right",
 ) -> matplotlib.figure.Figure:
     """
     Create box plots for a per-molt measurement across conditions.
@@ -1035,6 +1030,8 @@ def boxplot(
             Defaults to ``True``.
         return_data (bool) : If ``True``, also return the intermediate DataFrame.
             Defaults to ``False``.
+        legend_placement (str or None) : Figure legend placement passed to
+            ``add_legend``; ``None`` hides the legend.  Defaults to ``"outside right"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -1101,6 +1098,7 @@ def boxplot(
         column,
         y_axis_label,
         legend,
+        legend_placement,
     )
 
     if share_y_axis:
@@ -1139,6 +1137,7 @@ def violinplot_larval_stage(
     show_metric: bool = False,
     show_swarm: bool = True,
     hide_outliers: bool = True,
+    legend_placement: str | None = "outside right",
 ) -> matplotlib.figure.Figure:
     """
     Create violin plots with per-worm values aggregated within a fraction of each larval stage.
@@ -1185,6 +1184,8 @@ def violinplot_larval_stage(
             Defaults to ``True``.
         hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
             Defaults to ``True``.
+        legend_placement (str or None) : Figure legend placement passed to
+            ``add_legend``; ``None`` hides the legend.  Defaults to ``"outside right"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -1263,6 +1264,7 @@ def violinplot_larval_stage(
         column,
         y_axis_label,
         legend,
+        legend_placement,
     )
 
     if share_y_axis:
@@ -1295,6 +1297,7 @@ def boxplot_larval_stage(
     show_metric: bool = False,
     show_swarm: bool = True,
     hide_outliers: bool = True,
+    legend_placement: str | None = "outside right",
 ) -> matplotlib.figure.Figure:
     """
     Create box plots with per-worm values aggregated within a fraction of each larval stage.
@@ -1340,6 +1343,8 @@ def boxplot_larval_stage(
             Defaults to ``True``.
         hide_outliers (bool) : If ``True``, hide swarm-plot points beyond ±3 std.
             Defaults to ``True``.
+        legend_placement (str or None) : Figure legend placement passed to
+            ``add_legend``; ``None`` hides the legend.  Defaults to ``"outside right"``.
 
     Returns:
         matplotlib.figure.Figure : The generated figure.
@@ -1418,6 +1423,7 @@ def boxplot_larval_stage(
         column,
         y_axis_label,
         legend,
+        legend_placement,
     )
 
     if share_y_axis:
