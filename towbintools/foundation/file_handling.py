@@ -85,7 +85,7 @@ def fill_empty_timepoints(
     filemap: pl.DataFrame,
 ) -> pl.DataFrame:
     """
-    Fill in missing time points in a filemap dataframe with empty image paths.
+    Fill in missing time points in a filemap dataframe with null image paths.
 
     Parameters:
         filemap (pl.DataFrame): The filemap dataframe containing 'Time', 'Point', and 'ImagePath' columns.
@@ -225,7 +225,7 @@ def add_dir_to_experiment_filemap(
 
     Returns:
         pl.DataFrame: Updated filemap dataframe with the new column added, missing
-            entries filled with empty strings.
+            entries left null.
     """
     subdir_filemap = get_dir_filemap(dir_path, time_regex, point_regex)
     subdir_filemap = subdir_filemap.rename({"ImagePath": subdir_name})
@@ -238,6 +238,41 @@ def add_dir_to_experiment_filemap(
     return experiment_filemap
 
 
+def normalize_filemap_dtypes(
+    filemap: pl.DataFrame | pl.LazyFrame,
+) -> pl.DataFrame | pl.LazyFrame:
+    """
+    Enforce the filemap convention that missing values are null.
+
+    Empty strings and float NaNs become null. For a ``DataFrame``, String columns
+    whose non-null values all parse as numbers are also cast to ``Int64`` or
+    ``Float64``, healing filemaps whose numeric columns were persisted with ``""``
+    fills. This inference needs the data, so it is skipped for a ``LazyFrame``.
+
+    Parameters:
+        filemap (pl.DataFrame | pl.LazyFrame): The filemap to normalize.
+
+    Returns:
+        pl.DataFrame | pl.LazyFrame: The normalized filemap.
+    """
+    filemap = filemap.with_columns(pl.col(pl.String).replace("", None))
+
+    if isinstance(filemap, pl.DataFrame):
+        numeric_columns = []
+        for column in filemap.select(pl.col(pl.String)).columns:
+            values = filemap[column]
+            if values.null_count() == len(values):
+                continue
+            for dtype in (pl.Int64, pl.Float64):
+                parsed = values.str.strip_chars().cast(dtype, strict=False)
+                if parsed.null_count() == values.null_count():
+                    numeric_columns.append(parsed)
+                    break
+        filemap = filemap.with_columns(numeric_columns)
+
+    return filemap.with_columns(pl.col(pl.Float32, pl.Float64).fill_nan(None))
+
+
 def read_filemap(
     filemap_path: str, lazy_loading: bool = False
 ) -> pl.DataFrame | pl.LazyFrame:
@@ -246,7 +281,8 @@ def read_filemap(
 
     The format is taken from the file extension (``.parquet`` → Parquet, anything
     else → CSV). If the file is missing, the sibling path with the other
-    extension is tried instead.
+    extension is tried instead. The result goes through
+    ``normalize_filemap_dtypes``.
 
     Parameters:
         filemap_path (str): Path to the filemap file (``.csv`` or ``.parquet``).
@@ -268,10 +304,11 @@ def read_filemap(
     fallback = path.with_suffix(".csv" if path.suffix == ".parquet" else ".parquet")
 
     try:
-        return load(path)
+        filemap = load(path)
     except FileNotFoundError:
         print(f"File not found: {path}, trying {fallback} instead.")
-        return load(fallback)
+        filemap = load(fallback)
+    return normalize_filemap_dtypes(filemap)
 
 
 def write_filemap(filemap: pl.DataFrame, filemap_path: str) -> None:
@@ -279,6 +316,8 @@ def write_filemap(filemap: pl.DataFrame, filemap_path: str) -> None:
     Write a filemap to a CSV or Parquet file using Polars.
 
     Detects the output format from the ``.parquet`` extension; otherwise writes CSV.
+    The filemap goes through ``normalize_filemap_dtypes`` first, so empty strings
+    and NaNs are never persisted.
 
     Parameters:
         filemap (pl.DataFrame): The filemap dataframe to write.
@@ -287,6 +326,7 @@ def write_filemap(filemap: pl.DataFrame, filemap_path: str) -> None:
     Returns:
         None
     """
+    filemap = normalize_filemap_dtypes(filemap)
     if filemap_path.endswith(".parquet"):
         filemap.write_parquet(filemap_path)
     else:
