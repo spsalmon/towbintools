@@ -540,9 +540,11 @@ def _get_time_ecdysis_and_durations(filemap: pl.DataFrame) -> tuple:
         experiment_time_of_point = experiment_time[i]
 
         ecdysis_index = [
-            float(np.where(time_of_point == ecdysis)[0][0])
-            if ecdysis in time_of_point
-            else np.nan
+            (
+                float(np.where(time_of_point == ecdysis)[0][0])
+                if ecdysis in time_of_point
+                else np.nan
+            )
             for ecdysis in ecdysis
         ]
         ecdysis_experiment_time = [
@@ -748,41 +750,60 @@ def separate_column_by_point(filemap: pl.DataFrame, column: str) -> np.ndarray:
     """
     Pivot a long-format filemap column into a 2-D array indexed by point.
 
-    Each row of the output corresponds to one imaging point; columns correspond to
-    time frames.  Shorter points are right-padded with NaN (numeric) or ``"error"``
-    (string) to the length of the longest point.
+    Each row of the output corresponds to one imaging point, in order of first
+    appearance in the filemap; columns correspond to time frames. Numeric, boolean
+    and entirely-null columns are returned as floats with nulls and padding set to
+    NaN. String-like columns are returned as objects, with nulls kept as ``None``
+    and shorter points right-padded with ``"error"``. Any other dtype is returned
+    as objects padded with ``None``.
 
     Parameters:
-        filemap (polars.DataFrame) : Filemap with at least ``"Point"`` and
+        filemap (polars.DataFrame): Filemap with at least ``"Point"`` and
             ``column`` columns.
-        column (str) : Column to pivot.
+        column (str): Column to pivot.
 
     Returns:
-        np.ndarray : Array of shape ``(n_points, max_n_frames)`` sorted by point.
+        np.ndarray: Array of shape ``(n_points, max_n_frames)``.
+
+    Raises:
+        ValueError: If ``"Point"`` or ``column`` is missing from the filemap.
     """
-    points = (
-        filemap.select(pl.col("Point").unique(maintain_order=True).sort())
-        .to_numpy()
-        .flatten()
-    )
+    for required_column in ("Point", column):
+        if required_column not in filemap.columns:
+            raise ValueError(
+                f"Column '{required_column}' not found in filemap, available "
+                f"columns are: {filemap.columns}"
+            )
 
     filemap_points = filemap.select(pl.col("Point"), pl.col(column))
+    if filemap_points.height == 0:
+        return np.full((0, 0), np.nan)
+
+    dtype = filemap_points.schema[column]
+    all_null = filemap_points.get_column(column).null_count() == filemap_points.height
+
+    if all_null or dtype.is_numeric() or dtype == pl.Boolean:
+        filemap_points = filemap_points.with_columns(
+            pl.col(column).cast(pl.Float64, strict=False)
+        )
+        fill_value, result_dtype = np.nan, float
+    elif dtype in (pl.String, pl.Categorical) or isinstance(dtype, pl.Enum):
+        filemap_points = filemap_points.with_columns(pl.col(column).cast(pl.String))
+        fill_value, result_dtype = "error", object
+    else:
+        fill_value, result_dtype = None, object
+
     point_dataframes = filemap_points.partition_by("Point", maintain_order=True)
-
-    sample = filemap_points.select(pl.col(column)).drop_nulls().head(1).item()
-
-    is_string = isinstance(sample, str) or (
-        hasattr(sample, "dtype") and np.issubdtype(sample.dtype, np.str_)
+    max_height = max(point_df.height for point_df in point_dataframes)
+    result = np.full(
+        (len(point_dataframes), max_height), fill_value, dtype=result_dtype
     )
 
-    max_height = max(point_df.height for point_df in point_dataframes)
-    if is_string:
-        result = np.full((len(points), max_height), "error", dtype=object)
-    else:
-        result = np.full((len(points), max_height), np.nan)
-
     for i, point_df in enumerate(point_dataframes):
-        point_column = point_df.select(pl.col(column)).to_numpy().squeeze()
+        point_series = point_df.get_column(column)
+        point_column = (
+            point_series.to_numpy() if result_dtype is float else point_series.to_list()
+        )
         result[i, : len(point_column)] = point_column
     return result
 
@@ -821,9 +842,11 @@ def remove_ignored_molts(filemap: pl.DataFrame) -> pl.DataFrame:
         points = filemap.select(pl.col("Point")).to_numpy().flatten()
         mask = np.array(
             [
-                (p, mt) in ignored_pairs
-                if mt is not None and not (isinstance(mt, float) and np.isnan(mt))
-                else False
+                (
+                    (p, mt) in ignored_pairs
+                    if mt is not None and not (isinstance(mt, float) and np.isnan(mt))
+                    else False
+                )
                 for p, mt in zip(points, molt_times)
             ]
         )
