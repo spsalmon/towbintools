@@ -11,7 +11,6 @@ from skimage.filters import threshold_li
 from skimage.filters import threshold_otsu
 from skimage.filters import threshold_triangle
 from skimage.filters import threshold_yen
-from skimage.util import img_as_ubyte
 
 from towbintools.foundation import image_handling
 from towbintools.foundation.binary_image import fill_bright_holes
@@ -198,7 +197,8 @@ def double_threshold_segmentation(
             which objects are removed. (default: 422.5)
 
     Returns:
-        np.ndarray: Binary mask of shape ``(H, W)`` with dtype ``uint8``.
+        np.ndarray: Binary mask of shape ``(H, W)`` with dtype ``uint8``,
+            foreground 1 and background 0.
     """
     # keep bins 2**8 even though our images are 2**16 because none of the images cover the whole dynamic range of 2**16. This will bin lower abundance signal pixels into fewer histogram bins
     mask = image > _custom_threshold_otsu(image, nbins=2**8)
@@ -206,7 +206,7 @@ def double_threshold_segmentation(
     mask = skimage.morphology.remove_small_objects(
         mask.astype(bool), minimal_object_area_um2 / (pixelsize**2), connectivity=2
     )
-    mask = img_as_ubyte(mask)
+    mask = mask.astype(np.uint8)
     return mask
 
 
@@ -233,7 +233,8 @@ def threshold_segmentation(
         **kwargs: Ignored (accepted for API compatibility).
 
     Returns:
-        np.ndarray: Binary mask of shape ``(H, W)`` with dtype ``uint8``.
+        np.ndarray: Binary mask of shape ``(H, W)`` with dtype ``uint8``,
+            foreground 1 and background 0.
 
     Raises:
         ValueError: If ``method`` is not one of the supported algorithms.
@@ -254,7 +255,7 @@ def threshold_segmentation(
     mask = skimage.morphology.remove_small_objects(
         mask.astype(bool), minimal_object_area_um2 / (pixelsize**2), connectivity=2
     )
-    mask = img_as_ubyte(mask)
+    mask = mask.astype(np.uint8)
     return mask
 
 
