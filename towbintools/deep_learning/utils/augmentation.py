@@ -250,7 +250,7 @@ def get_training_augmentation(normalization_type: str, **kwargs) -> Compose:
     ]
 
     if (n := kwargs.get("enforce_n_channels")) is not None:
-        transforms.append(EnforceNChannels(n))
+        transforms.append(EnforceNChannels(keys=["image"], n_channels=n))
 
     return Compose(transforms)
 
@@ -279,7 +279,7 @@ def get_qc_training_augmentation(normalization_type: str, **kwargs) -> Compose:
     ]
 
     if (n := kwargs.get("enforce_n_channels")) is not None:
-        transforms.append(EnforceNChannels(n))
+        transforms.append(EnforceNChannels(keys=["image"], n_channels=n))
 
     return Compose(transforms)
 
@@ -304,7 +304,7 @@ def get_prediction_augmentation(normalization_type: str, **kwargs) -> Compose:
     ]
 
     if (n := kwargs.get("enforce_n_channels")) is not None:
-        transforms.append(EnforceNChannels(n))
+        transforms.append(EnforceNChannels(keys=["image"], n_channels=n))
 
     return Compose(transforms)
 

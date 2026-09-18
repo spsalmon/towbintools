@@ -145,6 +145,7 @@ class SegmentationDataset(Dataset):
         self.enforce_divisibility_by = enforce_divisibility_by
         if pad_or_crop not in ["pad", "crop"]:
             raise ValueError("pad_or_crop must be either 'pad' or 'crop'")
+        self.pad_or_crop = pad_or_crop
 
         if pad_or_crop == "pad":
             self.resize_function = image_handling.pad_to_dim_equally
@@ -380,8 +381,8 @@ class StackPredictionDataset(Dataset):
                     binned_plane = resize(
                         plane,
                         (
-                            int(plane.shape[0] * self.scale_factor),
                             int(plane.shape[1] * self.scale_factor),
+                            int(plane.shape[0] * self.scale_factor),
                         ),
                         interpolation=cv2.INTER_AREA,
                     )
@@ -393,8 +394,8 @@ class StackPredictionDataset(Dataset):
                         binned_plane = resize(
                             plane,
                             (
-                                int(plane.shape[0] * self.scale_factor),
                                 int(plane.shape[1] * self.scale_factor),
+                                int(plane.shape[0] * self.scale_factor),
                             ),
                             interpolation=cv2.INTER_AREA,
                         )
@@ -463,7 +464,8 @@ class ClassificationDataset(Dataset):
 
         # convert ground truth to one-hot encoding
         if n_classes > 2:
-            self.ground_truth = np.eye(n_classes)[self.ground_truth]
+            labels = np.asarray(self.ground_truth).astype(int)
+            self.ground_truth = np.eye(n_classes)[labels]
 
     def __len__(self):
         return len(self.images)
@@ -680,10 +682,10 @@ class QualityControlPredictionDataset(Dataset):
 
         self.resize_method = resize_method
         if resize_method == "pad":
-            self.resize_function = pad_series_to_length
+            self.resize_function = image_handling.pad_to_dim_equally
             self.multiplier_function = get_closest_upper_multiple
         elif resize_method == "crop":
-            self.resize_function = crop_series_to_length
+            self.resize_function = image_handling.crop_to_dim_equally
             self.multiplier_function = get_closest_lower_multiple
 
         self.transform = transform
@@ -1452,7 +1454,7 @@ def create_segmentation_dataloaders_from_filemap(
     dataframe = dataframe.rename(columns={image_column: "image", mask_column: "mask"})
 
     training_dataframe, validation_dataframe, test_dataframe = split_dataset(
-        filemap_path, validation_set_ratio, test_set_ratio
+        dataframe, validation_set_ratio, test_set_ratio
     )
 
     # backup the training and validation dataframes
@@ -1526,7 +1528,7 @@ def create_classification_training_dataframes(
     if len(image_columns) == 1:
         image_columns = image_columns * len(ground_truth_csv_paths)
     if len(class_columns) == 1:
-        image_columns = image_columns * len(class_columns)
+        class_columns = class_columns * len(ground_truth_csv_paths)
 
     ground_truth_df = pd.DataFrame()
     for i, ground_truth_csv in enumerate(ground_truth_csv_paths):
