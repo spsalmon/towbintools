@@ -10,7 +10,7 @@ maintainers = [
 ]
 description = "All the tools used by the Towbin Lab !"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dependencies = [
     "torch",
@@ -36,9 +36,11 @@ dependencies = [
     "pyarrow",
     "scipy",
     "ome-types",
+    "pyyaml",
 
     "whittaker-eilers",
     "bottleneck",
+    "matplotlib",
     "seaborn",
     "microfilm",
     "statsmodels",
