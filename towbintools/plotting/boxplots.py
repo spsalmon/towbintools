@@ -19,7 +19,7 @@ from .utils_plotting import create_fixed_ax_sized_fig
 from .utils_plotting import get_colors
 
 STATANNOTATIONS_TESTS = STATTEST_LIBRARY.keys()
-custom_test = ["Feltz-Miller", "MSLR"]
+CUSTOM_TESTS = ["Feltz-Miller", "MSLR"]
 
 
 def _setup_figure(
@@ -285,9 +285,9 @@ def _annotate_significance(
             custom_long_name = "Feltz-Miller Asymptotic Test"
             custom_short_name = "Feltz-Miller"
             custom_func = feltz_miller_asymptotic_cv_test
-            custom_test = StatTest(custom_func, custom_long_name, custom_short_name)
+            stat_test = StatTest(custom_func, custom_long_name, custom_short_name)
             annotator.configure(
-                test=custom_test,
+                test=stat_test,
                 text_format="simple",
                 loc="inside",
                 verbose=verbose,
@@ -296,16 +296,17 @@ def _annotate_significance(
             custom_long_name = "Modified Signed Likelihood Ratio Test"
             custom_short_name = "MSLR"
             custom_func = mslr_test
-            custom_test = StatTest(custom_func, custom_long_name, custom_short_name)
+            stat_test = StatTest(custom_func, custom_long_name, custom_short_name)
             annotator.configure(
-                test=custom_test,
+                test=stat_test,
                 text_format="simple",
                 loc="inside",
                 verbose=verbose,
             )
         else:
             raise ValueError(
-                f"Test {test} is not supported. Please use one of the following: {STATANNOTATIONS_TESTS + custom_test}"
+                f"Test {test} is not supported. Please use one of the following: "
+                f"{list(STATANNOTATIONS_TESTS) + CUSTOM_TESTS}"
             )
     annotator.apply_and_annotate()
 
@@ -766,8 +767,8 @@ def _set_all_y_limits(ax: np.ndarray, y_min: list[float], y_max: list[float]) ->
     range_padding = (global_max - global_min) * 0.1  # 5% padding
     global_min = global_min - range_padding
     global_max = global_max + range_padding
-    for i in range(len(ax)):
-        ax[i].set_ylim(global_min, global_max)
+    for axes in np.atleast_1d(ax):
+        axes.set_ylim(global_min, global_max)
 
 
 def _set_labels_and_legend(
@@ -953,8 +954,9 @@ def violinplot(
     if share_y_axis:
         _set_all_y_limits(ax, y_min, y_max)
         # set the figure to sharey
-        for i in range(len(ax)):
-            ax[i].sharey(ax[0])
+        all_axes = np.atleast_1d(ax)
+        for axes in all_axes:
+            axes.sharey(all_axes[0])
 
     fig = plt.gcf()
     plt.show()
@@ -1104,8 +1106,9 @@ def boxplot(
     if share_y_axis:
         _set_all_y_limits(ax, y_min, y_max)
         # set the figure to sharey
-        for i in range(len(ax)):
-            ax[i].sharey(ax[0])
+        all_axes = np.atleast_1d(ax)
+        for axes in all_axes:
+            axes.sharey(all_axes[0])
 
     fig = plt.gcf()
     plt.show()
@@ -1198,7 +1201,7 @@ def violinplot_larval_stage(
     if "rescaled" not in column:
         rescaled_column = column + "_rescaled"
         conditions_struct = rescale_without_flattening(
-            conditions_struct, column, rescaled_column, aggregation, n_points
+            conditions_struct, column, rescaled_column, n_points=n_points
         )
         column = rescaled_column
 
@@ -1357,7 +1360,7 @@ def boxplot_larval_stage(
     if "rescaled" not in column:
         rescaled_column = column + "_rescaled"
         conditions_struct = rescale_without_flattening(
-            conditions_struct, column, rescaled_column, aggregation, n_points
+            conditions_struct, column, rescaled_column, n_points=n_points
         )
         column = rescaled_column
 
@@ -1408,10 +1411,10 @@ def boxplot_larval_stage(
         share_y_axis,
         plot_significance,
         significance_pairs,
-        hide_outliers,
-        log_scale,
+        log_scale=log_scale,
         show_metric=show_metric,
         show_swarm=show_swarm,
+        hide_outliers=hide_outliers,
         test=significance_test,
     )
 

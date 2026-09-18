@@ -414,8 +414,6 @@ def build_plotting_struct(
         conditions,
     )
 
-    experiment_filemap.write_csv("test.csv")
-
     # if ExperimentTime is not present in the filemap, add it
     if "ExperimentTime" not in experiment_filemap.columns:
         experiment_filemap = experiment_filemap.with_columns(

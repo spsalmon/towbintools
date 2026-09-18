@@ -224,7 +224,7 @@ def plot_growth_curves_individuals(
             time = condition_dict["experiment_time"][j] / 3600
             data = condition_dict[column][j]
             qc = condition_dict[qc_key][j]
-            hatch = condition_dict["ecdysis_time_step"][j][0]
+            hatch = condition_dict["ecdysis_index"][j][0]
             hatch_experiment_time = (
                 condition_dict["ecdysis_experiment_time"][j][0] / 3600
             )
