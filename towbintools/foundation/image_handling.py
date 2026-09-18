@@ -1,5 +1,5 @@
 from datetime import datetime
-from itertools import product
+from itertools import combinations
 from typing import Optional
 
 import cv2
@@ -205,17 +205,18 @@ def align_images_orientation_ssim(
         image.copy(), reference_image.copy()
     )
 
-    permutations = []
-    for i in range(len(axes_to_flip) + 1):
-        permutations.extend(product(axes_to_flip, repeat=i))
+    # every subset of the axes, including the empty one (the unflipped image);
+    # combinations never repeats an axis, which np.flip rejects
+    axis_subsets = [
+        subset
+        for size in range(len(axes_to_flip) + 1)
+        for subset in combinations(axes_to_flip, size)
+    ]
 
-    flipped_images = []
-    for permutation in permutations:
-        if len(permutation) == 0:
-            flipped_image = image_pad
-        else:
-            flipped_image = np.flip(image_pad, axis=permutation)
-            flipped_images.append(flipped_image)
+    flipped_images = [
+        image_pad if not axes else np.flip(image_pad, axis=axes)
+        for axes in axis_subsets
+    ]
 
     # Calculate the SSIM for each flipped image.
     ssim_values = []

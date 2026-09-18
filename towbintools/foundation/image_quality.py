@@ -99,7 +99,7 @@ def TENG(img: np.ndarray) -> float:
         float: Mean squared Sobel gradient; higher values indicate better focus.
     """
     gaussianX = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
-    gaussianY = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
+    gaussianY = cv2.Sobel(img, cv2.CV_64F, 0, 1)  # type: ignore
     return np.mean(gaussianX * gaussianX + gaussianY * gaussianY)
 
 
@@ -116,7 +116,7 @@ def MLOG(img: np.ndarray) -> float:
     Returns:
         float: Maximum absolute Laplacian; higher values indicate better focus.
     """
-    return np.max(cv2.convertScaleAbs(cv2.Laplacian(img, cv2.CV_64F)))  # type: ignore
+    return np.max(np.abs(cv2.Laplacian(img, cv2.CV_64F)))  # type: ignore
 
 
 def TENG_VARIANCE(img: np.ndarray) -> float:
@@ -134,7 +134,7 @@ def TENG_VARIANCE(img: np.ndarray) -> float:
     """
 
     gaussianX = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
-    gaussianY = cv2.Sobel(img, cv2.CV_64F, 1, 0)  # type: ignore
+    gaussianY = cv2.Sobel(img, cv2.CV_64F, 0, 1)  # type: ignore
 
     G = np.sqrt(gaussianX**2 + gaussianY**2)
     return np.var(G)

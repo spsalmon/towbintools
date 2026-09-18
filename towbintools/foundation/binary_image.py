@@ -124,6 +124,7 @@ def fill_bright_holes(
             np.ndarray: A binary mask with the same dimensions as the input, where bright holes have been filled.
     """
 
+    mask = mask.copy()
     filled_mask = scipy.ndimage.binary_fill_holes(mask)
     holes = (filled_mask - mask).astype(np.uint8)
 

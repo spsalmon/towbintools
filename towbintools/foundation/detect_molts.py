@@ -112,7 +112,7 @@ def find_mid_molts(
         if np.isfinite(selected_peaks[i]) and np.isfinite(selected_peaks[i - 1]):
             if (
                 selected_peaks[i] - selected_peaks[i - 1] < 6
-                or selected_peaks[i - 1] > selected_peaks[i - 1]
+                or selected_peaks[i - 1] > selected_peaks[i]
             ):
                 selected_peaks[i - 1] = np.nan
 

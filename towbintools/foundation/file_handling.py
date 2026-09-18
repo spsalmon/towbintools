@@ -110,7 +110,7 @@ def fill_empty_timepoints(
 
     for point in all_points:
         # Get the unique times associated with the current point.
-        times_of_point = (
+        times_of_point = np.atleast_1d(
             filemap.filter(pl.col("Point") == point)
             .select(pl.col("Time"))
             .to_numpy()
@@ -182,7 +182,7 @@ def get_experiment_dir_filemap(
     )
     raw_filemap = pl.DataFrame(raw_timepoint_list)
     experiment_filemap = fill_empty_timepoints(raw_filemap)
-    experiment_filemap.rename({"ImagePath": raw_dir})
+    experiment_filemap = experiment_filemap.rename({"ImagePath": raw_dir})
 
     analysis_dir = os.path.join(dir_path, analysis_dir)
     if os.path.exists(analysis_dir):

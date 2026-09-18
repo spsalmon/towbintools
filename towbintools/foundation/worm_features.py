@@ -232,11 +232,11 @@ def compute_max_width(
         max_width_index = np.argmax(width_profile)
     except ValueError:
         return np.nan
-    return np.mean(
-        width_profile[
-            max_width_index - window_size : max_width_index + window_size + 1
-        ]  # noqa : E203
-    )
+    # clamp the window to the profile, so a peak near either end still averages
+    # the values that exist instead of an empty slice
+    window_start = max(max_width_index - window_size, 0)
+    window_end = max_width_index + window_size + 1
+    return np.mean(width_profile[window_start:window_end])
 
 
 def compute_mid_width(
@@ -769,7 +769,10 @@ def compute_bending_energy_mask(
         )
 
         widths = compute_width_profile(
-            straightened_mask, pixelsize, savgol_window, savgol_order
+            straightened_mask,
+            pixelsize,
+            savgol_window=savgol_window,
+            savgol_order=savgol_order,
         )
 
         bending_energy = compute_bending_energy(midline, widths, E=E, smooth=smooth)
