@@ -1451,20 +1451,24 @@ def compute_deviation_from_each_model_at_ecdysis(
             column_one_values = column_one_values[:, 1:]
             column_two_values = column_two_values[:, 1:]
 
-        model = _get_proportion_model(
-            column_one_values,
-            column_two_values,
-            poly_degree=poly_degree,
-            plot_model=False,
-            remove_outliers=remove_outliers_fitting,
-        )
+        try:
+            model = _get_proportion_model(
+                column_one_values,
+                column_two_values,
+                poly_degree=poly_degree,
+                plot_model=False,
+                remove_outliers=remove_outliers_fitting,
+            )
 
-        deviations = get_deviation_from_model(
-            column_one_values,
-            column_two_values,
-            model,
-            percentage=deviations_as_percentage,
-        )
+            deviations = get_deviation_from_model(
+                column_one_values,
+                column_two_values,
+                model,
+                percentage=deviations_as_percentage,
+            )
+        except Exception as e:
+            print(f"Error fitting model for condition {condition['description']}: {e}")
+            deviations = np.full_like(column_one_values, np.nan, dtype=float)
         condition[output_column_name] = deviations
 
     return conditions_struct
