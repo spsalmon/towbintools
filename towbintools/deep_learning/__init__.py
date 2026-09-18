@@ -1,4 +1,6 @@
+from .deep_learning_tools import create_keypoint_detection_model
 from .deep_learning_tools import create_segmentation_model
+from .deep_learning_tools import load_keypoint_detection_model_from_checkpoint
 from .deep_learning_tools import load_segmentation_model_from_checkpoint
 from .utils import augmentation
 from .utils import util

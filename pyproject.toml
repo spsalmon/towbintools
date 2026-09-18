@@ -50,8 +50,27 @@ dev=[
     "black",
     "isort",
     "pre-commit",
+    "pytest",
+    "pytest-cov",
 ]
 
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# import the checked-out package, never a stale copy in site-packages
+pythonpath = ["."]
+addopts = ["--import-mode=importlib", "--strict-markers", "-ra"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
+
+[tool.coverage.run]
+source = ["towbintools"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

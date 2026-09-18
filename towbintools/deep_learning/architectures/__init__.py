@@ -1,3 +1,4 @@
+from .archs import Unet1D
 from .models import ClassificationModel
 from .models import KeypointDetection1DModel
 from .models import SegmentationModel
