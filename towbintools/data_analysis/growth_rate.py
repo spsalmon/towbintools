@@ -8,6 +8,30 @@ from towbintools.data_analysis.time_series import smooth_series_classified
 from towbintools.foundation.utils import interpolate_nans_infs
 
 
+def _extract_ecdysis_events(ecdysis: dict) -> list[float]:
+    """
+    Read the five ecdysis events from an ecdysis dict as floats.
+
+    Accepts both the ``"HatchTime"`` key used by the filemaps and the
+    ``"hatch_time"`` key returned by :func:`towbintools.foundation.detect_molts.find_molts`.
+
+    Parameters:
+        ecdysis (dict): The ecdysis events of the worm.
+
+    Returns:
+        list[float]: ``[hatch_time, M1, M2, M3, M4]``; missing events are NaN.
+
+    Raises:
+        KeyError: If no hatch time key is present.
+    """
+    if "HatchTime" in ecdysis:
+        hatch_time = ecdysis["HatchTime"]
+    else:
+        hatch_time = ecdysis["hatch_time"]
+    events = [hatch_time, ecdysis["M1"], ecdysis["M2"], ecdysis["M3"], ecdysis["M4"]]
+    return [float(event) if event is not None else np.nan for event in events]
+
+
 def compute_growth_rate_linear(
     series: np.ndarray,
     time: np.ndarray,
@@ -301,12 +325,7 @@ def compute_growth_rate_per_larval_stage(
     # Correct the time series
     series_worms = correct_series_with_classification(series, qc)
 
-    # extract ecdisis indices
-    hatch_time = ecdysis["HatchTime"]
-    M1 = ecdysis["M1"]
-    M2 = ecdysis["M2"]
-    M3 = ecdysis["M3"]
-    M4 = ecdysis["M4"]
+    hatch_time, M1, M2, M3, M4 = _extract_ecdysis_events(ecdysis)
 
     growth_rates = {}
 
@@ -317,6 +336,7 @@ def compute_growth_rate_per_larval_stage(
             growth_rates[f"L{i+1}"] = np.nan
 
         else:
+            start, end = int(start), int(end)
             series_worms_stage = series_worms[start:end]
             time_stage = time[start:end]
             qc_stage = qc[start:end]
@@ -347,12 +367,7 @@ def compute_larval_stage_duration(ecdysis: dict) -> dict:
         dict: The duration of each larval stage.
     """
 
-    # extract ecdysis indices
-    hatch_time = ecdysis["HatchTime"]
-    M1 = ecdysis["M1"]
-    M2 = ecdysis["M2"]
-    M3 = ecdysis["M3"]
-    M4 = ecdysis["M4"]
+    hatch_time, M1, M2, M3, M4 = _extract_ecdysis_events(ecdysis)
 
     ls_durations = {}
 

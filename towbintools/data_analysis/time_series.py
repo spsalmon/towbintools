@@ -676,9 +676,12 @@ def aggregate_interpolated_series(
             all_points_interpolated_series[:, i, :], axis=0
         )
         std_series[i, :] = np.nanstd(all_points_interpolated_series[:, i, :], axis=0)
+        # standard error uses the number of worms contributing to each time
+        # point, not the number of finite values in the whole larval stage
+        n_worms = np.sum(np.isfinite(all_points_interpolated_series[:, i, :]), axis=0)
         ste_series[i, :] = np.nanstd(
             all_points_interpolated_series[:, i, :], axis=0
-        ) / np.sqrt(np.sum(np.isfinite(all_points_interpolated_series[:, i, :])))
+        ) / np.sqrt(n_worms)
 
         beginning = (
             np.nansum(aggregated_larval_stage_durations[: i + 1])
