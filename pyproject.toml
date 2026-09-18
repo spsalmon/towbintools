@@ -76,3 +76,6 @@ source = ["towbintools"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+# the suite sits at 95%; the floor leaves room for a refactor without
+# silently letting coverage rot
+fail_under = 93
