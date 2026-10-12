@@ -10,6 +10,10 @@ from align_toolbox.foundation.image_handling import (
 )
 from align_toolbox.foundation.image_quality import normalized_variance_measure
 
+# Hu moments are scale-invariant, and scikit-image refuses to compute them with a
+# non-unit spacing.
+SCALE_INVARIANT_REGIONPROPS = ["moments_hu", "moments_weighted_hu"]
+
 
 def get_all_skimage_regionprops(mask_only: bool = False) -> list[str]:
     """
@@ -55,6 +59,7 @@ def get_all_skimage_regionprops(mask_only: bool = False) -> list[str]:
 def compute_qc_features(
     mask: str | np.ndarray,
     image: str | np.ndarray | None,
+    pixelsize: float | None = None,
     features: list[str] | None = None,
     channels: list[int] | None = None,
 ) -> pd.DataFrame | None:
@@ -63,13 +68,19 @@ def compute_qc_features(
 
     Accepts file paths or NumPy arrays for both ``mask`` and ``image``. Computes
     scikit-image region properties for the largest foreground object, plus a
-    normalized-variance focus measure when an intensity image is provided.
+    normalized-variance focus measure when an intensity image is provided. Size
+    properties are expressed in µm (lengths), µm² (areas) and so on, so that
+    features from microscopes with different pixel sizes are comparable.
 
     Parameters:
         mask (str or np.ndarray): Binary mask (path to TIFF or array). Pixels > 0
             are treated as foreground.
         image (str, np.ndarray, or None): Intensity image (path to TIFF, array, or
             ``None`` for mask-only features).
+        pixelsize (float, optional): The size of a pixel in µm, used to scale size
+            properties. If ``None``, size properties are left in pixels, as expected
+            by QC models trained before pixel sizes were taken into account.
+            (default: None)
         features (list[str], optional): Region-property names to compute. If
             ``None``, all properties returned by
             :func:`get_all_skimage_regionprops` are used. (default: None)
@@ -110,12 +121,7 @@ def compute_qc_features(
             if image.ndim == 3:
                 image = np.transpose(image, (1, 2, 0))
 
-            props = regionprops_table(
-                mask,
-                intensity_image=image,
-                properties=features,
-            )
-            props_df = pd.DataFrame(props)
+            props_df = _compute_regionprops(mask, image, pixelsize, features)
             other_features = {
                 "NORMALIZED_VARIANCE_MEASURE": normalized_variance_measure(image),
             }
@@ -123,12 +129,37 @@ def compute_qc_features(
             other_features_df = pd.DataFrame([other_features])
             props_df = pd.concat([props_df, other_features_df], axis=1)
         else:
-            props = regionprops_table(
-                mask,
-                properties=features,
-            )
-            props_df = pd.DataFrame(props)
+            props_df = _compute_regionprops(mask, None, pixelsize, features)
         return props_df
     except Exception as e:
         print(f"Error during feature extraction: {e}")
         return None
+
+
+def _compute_regionprops(
+    mask: np.ndarray,
+    image: np.ndarray | None,
+    pixelsize: float | None,
+    features: list[str],
+) -> pd.DataFrame:
+    if pixelsize is None:
+        pixelsize = 1.0
+    scaled = [f for f in features if f not in SCALE_INVARIANT_REGIONPROPS]
+    unscaled = [f for f in features if f in SCALE_INVARIANT_REGIONPROPS]
+    props = regionprops_table(
+        mask,
+        intensity_image=image,
+        properties=scaled,
+        spacing=(pixelsize, pixelsize),
+    )
+    props.update(regionprops_table(mask, intensity_image=image, properties=unscaled))
+    props_df = pd.DataFrame(props)
+
+    # restore the requested feature order, each property may span several columns
+    columns = [
+        column
+        for feature in features
+        for column in props_df.columns
+        if column == feature or column.startswith(f"{feature}-")
+    ]
+    return props_df[columns]
