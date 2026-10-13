@@ -34,6 +34,28 @@ def test_interpolate_nans_infs_handles_both():
     np.testing.assert_allclose(interpolate_nans_infs(signal), [0, 1, 2, 3, 4])
 
 
+INTERPOLATION_CASES = [
+    (interpolate_nans, [0.0, np.nan, 2.0, np.nan, 4.0]),
+    (interpolate_infs, [0.0, np.inf, 2.0, -np.inf, 4.0]),
+    (interpolate_nans_infs, [0.0, np.nan, 2.0, np.inf, 4.0]),
+]
+
+
+@pytest.mark.parametrize("interpolate, values", INTERPOLATION_CASES)
+def test_interpolation_leaves_input_untouched(interpolate, values):
+    signal = np.array(values)
+    interpolate(signal)
+    np.testing.assert_array_equal(signal, values)
+
+
+@pytest.mark.parametrize("interpolate, values", INTERPOLATION_CASES)
+def test_interpolation_accepts_read_only_input(interpolate, values):
+    # zero-copy views handed out by polars and pyarrow are read-only
+    signal = np.array(values)
+    signal.flags.writeable = False
+    np.testing.assert_allclose(interpolate(signal), [0, 1, 2, 3, 4])
+
+
 @pytest.mark.parametrize(
     "reference, expected",
     [

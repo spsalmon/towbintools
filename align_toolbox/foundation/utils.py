@@ -62,15 +62,16 @@ def interpolate_nans(
         signal (np.ndarray): The input signal array, which might contain NaN values.
 
     Returns:
-        np.ndarray: The signal array with NaN values interpolated.
+        np.ndarray: A new array with NaN values interpolated. The input is left
+            untouched, so read-only arrays are accepted.
     """
 
     nans, x = nan_helper(signal)
-    try:
-        signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
-    except ValueError:
+    if nans.all():
         # if all values are NaN, we cannot interpolate
-        signal = np.full_like(signal, np.nan)
+        return np.full_like(signal, np.nan)
+    signal = signal.copy()
+    signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
     return signal
 
 
@@ -87,15 +88,16 @@ def interpolate_infs(
         signal (np.ndarray): The input signal array, which might contain infinity values.
 
     Returns:
-        np.ndarray: The signal array with infinity values interpolated.
+        np.ndarray: A new array with infinity values interpolated. The input is
+            left untouched, so read-only arrays are accepted.
     """
 
     infs, x = inf_helper(signal)
-    try:
-        signal[infs] = np.interp(x(infs), x(~infs), signal[~infs])
-    except ValueError:
+    if infs.all():
         # if all values are inf, we cannot interpolate
-        signal = np.full_like(signal, np.nan)
+        return np.full_like(signal, np.nan)
+    signal = signal.copy()
+    signal[infs] = np.interp(x(infs), x(~infs), signal[~infs])
     return signal
 
 
