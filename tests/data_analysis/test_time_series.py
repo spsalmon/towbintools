@@ -171,6 +171,23 @@ def test_smooth_series_handles_nan_time_by_padding():
     assert np.isfinite(smoothed).all()
 
 
+def test_smooth_series_keeps_frames_aligned_around_nan_time():
+    time = TIME.copy()
+    time[[20, 21, 60]] = np.nan
+    smoothed = ts.smooth_series(LINEAR.copy(), time)
+    kept = ~np.isnan(time)
+    np.testing.assert_allclose(smoothed[kept][5:-5], LINEAR[kept][5:-5], atol=0.5)
+
+
+def test_compute_series_at_time_classified_with_nan_time_in_the_middle():
+    time = TIME.copy()
+    time[[20, 21, 60]] = np.nan
+    result = ts.compute_series_at_time_classified(
+        LINEAR, np.array([50.0, 80.0]), time, ALL_WORM
+    )
+    np.testing.assert_allclose(result, [103, 163], atol=0.5)
+
+
 @pytest.mark.parametrize("function", ["smooth_series", "smooth_series_classified"])
 def test_smoothing_all_nan_returns_all_nan(function):
     args = (np.full(10, np.nan), None)

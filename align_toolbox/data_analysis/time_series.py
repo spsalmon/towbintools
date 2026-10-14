@@ -485,23 +485,16 @@ def _smooth_series(
             x_input=non_nan_series_time,
         )
 
-        smoothed_series = whittaker_smoother.smooth(non_nan_series)
+        # put the smoothed values back on their own frames, so frames after
+        # a NaN time are not shifted onto earlier ones
+        smoothed_series = np.full(series.shape, np.nan)
+        smoothed_series[~nan_series_time] = whittaker_smoother.smooth(non_nan_series)
     else:
         whittaker_smoother = WhittakerSmoother(
             lmbda=lmbda, order=order, data_length=len(series)
         )
 
-        smoothed_series = whittaker_smoother.smooth(series)
-
-    smoothed_series = np.array(smoothed_series)
-
-    # pad the smoothed series to the original shape
-    smoothed_series = np.pad(
-        smoothed_series,
-        (0, series.shape[0] - smoothed_series.shape[0]),
-        mode="constant",
-        constant_values=np.nan,
-    )
+        smoothed_series = np.array(whittaker_smoother.smooth(series))
 
     # Interpolate the nans again
     smoothed_series = interpolate_nans_infs(smoothed_series)
