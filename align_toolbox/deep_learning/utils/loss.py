@@ -19,8 +19,8 @@ class FocalTverskyLoss(nn.Module):
         self,
         ignore_index=-1,
         smooth=100,
-        alpha=0.3,
-        beta=0.7,
+        alpha=0.5,
+        beta=0.5,
         gamma=4 / 3,
         activation=True,
     ):
@@ -32,9 +32,9 @@ class FocalTverskyLoss(nn.Module):
                 denominator of the Tversky index to avoid division by zero.
                 (default: 100)
             alpha (float, optional): Weight for false positives in the Tversky
-                index. (default: 0.3)
+                index. (default: 0.5)
             beta (float, optional): Weight for false negatives in the Tversky
-                index. (default: 0.7)
+                index. (default: 0.5)
             gamma (float, optional): Focal exponent applied to ``(1 - Tversky)``.
                 (default: 4/3)
             activation (bool, optional): If ``True``, apply sigmoid to inputs
